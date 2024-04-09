@@ -18,7 +18,7 @@ Once you confirm your Python version, install the package:
 pip install podonos
 ```
 
-### 🎙️ 3. Start speech evaluation by human
+### 🎙️ 3. Start speech evaluation
 ```python
 import podonos
 
@@ -29,6 +29,7 @@ for i in script_list:
   etor.add_file(f'/a/b/{i}.wav')
 etor.close()
 ```
+Once we evaluate the audio files, we will send you an email within 12 hours.
 
 ## 📗 Documentation
 
