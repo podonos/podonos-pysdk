@@ -27,7 +27,7 @@ class bcolors:
 class DefaultConfig:
     TYPE = 'NMOS'
     LAN = 'en-us'
-    MIN_REPEAT = 3
+    NUM_EVAL = 3
     DUE_HOURS = 12
 
 
@@ -57,29 +57,9 @@ def _get_wave_info(filepath):
     return nchannels, framerate, duration_in_ms
 
 
-def _init_eval_variables():
-    """Initializes the variables for one evaluation session."""
-    _initialized = False
-
-    _api_key = None
-    _api_base_url = None
-
-    _eval_id = None
-    _eval_name = None
-    _eval_desc = None
-    _eval_type = DefaultConfig.TYPE
-    _eval_language = DefaultConfig.LAN
-    _eval_min_repeat = DefaultConfig.MIN_REPEAT
-    _eval_expected_due = None
-    _eval_expected_due_tzname = None
-    _eval_creation_timestamp = None
-
-    _eval_audio_json = []
-
 class Evaluator:
     """Evaluator for a single type of evaluation session."""
-    _initialized = False
-
+    _initialized = None
     _api_key = None
     _api_base_url = None
 
@@ -88,106 +68,140 @@ class Evaluator:
     _eval_desc = None
     _eval_type = None
     _eval_language = None
-    _eval_min_repeat = 5
+    _num_eval = DefaultConfig.NUM_EVAL
     _eval_expected_due = None
     _eval_expected_due_tzname = None
     _eval_creation_timestamp = None
 
     _eval_audio_json = []
 
-    @staticmethod
-    def add_file(**kwargs) -> None:
-      """Adds new files for speech evaluation.
-      The files may be either in {wav, mp3} format. The files will be securely uploaded to
-      Podonos service system.
+    def __init__(self, key, base_url, eval_id, eval_name, eval_desc, eval_type,
+                 eval_language, num_eval, expected_due, expected_due_tzname, creation_timestamp):
+        self._api_key = key
+        self._api_base_url = base_url
+        self._eval_id = eval_id
+        self._eval_name = eval_name
+        self._eval_desc = eval_desc
+        self._eval_type = eval_type
+        self._eval_language = eval_language
+        self._num_eval = num_eval
+        self._eval_expected_due = expected_due
+        self._eval_expected_due_tzname = expected_due_tzname
+        self._eval_creation_timestamp = creation_timestamp
 
-      Args:
-        filename0 (str): A path to the audio file to upload. Either in {wav, mp3}
-        filename1 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
-        filename2 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
-        tag (str, optional): A comma separated list of string tags for the files to be added.
-            You will conveniently organize the files with the given tags.
+    def _init_eval_variables(self):
+        """Initializes the variables for one evaluation session."""
+        self._initialized = False
 
-      Example:
-        If you want to evaluate each audio file separately (e.g., naturalness MOS):
-          add_file(filepath0='/a/b/0.wav')
+        self._api_key = None
+        self._api_base_url = None
 
-        If you want to evaluate a pair of audio files (e.g., preferences test):
-          add_file(filepath0='/a/b/0-0.wav', filepath1='/a/b/0-1.wav')
+        self._eval_id = None
+        self._eval_name = None
+        self._eval_desc = None
+        self._eval_type = DefaultConfig.TYPE
+        self._eval_language = DefaultConfig.LAN
+        self._num_eval = DefaultConfig.NUM_EVAL
+        self._eval_expected_due = None
+        self._eval_expected_due_tzname = None
+        self._eval_creation_timestamp = None
 
-        If you want to evaluate a triple of audio files (e.g., comparative similarity MOS):
-          add_file(filepath0='/a/b/0-ref.wav', filepath1='/a/b/0-0.wav', filepath1='/a/b/0-1.wav')
+        self._eval_audio_json = []
 
-      Returns: None
+    def add_file(self, **kwargs) -> None:
+        """Adds new files for speech evaluation.
+        The files may be either in {wav, mp3} format. The files will be securely uploaded to
+        Podonos service system.
 
-      Raises:
-        ValueError: if this function is called before calling init().
-        FileNotFoundError: if a given file is not found.
-      """
-      if not Podonos._initialized:
-        raise ValueError("This function is called before calling init().")
+        Args:
+            filename0 (str): A path to the audio file to upload. Either in {wav, mp3}
+            filename1 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
+            filename2 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
+            tag (str, optional): A comma separated list of string tags for the files to be added.
+                You will conveniently organize the files with the given tags.
 
-      # Check the input parameters.
-      if 'filepath0' not in kwargs:
-        raise ValueError('"filepath0" is not set')
-      assert os.path.isfile(kwargs['filepath0']), f"File {kwargs['filepath0']} doesn't exist"
-      assert os.access(kwargs['filepath0'], os.R_OK), f"File {kwargs['filepath0']} isn't readable"
-      filepath0 = kwargs['filepath0']
-      filepath0_base = os.path.basename(filepath0)
-      remote_object_name = os.path.join(Podonos._eval_creation_timestamp, filepath0_base)
-      log.debug(f'remote_object_name: {remote_object_name}\n')
+        Example:
+            If you want to evaluate each audio file separately (e.g., naturalness MOS):
+              add_file(filepath0='/a/b/0.wav')
 
-      nchannels0, framerate0, duration_in_ms0 = _get_wave_info(filepath0)
-      audio_json = {
-        'name': filepath0_base,
-        'nchannel': nchannels0,
-        'framerate': framerate0,
-        'duration_in_ms': duration_in_ms0
-      }
+            If you want to evaluate a pair of audio files (e.g., preferences test):
+              add_file(filepath0='/a/b/0-0.wav', filepath1='/a/b/0-1.wav')
 
-      if 'tag' in kwargs:
-        audio_json['tag'] = kwargs['tag']
+            If you want to evaluate a triple of audio files (e.g., comparative similarity MOS):
+              add_file(filepath0='/a/b/0-ref.wav', filepath1='/a/b/0-0.wav', filepath1='/a/b/0-1.wav')
 
-      if 'filepath1' in kwargs:
-        raise ValueError('"filepath1" is not supported yet. We will support soon.')
+        Returns: None
 
-      if 'filepath2' in kwargs:
-        raise ValueError('"filepath2" is not supported yet. We will support soon.')
+        Raises:
+            ValueError: if this function is called before calling init().
+            FileNotFoundError: if a given file is not found.
+        """
 
-      # Get the presigned URL for filenam
-      headers = {
-        'x-api-key': Podonos._api_key
-      }
-      response = requests.get(f'{Podonos._api_base_url}/client/uploading-presigned-url?'
-                              f'filename={remote_object_name}', headers=headers)
-      if response.status_code != 200:
-        raise requests.exceptions.HTTPError
-      presigned_url = response.text
-      log.debug(f'Presigned URL: {presigned_url}\n')
+        if not self._initialized:
+            raise ValueError("Try to add file once the evaluator is closed.")
 
-      # Upload the file.
-      _, ext = os.path.splitext(filepath0)
-      if ext == '.wav':
-        upload_headers = {'Content-type': 'audio/wav'}
-      elif ext == '.mp3':
-        upload_headers = {'Content-type': 'audio/mpeg'}
-      elif ext == '.json':
-        upload_headers = {'Content-type': 'application/json'}
+        # Check the input parameters.
+        if 'filepath0' not in kwargs:
+            raise ValueError('"filepath0" is not set')
+        assert os.path.isfile(kwargs['filepath0']), f"File {kwargs['filepath0']} doesn't exist"
+        assert os.access(kwargs['filepath0'], os.R_OK), f"File {kwargs['filepath0']} isn't readable"
+        filepath0 = kwargs['filepath0']
+        filepath0_base = os.path.basename(filepath0)
+        remote_object_name = os.path.join(self._eval_creation_timestamp, filepath0_base)
+        log.debug(f'remote_object_name: {remote_object_name}\n')
 
-      # Timestamp in ISO 8601.
-      audio_json['uploadStartAt'] = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
-      try:
-        r = requests.put(presigned_url,
-                         data=open(filepath0, 'rb'),
-                         headers=upload_headers
-                         )
-      except requests.exceptions.HTTPError as e:
-        log.error(f"HTTP Error: {e}")
+        nchannels0, framerate0, duration_in_ms0 = _get_wave_info(filepath0)
+        audio_json = {
+            'name': filepath0_base,
+            'nchannel': nchannels0,
+            'framerate': framerate0,
+            'duration_in_ms': duration_in_ms0
+        }
 
-      # Timestamp in ISO 8601.
-      audio_json['uploadFinishAt'] = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
-      Podonos._eval_audio_json.append(audio_json)
+        if 'tag' in kwargs:
+            audio_json['tag'] = kwargs['tag']
 
+        if 'filepath1' in kwargs:
+            raise ValueError('"filepath1" is not supported yet. We will support soon.')
+
+        if 'filepath2' in kwargs:
+            raise ValueError('"filepath2" is not supported yet. We will support soon.')
+
+        # Get the presigned URL for filename
+        headers = {
+            'x-api-key': Evaluator._api_key
+        }
+        response = requests.get(f'{self._api_base_url}/client/uploading-presigned-url?'
+                                f'filename={remote_object_name}', headers=headers)
+        if response.status_code != 200:
+            raise requests.exceptions.HTTPError
+        presigned_url = response.text
+        log.debug(f'Presigned URL: {presigned_url}\n')
+
+        # Upload the file.
+        _, ext = os.path.splitext(filepath0)
+        if ext == '.wav':
+            upload_headers = {'Content-type': 'audio/wav'}
+        elif ext == '.mp3':
+            upload_headers = {'Content-type': 'audio/mpeg'}
+        elif ext == '.json':
+            upload_headers = {'Content-type': 'application/json'}
+        else:
+            upload_headers = {'Content-type': 'application/octet-stream'}
+
+        # Timestamp in ISO 8601.
+        audio_json['uploadStartAt'] = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
+        try:
+            r = requests.put(presigned_url,
+                             data=open(filepath0, 'rb'),
+                             headers=upload_headers
+                             )
+        except requests.exceptions.HTTPError as e:
+            log.error(f"HTTP Error: {e}")
+
+        # Timestamp in ISO 8601.
+        audio_json['uploadFinishAt'] = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
+        self._eval_audio_json.append(audio_json)
 
     def close(self):
         """Closes the file uploading and evaluation session.
@@ -200,21 +214,17 @@ class Evaluator:
             ValueError: if this function is called before calling init().
         """
 
-        if not self._initialized:
-            raise ValueError("This function is called before calling init().")
-
         # Create a json.
-        session_json = {}
-        session_json['name'] = self._eval_name
-        session_json['id'] = self._eval_id
-        session_json['desc'] = self._eval_desc
-        session_json['type'] = self._eval_type
-        session_json['language'] = self._eval_language
-        session_json['min_repeat'] = self._eval_min_repeat
-        session_json['expected_due'] = self._eval_expected_due
-        session_json['expected_due_tzname'] = self._eval_expected_due_tzname
-        session_json['createdAt'] = self._eval_creation_timestamp
-        session_json['files'] = self._eval_audio_json
+        session_json = {'name': self._eval_name,
+                        'id': self._eval_id,
+                        'desc': self._eval_desc,
+                        'type': self._eval_type,
+                        'language': self._eval_language,
+                        'num_eval': self._num_eval,
+                        'expected_due': self._eval_expected_due,
+                        'expected_due_tzname': self._eval_expected_due_tzname,
+                        'createdAt': self._eval_creation_timestamp,
+                        'files': self._eval_audio_json}
 
         # Get the presigned URL for filename
         remote_object_name = os.path.join(self._eval_creation_timestamp, os.path.basename('session.json'))
@@ -232,21 +242,22 @@ class Evaluator:
         try:
             r = requests.put(presigned_url,
                              json=session_json,
-                             headers=upload_headers
-                             )
+                             headers=upload_headers)
         except requests.exceptions.HTTPError as e:
             log.error(f"HTTP Error: {e}")
         # TODO: check r
         result_obj = {'status': 'ok'}
 
         # Initialize variables.
-        _init_eval_variables()
+        self._init_eval_variables()
 
         return result_obj
 
 
 class EvalClient:
     """Evaluation client class. Used for creating individual evaluator."""
+
+    _initialized = None
     _api_key = None
     _api_base_url = None
 
@@ -255,83 +266,87 @@ class EvalClient:
     _eval_desc = None
     _eval_type = None
     _eval_language = None
-    _eval_min_repeat = 5
+    _num_eval = 5
     _eval_expected_due = None
     _eval_expected_due_tzname = None
     _eval_creation_timestamp = None
 
     _eval_audio_json = []
 
-    @staticmethod
-    def create_evaluator(**kwargs) -> str:
-        """Creates a new mission for speech evaluation.
+    def __init__(self, api_key, api_base_url):
+        self._api_key = api_key
+        self._api_base_url = api_base_url
+        self._initialized = True
+
+    def create_evaluator(self, **kwargs) -> Evaluator:
+        """Creates a new evaluator.
 
         Args:
-            name: This mission's name. Its length must be > 1.
-            desc: Description of this mission. Optional.
-            type: Evaluation type. One of {'NMOS', 'EMOS'}. Further coming. Default: NMOS
-            lan: Human language for this audio. One of {'en-us'}. Further coming. Default: en-us
-            min_repeat: The minimum number of repetition for each audio evaluation. Should be >=5. Default: 5.
+            name: This session name. Its length must be > 1.
+            desc: Description of this session. Optional.
+            type: Evaluation type. One of {'NMOS', 'EMOS'}. Default: NMOS
+            lan: Human language for this audio. One of {'en-us', 'audio'}. Default: en-us
+            num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 3.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
-                      Must be >= 1. Default: 7.
+                      Must be >= 12. Default: 12.
 
         Returns:
-            Evaluator instance
+            Evaluator instance.
 
         Raises:
             ValueError: if this function is called before calling init().
         """
 
-        if not EvalClient._initialized:
+        if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
         # Mission name
         if 'name' not in kwargs:
             raise ValueError('"name" is not set')
-            EvalClient._eval_name = kwargs['name']
-        if len(EvalClient._eval_name) < 2:
-            raise ValueError('"name" must be >1.')
-        log.debug(f'Name: {EvalClient._eval_name}')
+        self._eval_name = kwargs['name']
+        if len(self._eval_name) <= 1:
+            raise ValueError('"name" must be longer than 1.')
+        log.debug(f'Name: {self._eval_name}')
 
         # Mission description
         if 'desc' not in kwargs:
-            EvalClient._eval_desc = ""
+            self._eval_desc = ""
         else:
-            EvalClient._eval_desc = kwargs['desc']
-        log.debug(f'Desc: {EvalClient._eval_desc}')
+            self._eval_desc = kwargs['desc']
+        log.debug(f'Desc: {self._eval_desc}')
 
         # Evaluation type
         if 'type' not in kwargs:
             raise ValueError('"type" is not set')
-        EvalClient._eval_type = kwargs['type']
+        self._eval_type = kwargs['type']
         # Currently we support one evaluation type in one mission.
         # TODO: Support multiple evaluation types in a single mission.
-        if EvalClient._eval_type not in ['NMOS']:
+        if self._eval_type not in ['NMOS']:
             raise ValueError('"type" must be one NMOS for now.')
-        log.debug(f'Language: {EvalClient._eval_type}')
+        log.debug(f'Language: {self._eval_type}')
 
         # Language
         if 'language' not in kwargs:
-            EvalClient._eval_language = 'en-us'
+            self._eval_language = 'en-us'
         else:
-            EvalClient._eval_language = kwargs['language']
+            self._eval_language = kwargs['language']
 
-        if EvalClient._eval_language not in ['en-us']:
+        if self._eval_language not in ['en-us']:
             raise ValueError('"language" must be {en-us}')
-        log.debug(f'Language: {EvalClient._eval_language}')
+        log.debug(f'Language: {self._eval_language}')
 
-        # Minimum repetition
-        if 'min_repeat' not in kwargs:
-            EvalClient._eval_min_repeat = DefaultConfig.MIN_REPEAT
+        # Num eval  per sample
+        if 'num_eval' not in kwargs:
+            self._num_eval = DefaultConfig.NUM_EVAL
         else:
-            EvalClient._eval_min_repeat = int(kwargs['min_repeat'])
-        if EvalClient._eval_min_repeat < DefaultConfig.MIN_REPEAT:
-            raise ValueError(f'"min_repeat" must be >={DefaultConfig.MIN_REPEAT}.')
-        log.debug(f'min_repeat: {EvalClient._eval_min_repeat}')
+            self._num_eval = int(kwargs['num_eval'])
+        if self._num_eval < 1:
+            raise ValueError(f'"num_eval" must be >= 1.')
+        log.debug(f'num_eval: {self._num_eval}')
 
         # Expected due
         if 'due_hours' not in kwargs:
-            # In 7 days.
+            # In 12 hours.
             due_hours = DefaultConfig.DUE_HOURS
         else:
             due_hours = int(kwargs['due_hours'])
@@ -339,20 +354,24 @@ class EvalClient:
         if due_hours < 1:
             raise ValueError('"due_hours" must be >=1.')
         due = datetime.datetime.now().astimezone() + datetime.timedelta(hours=due_hours)
+
         # Due string in RFC 3339.
-        EvalClient._eval_expected_due = due.strftime('%Y%m%dT%H:%M:%S%z')
-        EvalClient._eval_expected_due_tzname = datetime.datetime.now().astimezone().tzname()
-        log.debug(f'Expected due: {EvalClient._eval_expected_due} {EvalClient._eval_expected_due_tzname}')
-        print(f'Expected due: {EvalClient._eval_expected_due} {EvalClient._eval_expected_due_tzname}')
+        self._eval_expected_due = due.strftime('%Y%m%dT%H:%M:%S%z')
+        self._eval_expected_due_tzname = datetime.datetime.now().astimezone().tzname()
+        log.debug(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
+        print(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
 
         # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
         current_timestamp = datetime.datetime.today()
-        EvalClient._eval_creation_timestamp = current_timestamp.strftime('%Y%m%dT%H%M%S')
+        self._eval_creation_timestamp = current_timestamp.strftime('%Y%m%dT%H%M%S')
+        self._eval_id = "NOT_IN_USE_YET"
 
-        # TODO: create evaluator.
-        EvalClient._eval_id = "NOT_IN_USE_YET"
-        etor = Evaluator()
+        etor = Evaluator(self._api_key, self._api_base_url, self._eval_id,
+                         self._eval_name, self._eval_desc, self._eval_type,
+                         self._eval_language, self._num_eval, self._eval_expected_due,
+                         self._eval_expected_due_tzname, self._eval_creation_timestamp)
         return etor
+
 
 class Podonos:
     """Class for Podonos SDK."""
@@ -360,7 +379,7 @@ class Podonos:
 
     @staticmethod
     def init(api_key: str,
-             api_base_url: str = _PODONOS_API_BASE_URL) -> None:
+             api_base_url: str = _PODONOS_API_BASE_URL) -> EvalClient:
         """Initializes the SDK. This function must be called before calling other functions.
            Raises exception on invalid or missing API key. Also, raises exception on other failures.
            Returns: None
@@ -372,13 +391,12 @@ class Podonos:
 
         # If this is initialized multiple times, it sounds suspicious.
         if Podonos._initialized:
-            warnings.warn("Podonos SDK has already been initialized.")
+            log.debug('Renew the client.')
 
         # TODO: Validate api_key properly
         if len(api_key) <= 3:
             raise ValueError(f"The API key {api_key} is not valid. "
                              f"Please use a valid API key or visit {_PODONOS_HOME}.")
-        _init_eval_variables()
 
         Podonos._api_key = api_key
         Podonos._api_base_url = api_base_url
@@ -393,5 +411,5 @@ class Podonos:
         # Successfully initialized.
         Podonos._initialized = True
 
-        client = EvalClient()
+        client = EvalClient(Podonos._api_key, Podonos._api_key)
         return client
