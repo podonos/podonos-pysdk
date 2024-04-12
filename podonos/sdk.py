@@ -115,6 +115,21 @@ def _get_wave_info(filepath):
     return nchannels, framerate, duration_in_ms
 
 
+def _get_mp3_info(filepath):
+    """ Gets info from a mp3 file.
+
+    Returns:
+        nchannels: Number of channels
+        framerate: Number of frames per second. Same as the sampling rate.
+        duration_in_ms: Total length of the audio in milliseconds
+
+    Raises:
+        FileNotFoundError: if the file is not found.
+    """
+    # TODO parse the mp3 without pydub, which installs ffmpeg and causes lots of error.
+    return 0, 0, 0
+
+
 class Evaluator:
     """Evaluator for a single type of evaluation session."""
     _initialized = None
@@ -146,6 +161,7 @@ class Evaluator:
         self._eval_expected_due = expected_due
         self._eval_expected_due_tzname = expected_due_tzname
         self._eval_creation_timestamp = creation_timestamp
+        self._initialized = True
 
     def _init_eval_variables(self):
         """Initializes the variables for one evaluation session."""
@@ -172,9 +188,9 @@ class Evaluator:
         Podonos service system.
 
         Args:
-            filename0 (str): A path to the audio file to upload. Either in {wav, mp3}
-            filename1 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
-            filename2 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
+            path (str): A path to the audio file to upload. Either in {wav, mp3}
+            path1 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
+            path2 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
             tag (str, optional): A comma separated list of string tags for the files to be added.
                 You will conveniently organize the files with the given tags.
 
@@ -199,18 +215,26 @@ class Evaluator:
             raise ValueError("Try to add file once the evaluator is closed.")
 
         # Check the input parameters.
-        if 'filepath0' not in kwargs:
-            raise ValueError('"filepath0" is not set')
-        assert os.path.isfile(kwargs['filepath0']), f"File {kwargs['filepath0']} doesn't exist"
-        assert os.access(kwargs['filepath0'], os.R_OK), f"File {kwargs['filepath0']} isn't readable"
-        filepath0 = kwargs['filepath0']
-        filepath0_base = os.path.basename(filepath0)
-        remote_object_name = os.path.join(self._eval_creation_timestamp, filepath0_base)
+        if 'path' not in kwargs:
+            raise ValueError('"path" is not set')
+        assert os.path.isfile(kwargs['path']), f"File {kwargs['path']} doesn't exist"
+        assert os.access(kwargs['path'], os.R_OK), f"File {kwargs['path']} isn't readable"
+        path = kwargs['path']
+        path_base = os.path.basename(path)
+        remote_object_name = os.path.join(self._eval_creation_timestamp, path_base)
         log.debug(f'remote_object_name: {remote_object_name}\n')
 
-        nchannels0, framerate0, duration_in_ms0 = _get_wave_info(filepath0)
+        # if this is wav
+        suffix = Path(path).suffix
+        assert suffix == '.wav' or suffix == '.mp3',\
+            f"Unsupported file format: {path}. We currently support wav or mp3 only."
+        if suffix == '.wav':
+            nchannels0, framerate0, duration_in_ms0 = _get_wave_info(path)
+        elif suffix == '.mp3':
+            nchannels0, framerate0, duration_in_ms0 = _get_mp3_info(path)
+
         audio_json = {
-            'name': filepath0_base,
+            'name': path_base,
             'nchannel': nchannels0,
             'framerate': framerate0,
             'duration_in_ms': duration_in_ms0
@@ -227,9 +251,9 @@ class Evaluator:
 
         # Get the presigned URL for filename
         headers = {
-            'x-api-key': Evaluator._api_key
+            'x-api-key': self._api_key
         }
-        response = requests.get(f'{self._api_base_url}/client/uploading-presigned-url?'
+        response = requests.get(f'{self._api_base_url}/clients/uploading-presigned-url?'
                                 f'filename={remote_object_name}', headers=headers)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
@@ -237,7 +261,7 @@ class Evaluator:
         log.debug(f'Presigned URL: {presigned_url}\n')
 
         # Upload the file.
-        _, ext = os.path.splitext(filepath0)
+        _, ext = os.path.splitext(path)
         if ext == '.wav':
             upload_headers = {'Content-type': 'audio/wav'}
         elif ext == '.mp3':
@@ -251,12 +275,12 @@ class Evaluator:
         audio_json['uploadStartAt'] = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
         try:
             r = requests.put(presigned_url,
-                             data=open(filepath0, 'rb'),
+                             data=open(path, 'rb'),
                              headers=upload_headers
                              )
         except requests.exceptions.HTTPError as e:
             log.error(f"HTTP Error: {e}")
-
+        time.sleep(0.1)
         # Timestamp in ISO 8601.
         audio_json['uploadFinishAt'] = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
         self._eval_audio_json.append(audio_json)
@@ -289,7 +313,7 @@ class Evaluator:
         headers = {
             'x-api-key': self._api_key
         }
-        response = requests.get(f'{self._api_base_url}/client/uploading-presigned-url?'
+        response = requests.get(f'{self._api_base_url}/clients/uploading-presigned-url?'
                                 f'filename={remote_object_name}', headers=headers)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
@@ -306,6 +330,9 @@ class Evaluator:
         # TODO: check r
         result_obj = {'status': 'ok'}
 
+        # for i in progressbar(range(15), "Uploading: ", 40):
+        #     time.sleep(0.04)
+        print(f'Upload finished. You will receive en email once the evaluation is done.')
         # Initialize variables.
         self._init_eval_variables()
 
@@ -376,10 +403,11 @@ class EvalClient:
 
         # Evaluation type
         if 'type' not in kwargs:
-            raise ValueError('"type" is not set')
-        self._eval_type = kwargs['type']
-        # Currently we support one evaluation type in one mission.
-        # TODO: Support multiple evaluation types in a single mission.
+            self._eval_type = 'NMOS'
+        else:
+            self._eval_type = kwargs['type']
+        # Currently we support one evaluation type in one session.
+        # TODO: Support multiple evaluation types in a single session.
         if self._eval_type not in ['NMOS']:
             raise ValueError('"type" must be one NMOS for now.')
         log.debug(f'Language: {self._eval_type}')
@@ -418,7 +446,7 @@ class EvalClient:
         self._eval_expected_due = due.strftime('%Y%m%dT%H:%M:%S%z')
         self._eval_expected_due_tzname = datetime.datetime.now().astimezone().tzname()
         log.debug(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
-        print(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
+        # print(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
 
         # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
         current_timestamp = datetime.datetime.today()
@@ -450,9 +478,13 @@ class Podonos:
 
         # If this is initialized multiple times, it sounds suspicious.
         if Podonos._initialized:
-            log.debug('Renew the client.')
+            log.debug('You are initializing >1 times.')
 
-        # TODO: Validate api_key properly
+        # Check the minimum required package version.
+        min_required_package_version = _get_min_required_version(_PODONOS_API_BASE_URL)
+        assert _check_min_required_version(min_required_package_version)
+
+        # API key verification.
         if len(api_key) <= 3:
             raise ValueError(f"The API key {api_key} is not valid. "
                              f"Please use a valid API key or visit {_PODONOS_HOME}.")
@@ -463,12 +495,12 @@ class Podonos:
         headers = {
             'x-api-key': Podonos._api_key
         }
-        response = requests.get(f'{Podonos._api_base_url}/client/verify', headers=headers)
+        response = requests.get(f'{Podonos._api_base_url}/clients/verify', headers=headers)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
 
         # Successfully initialized.
         Podonos._initialized = True
 
-        client = EvalClient(Podonos._api_key, Podonos._api_key)
+        client = EvalClient(Podonos._api_key, Podonos._api_base_url)
         return client
