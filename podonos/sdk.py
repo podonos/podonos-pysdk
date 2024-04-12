@@ -360,8 +360,9 @@ class EvalClient:
 
         # Mission name
         if 'name' not in kwargs:
-            raise ValueError('"name" is not set')
-        self._eval_name = kwargs['name']
+            self._eval_name = _generate_random_eval_name()
+        else:
+            self._eval_name = kwargs['name']
         if len(self._eval_name) <= 1:
             raise ValueError('"name" must be longer than 1.')
         log.debug(f'Name: {self._eval_name}')
