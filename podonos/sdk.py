@@ -39,7 +39,8 @@ class DefaultConfig:
 _PODONOS_HOME = 'https://www.podonos.com/'
 
 # Podonos API base URL
-_PODONOS_API_BASE_URL = "https://dev.podonosapi.com"
+#_PODONOS_API_BASE_URL = "https://dev.podonosapi.com"
+_PODONOS_API_BASE_URL = "http://127.0.0.1:8000"
 
 
 def progressbar(it, prefix="", size=60):
@@ -221,7 +222,8 @@ class Evaluator:
         assert os.access(kwargs['path'], os.R_OK), f"File {kwargs['path']} isn't readable"
         path = kwargs['path']
         path_base = os.path.basename(path)
-        remote_object_name = os.path.join(self._eval_creation_timestamp, path_base)
+        #remote_object_name = path_base
+        remote_object_name = os.path.join(self._api_key, self._eval_creation_timestamp, path_base)
         log.debug(f'remote_object_name: {remote_object_name}\n')
 
         # if this is wav
@@ -253,12 +255,19 @@ class Evaluator:
         headers = {
             'x-api-key': self._api_key
         }
-        response = requests.get(f'{self._api_base_url}/clients/uploading-presigned-url?'
-                                f'filename={remote_object_name}', headers=headers)
+        params = {
+            'filename': remote_object_name,
+            'evaluation_id': self._api_key
+        }
+        response = requests.post(f'{self._api_base_url}/clients/uploading-presigned-url',
+                                 json=params, headers=headers)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
+
         presigned_url = response.text
-        log.debug(f'Presigned URL: {presigned_url}\n')
+        # Strip the double quotation marks
+        presigned_url = presigned_url.replace('"', '')
+        #log.debug(f'Presigned URL: {presigned_url}\n')
 
         # Upload the file.
         _, ext = os.path.splitext(path)
@@ -309,16 +318,22 @@ class Evaluator:
                         'files': self._eval_audio_json}
 
         # Get the presigned URL for filename
-        remote_object_name = os.path.join(self._eval_creation_timestamp, os.path.basename('session.json'))
+        remote_object_name = os.path.join(self._api_key, self._eval_creation_timestamp,
+                                          os.path.basename('session.json'))
         headers = {
             'x-api-key': self._api_key
         }
-        response = requests.get(f'{self._api_base_url}/clients/uploading-presigned-url?'
-                                f'filename={remote_object_name}', headers=headers)
+        params = {
+            'filename': remote_object_name,
+            'evaluation_id': self._api_key
+        }
+        response = requests.post(f'{self._api_base_url}/clients/uploading-presigned-url',
+                                 json=params, headers=headers)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
         presigned_url = response.text
-        log.debug(f'Presigned URL: {presigned_url}\n')
+        # Strip the double quotation marks
+        presigned_url = presigned_url.replace('"', '')
 
         upload_headers = {'Content-type': 'application/json'}
         try:
@@ -364,7 +379,7 @@ class EvalClient:
         self._initialized = True
 
     def create_evaluator(self, **kwargs) -> Evaluator:
-        """Creates a new evaluator.
+        """Creates a new evaluator with a unique evaluation session ID.
 
         Args:
             name: This session name. Its length must be > 1.
@@ -422,7 +437,7 @@ class EvalClient:
             raise ValueError('"language" must be {en-us}')
         log.debug(f'Language: {self._eval_language}')
 
-        # Num eval  per sample
+        # Num eval per sample
         if 'num_eval' not in kwargs:
             self._num_eval = DefaultConfig.NUM_EVAL
         else:
@@ -451,8 +466,10 @@ class EvalClient:
         # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
         current_timestamp = datetime.datetime.today()
         self._eval_creation_timestamp = current_timestamp.strftime('%Y%m%dT%H%M%S')
-        self._eval_id = "NOT_IN_USE_YET"
-
+        # We use the timestamp as a unique evaluation ID.
+        # TODO create more human readable eval ID.
+        self._eval_id = self._eval_creation_timestamp
+        log.debug(f'Evaluation ID: {self._eval_id}')
         etor = Evaluator(self._api_key, self._api_base_url, self._eval_id,
                          self._eval_name, self._eval_desc, self._eval_type,
                          self._eval_language, self._num_eval, self._eval_expected_due,
