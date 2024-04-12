@@ -3,16 +3,20 @@ For details, please refer to https://github.com/podonos/pysdk/
 """
 
 import datetime
+import importlib.metadata
 import logging
+from packaging.version import Version
 import os
 import requests
-import warnings
+from pathlib import Path
+import time
 import wave
 
 
 # For logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
+
 
 # Text colors on terminal
 class bcolors:
@@ -35,8 +39,62 @@ class DefaultConfig:
 _PODONOS_HOME = 'https://www.podonos.com/'
 
 # Podonos API base URL
-_PODONOS_API_BASE_URL = "https://prod.podonosapi.com"
+_PODONOS_API_BASE_URL = "https://dev.podonosapi.com"
 
+
+def progressbar(it, prefix="", size=60):
+    count = len(it)
+    start = time.time()
+
+    def show(j):
+        x = int(size * j / count)
+        remaining = ((time.time() - start) / j) * (count - j)
+
+        mins, sec = divmod(remaining, 60)
+        time_str = f"{int(mins):02}:{sec:05.2f}"
+
+        print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] Est wait {time_str}", end='\r',
+              flush=True)
+
+    for i, item in enumerate(it):
+        yield item
+        show(i + 1)
+    print("\n", flush=True)
+
+
+def _get_min_required_version(api_url):
+    """Gets the minimum required version of this package.
+
+    Returns:
+        The minimum required version strong.
+    """
+    response = requests.get(f'{api_url}/version/min-required')
+    if response.status_code != 200:
+        raise requests.exceptions.HTTPError
+    required_version = response.text.replace('"', '')
+    return required_version
+
+
+def _check_min_required_version(required_version) -> bool:
+    """Checks if this package is the same or higher than the minimum required version.
+
+    Returns:
+        True if the current package version is the same or higher than the minimum required version.
+        False with printing a warning message
+    """
+    current_version = importlib.metadata.version("podonos")
+    log.debug(f'current package version: {current_version}')
+    if Version(current_version) >= Version(required_version):
+        return True
+    print(bcolors.WARN + f"The minimum podonos package version is {required_version} while " +
+          f"the current version is {current_version}." + bcolors.ENDC + "\n"
+          "Please upgrade by 'pip install podonos --upgrade'")
+    return False
+
+
+def _generate_random_eval_name() -> str:
+    cur = datetime.datetime.now()
+    return f'{cur.year}{cur.month}{cur.day}{cur.hour}{cur.minute}{cur.second}'
 
 def _get_wave_info(filepath):
     """ Gets info from a wave file.
