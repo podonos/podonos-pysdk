@@ -35,12 +35,11 @@ class DefaultConfig:
     DUE_HOURS = 12
 
 
-# Podonos contact email
+# Podonos homepage
 _PODONOS_HOME = 'https://www.podonos.com/'
 
 # Podonos API base URL
-#_PODONOS_API_BASE_URL = "https://dev.podonosapi.com"
-_PODONOS_API_BASE_URL = "http://127.0.0.1:8000"
+_PODONOS_API_BASE_URL = "https://dev.podonosapi.com"
 
 
 def progressbar(it, prefix="", size=60):
