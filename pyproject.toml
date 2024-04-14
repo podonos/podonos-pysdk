@@ -14,12 +14,12 @@ authors = [
 requires-python = ">=3.8"
 dependencies = [
     "packaging",
-    "pathlib2",
     "requests"
 ]
 keywords = ["ai", "speech", "synthesis"]
 classifiers = [
     "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
