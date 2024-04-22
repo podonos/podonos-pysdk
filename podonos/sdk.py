@@ -36,8 +36,6 @@ def progressbar(it, prefix="", size=60):
     print("\n", flush=True)
 
 
-
-
 class EvalClient:
     """Evaluation client class. Used for creating individual evaluator."""
 

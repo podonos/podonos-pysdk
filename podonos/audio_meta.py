@@ -4,8 +4,10 @@ Extract metadata from audio files
 
 import wave
 
+from typing import Tuple
 
-def get_wave_info(filepath):
+
+def get_wave_info(filepath: str) -> Tuple[int, int, int]:
     """ Gets info from a wave file.
 
     Returns:
@@ -24,7 +26,7 @@ def get_wave_info(filepath):
     return nchannels, framerate, duration_in_ms
 
 
-def get_mp3_info(filepath):
+def get_mp3_info(filepath: str) -> Tuple[int, int, int]:
     """ Gets info from a mp3 file.
 
     Returns:

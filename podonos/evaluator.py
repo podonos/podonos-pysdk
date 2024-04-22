@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 from pathlib import Path
+from typing import Dict
 import requests
 import time
 
@@ -177,7 +178,7 @@ class Evaluator:
         audio_json['uploadFinishAt'] = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
         self._eval_audio_json.append(audio_json)
 
-    def close(self):
+    def close(self) -> Dict[str, str]:
         """Closes the file uploading and evaluation session.
         This function holds until the file uploading finishes.
 
