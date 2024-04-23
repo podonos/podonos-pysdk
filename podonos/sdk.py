@@ -138,18 +138,18 @@ class EvalClient:
         due = datetime.datetime.now().astimezone() + datetime.timedelta(hours=due_hours)
 
         # Due string in RFC 3339.
-        self._eval_config['_eval_expected_due'] = due.strftime('%Y%m%dT%H:%M:%S%z')
+        self._eval_config['eval_expected_due'] = due.strftime('%Y%m%dT%H:%M:%S%z')
         self._eval_config['eval_expected_due_tzname'] = datetime.datetime.now().astimezone().tzname()
-        log.debug(f'Expected due: {self._eval_config["_eval_expected_due"]} '
+        log.debug(f'Expected due: {self._eval_config["eval_expected_due"]} '
                   f'{self._eval_config["eval_expected_due_tzname"]}')
 
         # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
         current_timestamp = datetime.datetime.today()
-        self._eval_config['_eval_creation_timestamp'] = current_timestamp.strftime('%Y%m%dT%H%M%S')
+        self._eval_config['eval_creation_timestamp'] = current_timestamp.strftime('%Y%m%dT%H%M%S')
         # We use the timestamp as a unique evaluation ID.
         # TODO create more human readable eval ID.
-        self._eval_config['_eval_id'] = self._eval_config['_eval_creation_timestamp']
-        log.debug(f'Evaluation ID: {self._eval_config["_eval_id"]}')
+        self._eval_config['eval_id'] = self._eval_config['eval_creation_timestamp']
+        log.debug(f'Evaluation ID: {self._eval_config["eval_id"]}')
         etor = Evaluator(self._api_key, self._api_base_url, self._eval_config)
         return etor
 

@@ -167,7 +167,7 @@ class Evaluator:
         if 'SMOS' == self._eval_config['eval_type']:
             if 'path' in kwargs:
                 raise ValueError(f'"path" must not be set for {self._eval_config["_eval_type"]}')
-            if 'path0' or 'path1' not in kwargs:
+            if 'path0' not in kwargs or 'path1' not in kwargs:
                 raise ValueError(f'Both "path0" and "path1" must be set for {self._eval_config["_eval_type"]}')
             path0 = kwargs['path0']
             path1 = kwargs['path1']
