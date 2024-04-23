@@ -7,6 +7,7 @@ import requests
 import time
 
 from podonos.audio_meta import *
+from podonos.constant import *
 from podonos.default_config import DefaultConfig
 
 
@@ -250,7 +251,7 @@ class Evaluator:
         # TODO: check r
         result_obj = {'status': 'ok'}
 
-        print(f'Upload finished. You will receive en email once the evaluation is done.')
+        print(f'{bcolors.OK}Upload finished. You will receive en email once the evaluation is done.{bcolors.ENDC}')
         # Initialize variables.
         self._init_eval_variables()
 
