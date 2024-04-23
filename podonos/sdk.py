@@ -44,15 +44,6 @@ class EvalClient:
     _initialized = None
 
     _eval_config = {}
-    # _eval_id = None
-    # _eval_name = None
-    # _eval_desc = None
-    # _eval_type = None
-    # _eval_language = None
-    # _num_eval = 5
-    # _eval_expected_due = None
-    # _eval_expected_due_tzname = None
-    # _eval_creation_timestamp = None
 
     def __init__(self, api_key, api_base_url):
         self._api_key = api_key
@@ -99,7 +90,7 @@ class EvalClient:
         else:
             eval_desc = kwargs['desc']
         log.debug(f'Desc: {eval_desc}')
-        self._eval_config['eval_desc'] = kwargs['desc']
+        self._eval_config['eval_desc'] = eval_desc
 
         # Evaluation type
         if 'type' not in kwargs:
