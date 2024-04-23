@@ -39,21 +39,11 @@ def progressbar(it, prefix="", size=60):
 class EvalClient:
     """Evaluation client class. Used for creating individual evaluator."""
 
-    _initialized = None
     _api_key = None
     _api_base_url = None
+    _initialized = None
 
-    _eval_id = None
-    _eval_name = None
-    _eval_desc = None
-    _eval_type = None
-    _eval_language = None
-    _num_eval = 5
-    _eval_expected_due = None
-    _eval_expected_due_tzname = None
-    _eval_creation_timestamp = None
-
-    _eval_audio_json = []
+    _eval_config = {}
 
     def __init__(self, api_key, api_base_url):
         self._api_key = api_key
@@ -64,9 +54,9 @@ class EvalClient:
         """Creates a new evaluator with a unique evaluation session ID.
 
         Args:
-            name: This session name. Its length must be > 1. Optional.
+            name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
             desc: Description of this session. Optional.
-            type: Evaluation type. One of {'NMOS', 'EMOS'}. Default: NMOS
+            type: Evaluation type. One of {'NMOS', 'SMOS'}. Default: NMOS
             lan: Human language for this audio. One of {'en-us', 'audio'}. Default: en-us
             num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 3.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
@@ -82,51 +72,59 @@ class EvalClient:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
+        self._eval_config = {}
+
         # Mission name
         if 'name' not in kwargs:
-            self._eval_name = generate_random_eval_name()
+            eval_name = generate_random_eval_name()
         else:
-            self._eval_name = kwargs['name']
-        if len(self._eval_name) <= 1:
-            raise ValueError('"name" must be longer than 1.')
-        log.debug(f'Name: {self._eval_name}')
+            if len(kwargs['name']) <= 1:
+                raise ValueError('"name" must be longer than 1.')
+            eval_name = kwargs['name']
+        log.debug(f'Name: {eval_name}')
+        self._eval_config['eval_name'] = eval_name
 
         # Mission description
         if 'desc' not in kwargs:
-            self._eval_desc = ""
+            eval_desc = ""
         else:
-            self._eval_desc = kwargs['desc']
-        log.debug(f'Desc: {self._eval_desc}')
+            eval_desc = kwargs['desc']
+        log.debug(f'Desc: {eval_desc}')
+        self._eval_config['eval_desc'] = eval_desc
 
         # Evaluation type
         if 'type' not in kwargs:
-            self._eval_type = 'NMOS'
+            eval_type = 'NMOS'
         else:
-            self._eval_type = kwargs['type']
-        # Currently we support one evaluation type in one session.
-        # TODO: Support multiple evaluation types in a single session.
-        if self._eval_type not in ['NMOS']:
-            raise ValueError('"type" must be one NMOS for now.')
-        log.debug(f'Language: {self._eval_type}')
+            eval_type = kwargs['type']
+        # We support one evaluation type in one session.
+        if eval_type not in ['NMOS', 'SMOS']:
+            raise ValueError(f'"type" must be one of {{NMOS, SMOS}}. '
+                             f'Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}.')
+        log.debug(f'Eval type: {eval_type}')
+        self._eval_config['eval_type'] = eval_type
 
         # Language
-        if 'language' not in kwargs:
-            self._eval_language = 'en-us'
+        if 'lan' not in kwargs:
+            eval_language = 'en-us'
         else:
-            self._eval_language = kwargs['language']
+            eval_language = kwargs['lan']
 
-        if self._eval_language not in ['en-us']:
-            raise ValueError('"language" must be {en-us}')
-        log.debug(f'Language: {self._eval_language}')
+        if eval_language not in ['en-us']:
+            raise ValueError(f'"lan" must be {{en-us}}. '
+                             f'Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}.')
+        log.debug(f'Language: {eval_language}')
+        self._eval_config['eval_lan'] = eval_language
 
         # Num eval per sample
         if 'num_eval' not in kwargs:
-            self._num_eval = DefaultConfig.NUM_EVAL
+            num_eval = DefaultConfig.NUM_EVAL
         else:
-            self._num_eval = int(kwargs['num_eval'])
-        if self._num_eval < 1:
+            num_eval = int(kwargs['num_eval'])
+        if num_eval < 1:
             raise ValueError(f'"num_eval" must be >= 1.')
-        log.debug(f'num_eval: {self._num_eval}')
+        log.debug(f'num_eval: {num_eval}')
+        self._eval_config['num_eval'] = num_eval
 
         # Expected due
         if 'due_hours' not in kwargs:
@@ -137,25 +135,23 @@ class EvalClient:
         # TODO: allow floating point hours, e.g. 0.5.
         if due_hours < 1:
             raise ValueError('"due_hours" must be >=1.')
-        due = datetime.datetime.now().astimezone() + datetime.timedelta(hours=due_hours)
+        utcnow = datetime.datetime.now()
+        due = utcnow + datetime.timedelta(hours=due_hours)
 
-        # Due string in RFC 3339.
-        self._eval_expected_due = due.strftime('%Y%m%dT%H:%M:%S%z')
-        self._eval_expected_due_tzname = datetime.datetime.now().astimezone().tzname()
-        log.debug(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
-        # print(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
+        # Due string in ISO 8601.
+        self._eval_config['eval_expected_due'] = due.astimezone().isoformat(timespec='milliseconds')
+        self._eval_config['eval_expected_due_tzname'] = utcnow.astimezone().tzname()
+        log.debug(f'Expected due: {self._eval_config["eval_expected_due"]} '
+                  f'{self._eval_config["eval_expected_due_tzname"]}')
 
         # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
-        current_timestamp = datetime.datetime.today()
-        self._eval_creation_timestamp = current_timestamp.strftime('%Y%m%dT%H%M%S')
+        current_timestamp = utcnow.astimezone()
+        self._eval_config['eval_creation_timestamp'] = current_timestamp.isoformat(timespec='milliseconds')
         # We use the timestamp as a unique evaluation ID.
         # TODO create more human readable eval ID.
-        self._eval_id = self._eval_creation_timestamp
-        log.debug(f'Evaluation ID: {self._eval_id}')
-        etor = Evaluator(self._api_key, self._api_base_url, self._eval_id,
-                         self._eval_name, self._eval_desc, self._eval_type,
-                         self._eval_language, self._num_eval, self._eval_expected_due,
-                         self._eval_expected_due_tzname, self._eval_creation_timestamp)
+        self._eval_config['eval_id'] = self._eval_config['eval_creation_timestamp']
+        log.debug(f'Evaluation ID: {self._eval_config["eval_id"]}')
+        etor = Evaluator(self._api_key, self._api_base_url, self._eval_config)
         return etor
 
 
