@@ -135,17 +135,18 @@ class EvalClient:
         # TODO: allow floating point hours, e.g. 0.5.
         if due_hours < 1:
             raise ValueError('"due_hours" must be >=1.')
-        due = datetime.datetime.now().astimezone() + datetime.timedelta(hours=due_hours)
+        utcnow = datetime.datetime.now()
+        due = utcnow + datetime.timedelta(hours=due_hours)
 
-        # Due string in RFC 3339.
-        self._eval_config['eval_expected_due'] = due.strftime('%Y%m%dT%H:%M:%S%z')
-        self._eval_config['eval_expected_due_tzname'] = datetime.datetime.now().astimezone().tzname()
+        # Due string in ISO 8601.
+        self._eval_config['eval_expected_due'] = due.astimezone().isoformat(timespec='milliseconds')
+        self._eval_config['eval_expected_due_tzname'] = utcnow.astimezone().tzname()
         log.debug(f'Expected due: {self._eval_config["eval_expected_due"]} '
                   f'{self._eval_config["eval_expected_due_tzname"]}')
 
         # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
-        current_timestamp = datetime.datetime.today()
-        self._eval_config['eval_creation_timestamp'] = current_timestamp.strftime('%Y%m%dT%H%M%S')
+        current_timestamp = utcnow.astimezone()
+        self._eval_config['eval_creation_timestamp'] = current_timestamp.isoformat(timespec='milliseconds')
         # We use the timestamp as a unique evaluation ID.
         # TODO create more human readable eval ID.
         self._eval_config['eval_id'] = self._eval_config['eval_creation_timestamp']
