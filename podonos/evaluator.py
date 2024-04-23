@@ -83,15 +83,6 @@ class Evaluator:
         self._api_key = api_key
         self._api_base_url = api_base_url
         self._eval_config = eval_config
-        # self._eval_id = eval_id
-        # self._eval_name = eval_name
-        # self._eval_desc = eval_desc
-        # self._eval_type = eval_type
-        # self._eval_language = eval_language
-        # self._num_eval = num_eval
-        # self._eval_expected_due = expected_due
-        # self._eval_expected_due_tzname = expected_due_tzname
-        # self._eval_creation_timestamp = creation_timestamp
         self._initialized = True
 
     def _init_eval_variables(self):
@@ -101,15 +92,6 @@ class Evaluator:
         self._api_key = None
         self._api_base_url = None
         self._eval_config = None
-        # self._eval_id = None
-        # self._eval_name = None
-        # self._eval_desc = None
-        # self._eval_type = DefaultConfig.TYPE
-        # self._eval_language = DefaultConfig.LAN
-        # self._num_eval = DefaultConfig.NUM_EVAL
-        # self._eval_expected_due = None
-        # self._eval_expected_due_tzname = None
-        # self._eval_creation_timestamp = None
 
         self._eval_audio_json = []
 
