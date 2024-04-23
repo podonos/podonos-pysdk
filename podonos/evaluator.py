@@ -204,8 +204,8 @@ class Evaluator:
 
         if path1 is not None:
             upload_start_at1, upload_finish_at1 = self._upload_one_file(remote_object_name1, path1)
-            audio_json['uploadStartAt0'] = upload_start_at1
-            audio_json['uploadFinishAt0'] = upload_finish_at1
+            audio_json['uploadStartAt1'] = upload_start_at1
+            audio_json['uploadFinishAt1'] = upload_finish_at1
 
         self._eval_audio_json.append(audio_json)
 
