@@ -128,6 +128,9 @@ class Evaluator:
         if not self._initialized:
             raise ValueError("Try to add file once the evaluator is closed.")
 
+        path0 = None
+        path1 = None
+
         # Check the input parameters.
         audio_json = {}
         if 'NMOS' == self._eval_config['eval_type']:
