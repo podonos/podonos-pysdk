@@ -21,31 +21,33 @@ class Evaluator:
     _api_key = None
     _api_base_url = None
 
-    _eval_id = None
-    _eval_name = None
-    _eval_desc = None
-    _eval_type = None
-    _eval_language = None
-    _num_eval = DefaultConfig.NUM_EVAL
-    _eval_expected_due = None
-    _eval_expected_due_tzname = None
-    _eval_creation_timestamp = None
+    _eval_config = {}
+    # _eval_id = None
+    # _eval_name = None
+    # _eval_desc = None
+    # _eval_type = None
+    # _eval_language = None
+    # _num_eval = DefaultConfig.NUM_EVAL
+    # _eval_expected_due = None
+    # _eval_expected_due_tzname = None
+    # _eval_creation_timestamp = None
 
+    # Contains the metadata for all the audio files for evaluation.
     _eval_audio_json = []
 
-    def __init__(self, key, base_url, eval_id, eval_name, eval_desc, eval_type,
-                 eval_language, num_eval, expected_due, expected_due_tzname, creation_timestamp):
-        self._api_key = key
-        self._api_base_url = base_url
-        self._eval_id = eval_id
-        self._eval_name = eval_name
-        self._eval_desc = eval_desc
-        self._eval_type = eval_type
-        self._eval_language = eval_language
-        self._num_eval = num_eval
-        self._eval_expected_due = expected_due
-        self._eval_expected_due_tzname = expected_due_tzname
-        self._eval_creation_timestamp = creation_timestamp
+    def __init__(self, api_key, api_base_url, eval_config):
+        self._api_key = api_key
+        self._api_base_url = api_base_url
+        self._eval_config = eval_config
+        # self._eval_id = eval_id
+        # self._eval_name = eval_name
+        # self._eval_desc = eval_desc
+        # self._eval_type = eval_type
+        # self._eval_language = eval_language
+        # self._num_eval = num_eval
+        # self._eval_expected_due = expected_due
+        # self._eval_expected_due_tzname = expected_due_tzname
+        # self._eval_creation_timestamp = creation_timestamp
         self._initialized = True
 
     def _init_eval_variables(self):
@@ -54,16 +56,16 @@ class Evaluator:
 
         self._api_key = None
         self._api_base_url = None
-
-        self._eval_id = None
-        self._eval_name = None
-        self._eval_desc = None
-        self._eval_type = DefaultConfig.TYPE
-        self._eval_language = DefaultConfig.LAN
-        self._num_eval = DefaultConfig.NUM_EVAL
-        self._eval_expected_due = None
-        self._eval_expected_due_tzname = None
-        self._eval_creation_timestamp = None
+        self._eval_config = None
+        # self._eval_id = None
+        # self._eval_name = None
+        # self._eval_desc = None
+        # self._eval_type = DefaultConfig.TYPE
+        # self._eval_language = DefaultConfig.LAN
+        # self._num_eval = DefaultConfig.NUM_EVAL
+        # self._eval_expected_due = None
+        # self._eval_expected_due_tzname = None
+        # self._eval_creation_timestamp = None
 
         self._eval_audio_json = []
 
@@ -73,21 +75,22 @@ class Evaluator:
         Podonos service system.
 
         Args:
-            path (str): A path to the audio file to upload. Either in {wav, mp3}
-            path1 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
-            path2 (str, optional): A path to the audio file to upload. Either in {wav, mp3}
-            tag (str, optional): A comma separated list of string tags for the files to be added.
-                You will conveniently organize the files with the given tags.
+        path: Path to the audio file to evaluate. Must be set for single file eval like NMOS.
+        path1: Path to the audio file to evaluate. If this is set, path2 must be set. For pairwise files like SMOS.
+        path2: Path to the audio file to evaluate. If this is set, path1 must be set. For pairwise files like SMOS.
+        tag: A comma separated list of string tags for path. Optional.
+        tag1: A comma separated list of string tags for path1. Optional.
+        tag2: A comma separated list of string tags for path2. Optional.
 
         Example:
-            If you want to evaluate each audio file separately (e.g., naturalness MOS):
-              add_file(filepath0='/a/b/0.wav')
+        If you want to evaluate each audio file separately (e.g., naturalness MOS):
+            add_file(path='/a/b/0.wav')
 
-            If you want to evaluate a pair of audio files (e.g., preferences test):
-              add_file(filepath0='/a/b/0-0.wav', filepath1='/a/b/0-1.wav')
+        If you want to evaluate a pair of audio files (e.g., preferences or similarity MOS):
+            add_file(path0='/a/b/0-0.wav', path1='/a/b/0-1.wav')
 
-            If you want to evaluate a triple of audio files (e.g., comparative similarity MOS):
-              add_file(filepath0='/a/b/0-ref.wav', filepath1='/a/b/0-0.wav', filepath1='/a/b/0-1.wav')
+        If you want to evaluate a triple of audio files (e.g., comparative similarity MOS):
+            add_file(path0='/a/b/0-ref.wav', path1='/a/b/0-0.wav', path2='/a/b/0-1.wav')
 
         Returns: None
 
@@ -100,40 +103,51 @@ class Evaluator:
             raise ValueError("Try to add file once the evaluator is closed.")
 
         # Check the input parameters.
-        if 'path' not in kwargs:
-            raise ValueError('"path" is not set')
-        assert os.path.isfile(kwargs['path']), f"File {kwargs['path']} doesn't exist"
-        assert os.access(kwargs['path'], os.R_OK), f"File {kwargs['path']} isn't readable"
-        path = kwargs['path']
-        path_base = os.path.basename(path)
-        #remote_object_name = path_base
-        remote_object_name = os.path.join(self._api_key, self._eval_creation_timestamp, path_base)
-        log.debug(f'remote_object_name: {remote_object_name}\n')
+        audio_json = {}
+        if 'NMOS' == self._eval_config['_eval_type']:
+            if 'path' not in kwargs:
+                raise ValueError(f'"path" must be set for the evaluation type {self._eval_config["_eval_type"]}')
+            path0 = kwargs['path']
+            path_base0 = os.path.basename(path0)
+            assert os.path.isfile(path0), f"File {path0} doesn't exist"
+            assert os.access(path0, os.R_OK), f"File {path0} isn't readable"
+            remote_object_name = os.path.join(self._api_key, self._eval_config['_eval_creation_timestamp'], path_base0)
+            log.debug(f'remote_object_name: {remote_object_name}\n')
+            nchannels0, framerate0, duration_in_ms0 = get_audio_info(path0)
+            audio_json['name0'] = path_base0
+            audio_json['nchannels0'] = nchannels0
+            audio_json['framerate0'] = framerate0
+            audio_json['duration_in_ms0'] = duration_in_ms0
 
-        # if this is wav
-        suffix = Path(path).suffix
-        assert suffix == '.wav' or suffix == '.mp3',\
-            f"Unsupported file format: {path}. We currently support wav or mp3 only."
-        if suffix == '.wav':
-            nchannels0, framerate0, duration_in_ms0 = get_wave_info(path)
-        elif suffix == '.mp3':
-            nchannels0, framerate0, duration_in_ms0 = get_mp3_info(path)
-
-        audio_json = {
-            'name': path_base,
-            'nchannel': nchannels0,
-            'framerate': framerate0,
-            'duration_in_ms': duration_in_ms0
-        }
+        if 'SMOS' == self._eval_config['_eval_type']:
+            if 'path' in kwargs:
+                raise ValueError(f'"path" must not be set for the evaluation type {self._eval_config["_eval_type"]}')
+            if 'path0' or 'path1' not in kwargs:
+                raise ValueError(f'Both "path0" and "path1" must be set for the evaluation type {self._eval_config["_eval_type"]}')
+            path0 = kwargs['path0']
+            path1 = kwargs['path1']
+            path_base0 = os.path.basename(path0)
+            path_base1 = os.path.basename(path1)
+            assert os.path.isfile(path0), f"File {path0} doesn't exist"
+            assert os.path.isfile(path1), f"File {path1} doesn't exist"
+            assert os.access(path0, os.R_OK), f"File {path0} isn't readable"
+            assert os.access(path1, os.R_OK), f"File {path1} isn't readable"
+            remote_object_name0 = os.path.join(self._api_key, self._eval_config['_eval_creation_timestamp'], path_base0)
+            remote_object_name1 = os.path.join(self._api_key, self._eval_config['_eval_creation_timestamp'], path_base1)
+            log.debug(f'remote_object_names: {remote_object_name0} {remote_object_name1}')
+            nchannels0, framerate0, duration_in_ms0 = get_audio_info(path0)
+            nchannels1, framerate1, duration_in_ms1 = get_audio_info(path1)
+            audio_json['name0'] = path_base0
+            audio_json['name1'] = path_base1
+            audio_json['nchannels0'] = nchannels0
+            audio_json['nchannels1'] = nchannels1
+            audio_json['framerate0'] = framerate0
+            audio_json['framerate1'] = framerate1
+            audio_json['duration_in_ms0'] = duration_in_ms0
+            audio_json['duration_in_ms1'] = duration_in_ms1
 
         if 'tag' in kwargs:
             audio_json['tag'] = kwargs['tag']
-
-        if 'filepath1' in kwargs:
-            raise ValueError('"filepath1" is not supported yet. We will support soon.')
-
-        if 'filepath2' in kwargs:
-            raise ValueError('"filepath2" is not supported yet. We will support soon.')
 
         # Get the presigned URL for filename
         headers = {
