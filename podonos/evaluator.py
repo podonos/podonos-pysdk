@@ -221,7 +221,7 @@ class Evaluator:
 
         # Create a json.
         session_json = self._eval_config
-        session_json.append(self._eval_audio_json)
+        session_json['files'] = self._eval_audio_json
 
         # Get the presigned URL for filename
         remote_object_name = os.path.join(self._api_key, self._eval_config['eval_creation_timestamp'], 'session.json')
