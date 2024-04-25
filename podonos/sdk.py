@@ -176,8 +176,7 @@ class Podonos:
             log.debug('You are initializing >1 times.')
 
         # Check the minimum required package version.
-        min_required_package_version = get_min_required_version(PODONOS_API_BASE_URL)
-        assert check_min_required_version(min_required_package_version)
+        assert check_min_required_version(api_base_url)
 
         # API key verification.
         if len(api_key) <= 3:
