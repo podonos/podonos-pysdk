@@ -241,7 +241,7 @@ class Evaluator:
             'eval_id': self._eval_config['eval_id'],
             'eval_type': self._eval_config['eval_type']
         }
-        response = requests.get(f'{self._api_base_url}/request-evaluation',
+        response = requests.post(f'{self._api_base_url}/request-evaluation',
                                  json=params, headers=headers)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
