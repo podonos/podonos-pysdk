@@ -233,7 +233,19 @@ class Evaluator:
                              headers=upload_headers)
         except requests.exceptions.HTTPError as e:
             log.error(f"HTTP Error: {e}")
-        # TODO: check r
+        if r.status_code != 200:
+            raise requests.exceptions.HTTPError
+
+        # Call evaluation requested.
+        params = {
+            'eval_id': self._eval_config['eval_id'],
+            'eval_type': self._eval_config['eval_type']
+        }
+        response = requests.post(f'{self._api_base_url}/request-evaluation',
+                                 json=params, headers=headers)
+        if response.status_code != 200:
+            raise requests.exceptions.HTTPError
+
         result_obj = {'status': 'ok'}
 
         print(f'{bcolors.OK}Upload finished. You will receive en email once the evaluation is done.{bcolors.ENDC}')
