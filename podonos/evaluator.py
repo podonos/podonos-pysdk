@@ -236,6 +236,16 @@ class Evaluator:
         # TODO: check r
         result_obj = {'status': 'ok'}
 
+        # Call evaluation requested.
+        params = {
+            'eval_id': self._eval_config['eval_id'],
+            'eval_type': self._eval_config['eval_type']
+        }
+        response = requests.get(f'{self._api_base_url}/request-evaluation',
+                                 json=params, headers=headers)
+        if response.status_code != 200:
+            raise requests.exceptions.HTTPError
+
         print(f'{bcolors.OK}Upload finished. You will receive en email once the evaluation is done.{bcolors.ENDC}')
         # Initialize variables.
         self._init_eval_variables()
