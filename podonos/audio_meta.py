@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from pathlib import Path
 from typing import Tuple, Union
-from mutagen.mp3 import MP3, MPEGInfo
+from mutagen.mp3 import MP3
 
 @dataclass
 class AudioInfo:
