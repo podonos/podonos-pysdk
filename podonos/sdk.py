@@ -45,7 +45,7 @@ class EvalClient:
 
     _eval_config = {}
 
-    def __init__(self, api_key, api_base_url):
+    def __init__(self, api_key: str, api_base_url: str):
         self._api_key = api_key
         self._api_base_url = api_base_url
         self._initialized = True

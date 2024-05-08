@@ -2,7 +2,7 @@ import datetime
 import logging
 import os
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Union
 import requests
 import time
 
@@ -79,7 +79,7 @@ class Evaluator:
         upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
         return upload_start_at, upload_finish_at
 
-    def __init__(self, api_key, api_base_url, eval_config):
+    def __init__(self, api_key: Union[str, None], api_base_url: Union[str, None], eval_config):
         self._api_key = api_key
         self._api_base_url = api_base_url
         self._eval_config = eval_config

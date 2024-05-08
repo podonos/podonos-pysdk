@@ -1,14 +1,30 @@
 """
 Extract metadata from audio files
 """
-
 import wave
+from dataclasses import dataclass
 
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
+from mutagen.mp3 import MP3, MPEGInfo
 
+@dataclass
+class AudioInfo:
+    """ Audio information class.
 
-def get_audio_info(path: str) -> Tuple[int, int, int]:
+    Attributes:
+        nchannels: Number of channels
+        framerate: Number of frames per second. Same as the sampling rate.
+        duration_in_ms: Total length of the audio in milliseconds
+    """
+    nchannels: int
+    framerate: int
+    duration_in_ms: int
+    
+    def to_values(self) -> Tuple[int, int, int]:
+        return self.nchannels, self.framerate, self.duration_in_ms
+
+def get_audio_info(path: str) -> Union[Tuple[int, int, int], None]:
     """ Gets info from an audio file.
 
     Returns:
@@ -26,12 +42,12 @@ def get_audio_info(path: str) -> Tuple[int, int, int]:
     assert suffix == '.wav' or suffix == '.mp3', \
         f"Unsupported file format: {path}. It must be either wav or mp3."
     if suffix == '.wav':
-        return get_wave_info(path)
+        return get_wave_info(path).to_values()
     elif suffix == '.mp3':
-        return get_mp3_info(path)
+        return get_mp3_info(path).to_values()
 
 
-def get_wave_info(filepath: str) -> Tuple[int, int, int]:
+def get_wave_info(filepath: str) -> AudioInfo:
     """ Gets info from a wave file.
 
     Returns:
@@ -47,10 +63,10 @@ def get_wave_info(filepath: str) -> Tuple[int, int, int]:
     nchannels, sampwidth, framerate, nframes, comptype, compname = wav.getparams()
     assert comptype == 'NONE'
     duration_in_ms = int(nframes * 1000.0 / float(framerate))
-    return nchannels, framerate, duration_in_ms
+    return AudioInfo(nchannels, framerate, duration_in_ms)
 
 
-def get_mp3_info(filepath: str) -> Tuple[int, int, int]:
+def get_mp3_info(filepath: str) -> AudioInfo:
     """ Gets info from a mp3 file.
 
     Returns:
@@ -62,4 +78,12 @@ def get_mp3_info(filepath: str) -> Tuple[int, int, int]:
         FileNotFoundError: if the file is not found.
     """
     # TODO parse the mp3 without pydub, which installs ffmpeg and causes lots of error.
-    return 0, 0, 0
+    try:
+        audio = MP3(filepath)
+        return AudioInfo(
+            nchannels=audio.info.channels, # type: ignore
+            framerate=audio.info.sample_rate, # type: ignore
+            duration_in_ms=int(audio.info.length * 1000)
+        )
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
