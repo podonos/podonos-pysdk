@@ -150,6 +150,23 @@ class Evaluator:
             if 'tag' in kwargs:
                 audio_json['tag'] = kwargs['tag']
 
+        if 'P808' == self._eval_config['eval_type']:
+            if 'path' not in kwargs:
+                raise ValueError(f'"path" must be set for the evaluation type {self._eval_config["eval_type"]}')
+            path0 = kwargs['path']
+            path_base0 = os.path.basename(path0)
+            assert os.path.isfile(path0), f"File {path0} doesn't exist"
+            assert os.access(path0, os.R_OK), f"File {path0} isn't readable"
+            remote_object_name0 = os.path.join(self._eval_config['eval_creation_timestamp'], path_base0)
+            log.debug(f'remote_object_name: {remote_object_name0}\n')
+            nchannels0, framerate0, duration_in_ms0 = get_audio_info(path0)
+            audio_json['name0'] = path_base0
+            audio_json['nchannels0'] = nchannels0
+            audio_json['framerate0'] = framerate0
+            audio_json['duration_in_ms0'] = duration_in_ms0
+            if 'tag' in kwargs:
+                audio_json['tag'] = kwargs['tag']
+
         if 'SMOS' == self._eval_config['eval_type']:
             if 'path' in kwargs:
                 raise ValueError(f'"path" must not be set for {self._eval_config["_eval_type"]}')
