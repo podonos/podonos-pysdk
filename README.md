@@ -31,7 +31,8 @@ etor.close()
 ```
 Once we evaluate the audio files, we will email you the evaluation report within 12 hours.
 
-## 📗 How to test the code
+## 👌 How to run the code testing
+
 Run this at the base directory:
 ```bash
 python -m unittest
