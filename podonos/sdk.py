@@ -52,12 +52,13 @@ class EvalClient:
 
     def create_evaluator(self, **kwargs) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
+        For the language code, see https://docs.dyspatch.io/localization/supported_languages/
 
         Args:
             name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
             desc: Description of this session. Optional.
-            type: Evaluation type. One of {'NMOS', 'SMOS'}. Default: NMOS
-            lan: Human language for this audio. One of {'en-us', 'audio'}. Default: en-us
+            type: Evaluation type. One of {'NMOS', 'SMOS', 'P808'}. Default: NMOS
+            lan: Human language for this audio. One of {'en-us', 'ko-kr', 'audio'}. Default: en-us
             num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 3.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
                       Must be >= 12. Default: 12.
@@ -98,8 +99,8 @@ class EvalClient:
         else:
             eval_type = kwargs['type']
         # We support one evaluation type in one session.
-        if eval_type not in ['NMOS', 'SMOS']:
-            raise ValueError(f'"type" must be one of {{NMOS, SMOS}}. '
+        if eval_type not in ['NMOS', 'SMOS', 'P808']:
+            raise ValueError(f'"type" must be one of {{NMOS, SMOS, P808}}. '
                              f'Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}.')
         log.debug(f'Eval type: {eval_type}')
         self._eval_config['eval_type'] = eval_type
@@ -110,8 +111,8 @@ class EvalClient:
         else:
             eval_language = kwargs['lan']
 
-        if eval_language not in ['en-us']:
-            raise ValueError(f'"lan" must be {{en-us}}. '
+        if eval_language not in ['en-us', 'ko-kr', 'audio']:
+            raise ValueError(f'"lan" must be one of {{en-us, ko-kr, audio}}. '
                              f'Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}.')
         log.debug(f'Language: {eval_language}')
         self._eval_config['eval_lan'] = eval_language
@@ -133,8 +134,8 @@ class EvalClient:
         else:
             due_hours = int(kwargs['due_hours'])
         # TODO: allow floating point hours, e.g. 0.5.
-        if due_hours < 1:
-            raise ValueError('"due_hours" must be >=1.')
+        if due_hours < 12:
+            raise ValueError('"due_hours" must be >=12.')
         utcnow = datetime.datetime.now()
         due = utcnow + datetime.timedelta(hours=due_hours)
 

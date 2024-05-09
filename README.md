@@ -31,6 +31,12 @@ etor.close()
 ```
 Once we evaluate the audio files, we will email you the evaluation report within 12 hours.
 
+## 📗 How to test the code
+Run this at the base directory:
+```bash
+python -m unittest
+```
+
 ## 📗 Documentation
 
 For a deeper dive on all capabilities and details, please refer to [Documentation](https://docs.podonos.com/).
