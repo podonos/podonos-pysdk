@@ -190,7 +190,7 @@ class Podonos:
         headers = {
             'x-api-key': Podonos._api_key
         }
-        response = requests.get(f'{Podonos._api_base_url}/clients/verify', headers=headers)
+        response = requests.get(f'{Podonos._api_base_url}/clients/verify/api-key', headers=headers)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
 
