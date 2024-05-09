@@ -6,22 +6,29 @@ from unittest import mock
 # Mocks HTTP GET request.
 def mocked_requests_get(*args, **kwargs):
     class MockResponse:
-        def __init__(self, response_text, status_code):
-            self.text = response_text
+        def __init__(self, response_text, response_json, status_code):
+            self.text_response = response_text
+            self.json_response = response_json
             self.status_code = status_code
 
         def json(self):
-            return self.json_data
+            return self.json_response
 
     if '/clients/verify' in args[0]:
         # API key verification
-        return MockResponse('true', 200)
+        return MockResponse('true', None, 200)
 
-    if '/version/min-required' in args[0]:
-        # Minimum version
-        return MockResponse('0.0.1', 200)
+    if '/version/sdk' in args[0]:
+        # SDK versions
+        version_response = dict(
+            latest="0.1.0",
+            recommended="0.0.12",
+            minimum="0.0.12")
+        return MockResponse(None,
+                            version_response,
+                            200)
 
-    return MockResponse(None, 404)
+    return MockResponse(None, None, 404)
 
 
 class TestPodonos(unittest.TestCase):
@@ -59,7 +66,7 @@ class TestPodonosClient(unittest.TestCase):
         etor = self._mock_client.create_evaluator(
             desc=self.config['desc'],
             type=self.config['type'],
-            language=self.config['language'])
+            lan=self.config['language'])
         self.assertIsNotNone(etor)
 
         # Too short name.
@@ -68,13 +75,13 @@ class TestPodonosClient(unittest.TestCase):
                 name='a',
                 desc=self.config['desc'],
                 type=self.config['type'],
-                language=self.config['language'])
+                lan=self.config['language'])
 
         # Missing description is allowed.
         etor = self._mock_client.create_evaluator(
             name=self.config['name'],
             type=self.config['type'],
-            language=self.config['language'])
+            lan=self.config['language'])
         self.assertIsNotNone(etor)
 
         # Unknown type.
@@ -83,7 +90,7 @@ class TestPodonosClient(unittest.TestCase):
                 name=self.config['name'],
                 desc=self.config['desc'],
                 type="unknown_type",
-                language=self.config['language'])
+                lan=self.config['language'])
 
         # Missing language is allowed.
         etor = self._mock_client.create_evaluator(
@@ -98,13 +105,29 @@ class TestPodonosClient(unittest.TestCase):
                 name=self.config['name'],
                 desc=self.config['desc'],
                 type=self.config['type'],
-                language='abcd')
+                lan='abcd')
 
         # Valid configuration
         etor = self._mock_client.create_evaluator(
             name=self.config['name'],
             desc=self.config['desc'],
             type=self.config['type'],
+            lan=self.config['language'])
+        self.assertIsNotNone(etor)
+
+        # P.808
+        etor = self._mock_client.create_evaluator(
+            name=self.config['name'],
+            desc=self.config['desc'],
+            type='P808',
+            language=self.config['language'])
+        self.assertIsNotNone(etor)
+
+        # SMOS
+        etor = self._mock_client.create_evaluator(
+            name=self.config['name'],
+            desc=self.config['desc'],
+            type='SMOS',
             language=self.config['language'])
         self.assertIsNotNone(etor)
 
