@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "podonos"
-version = "0.1.1"
+version = "0.1.2"
 description = "Managed evaluation for audio & speech"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
-    {name = "Soohyun Bae", email = "sb@podonos.com"}
+    {name = "David Anderson", email = "da@podonos.com"}
 ]
 requires-python = ">=3.8"
 dependencies = [
