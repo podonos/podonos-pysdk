@@ -57,7 +57,7 @@ class TestPodonosClient(unittest.TestCase):
             'name': 'my_new_model_03272024_p1_k2_en_us',
             'desc': 'Updated model',
             'type': 'NMOS',
-            'language': 'en-us'
+            'lan': 'en-us'
         }
 
     @mock.patch('requests.get', side_effect=mocked_requests_get)
@@ -66,7 +66,7 @@ class TestPodonosClient(unittest.TestCase):
         etor = self._mock_client.create_evaluator(
             desc=self.config['desc'],
             type=self.config['type'],
-            lan=self.config['language'])
+            lan=self.config['lan'])
         self.assertIsNotNone(etor)
 
         # Too short name.
@@ -75,13 +75,13 @@ class TestPodonosClient(unittest.TestCase):
                 name='a',
                 desc=self.config['desc'],
                 type=self.config['type'],
-                lan=self.config['language'])
+                lan=self.config['lan'])
 
         # Missing description is allowed.
         etor = self._mock_client.create_evaluator(
             name=self.config['name'],
             type=self.config['type'],
-            lan=self.config['language'])
+            lan=self.config['lan'])
         self.assertIsNotNone(etor)
 
         # Unknown type.
@@ -90,7 +90,7 @@ class TestPodonosClient(unittest.TestCase):
                 name=self.config['name'],
                 desc=self.config['desc'],
                 type="unknown_type",
-                lan=self.config['language'])
+                lan=self.config['lan'])
 
         # Missing language is allowed.
         etor = self._mock_client.create_evaluator(
@@ -112,7 +112,7 @@ class TestPodonosClient(unittest.TestCase):
             name=self.config['name'],
             desc=self.config['desc'],
             type=self.config['type'],
-            lan=self.config['language'])
+            lan=self.config['lan'])
         self.assertIsNotNone(etor)
 
         # P.808
@@ -120,7 +120,7 @@ class TestPodonosClient(unittest.TestCase):
             name=self.config['name'],
             desc=self.config['desc'],
             type='P808',
-            language=self.config['language'])
+            lan=self.config['lan'])
         self.assertIsNotNone(etor)
 
         # SMOS
@@ -128,7 +128,7 @@ class TestPodonosClient(unittest.TestCase):
             name=self.config['name'],
             desc=self.config['desc'],
             type='SMOS',
-            language=self.config['language'])
+            lan=self.config['lan'])
         self.assertIsNotNone(etor)
 
 
