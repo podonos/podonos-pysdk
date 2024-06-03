@@ -9,9 +9,7 @@ from podonos.common.constant import *
 from podonos.common.enum import EvalType, Language
 from podonos.core.client import Client
 from podonos.core.config import EvalConfig
-from podonos.default_config import DefaultConfig
 from podonos.evaluator import Evaluator
-from podonos.eval_name import *
 from podonos.version import *
 
 # For logging
