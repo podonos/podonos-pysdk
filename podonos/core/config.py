@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
@@ -9,7 +8,6 @@ from podonos.common.enum import EvalType, Language
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-@dataclass
 class EvalConfig:
     _eval_id: str # We use the timestamp as a unique evaluation ID. TODO create more human readable eval ID.
     _eval_name: str
