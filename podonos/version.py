@@ -9,7 +9,7 @@ from packaging.version import Version
 import requests
 from typing import Tuple
 
-from podonos.constant import bcolors
+from podonos.common.enum import TerminalColor
 
 # For logging
 logging.basicConfig(level=logging.INFO)
@@ -50,14 +50,20 @@ def check_min_required_version(api_url: str) -> bool:
     if Version(current_version) >= Version(min_version):
         # This version is higher than the minimum required version, but less than the recommended
         # version. Gently recommend to upgrade.
-        print(bcolors.WARN + f"The current podonos package version is {current_version} "
-              f"while a newer version {latest_version} is available" + bcolors.ENDC + "\n" +
-              bcolors.BOLD + "Please upgrade" + bcolors.ENDC + " by "
-              f"'pip install podonos --upgrade'")
+        print(
+            TerminalColor.WARN.value + 
+            f"The current podonos package version is {current_version} " 
+            f"while a newer version {latest_version} is available" + TerminalColor.ENDC.value + "\n" +
+            TerminalColor.BOLD.value + "Please upgrade" + TerminalColor.ENDC.value + " by "
+            f"'pip install podonos --upgrade'"
+        )
         return True
 
     # This version is lower than the minimum required version. Cannot proceed.
-    print(bcolors.FAIL + f"The current podonos package version is {current_version} "
-                         f"while the minimum supported version is {min_version}" + bcolors.ENDC + "\n" +
-          bcolors.BOLD + "Please upgrade" + bcolors.ENDC + f" by 'pip install podonos --upgrade'")
+    print(
+        TerminalColor.FAIL.value + 
+        f"The current podonos package version is {current_version} "
+        f"while the minimum supported version is {min_version}" + TerminalColor.ENDC.value + "\n" +
+        TerminalColor.BOLD.value + "Please upgrade" + TerminalColor.ENDC.value + f" by 'pip install podonos --upgrade'"
+    )
     return False

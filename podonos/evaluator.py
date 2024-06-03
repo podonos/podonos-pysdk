@@ -2,12 +2,14 @@ import datetime
 import logging
 import os
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 import requests
 import time
 
 from podonos.audio_meta import *
-from podonos.constant import *
+from podonos.common.constant import *
+from podonos.common.enum import EvalType
+from podonos.core.config import EvalConfig
 from podonos.default_config import DefaultConfig
 
 
@@ -18,11 +20,10 @@ log = logging.getLogger(__name__)
 
 class Evaluator:
     """Evaluator for a single type of evaluation session."""
-    _initialized = None
-    _api_key = None
-    _api_base_url = None
-
-    _eval_config = {}
+    _initialized: bool = False
+    _api_key: Optional[str] = None
+    _api_base_url: Optional[str] = None
+    _eval_config: Optional[EvalConfig] = None
 
     # Contains the metadata for all the audio files for evaluation.
     _eval_audio_json = []
@@ -47,8 +48,10 @@ class Evaluator:
             'filename': remote_object_name,
             'evaluation_id': self._api_key
         }
-        response = requests.post(f'{self._api_base_url}/clients/uploading-presigned-url',
-                                 json=params, headers=headers)
+        response = requests.post(
+            f'{self._api_base_url}/clients/uploading-presigned-url',
+            json=params, headers=headers
+        )
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
 
@@ -70,16 +73,23 @@ class Evaluator:
         # Timestamp in ISO 8601.
         upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
         try:
-            r = requests.put(presigned_url,
-                             data=open(path, 'rb'),
-                             headers=upload_headers)
+            r = requests.put(
+                presigned_url,
+                data=open(path, 'rb'),
+                headers=upload_headers
+            )
         except requests.exceptions.HTTPError as e:
             log.error(f"HTTP Error: {e}")
         # Timestamp in ISO 8601.
         upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
         return upload_start_at, upload_finish_at
 
-    def __init__(self, api_key, api_base_url, eval_config):
+    def __init__(
+        self, 
+        api_key: str, 
+        api_base_url: str, 
+        eval_config: Optional[EvalConfig] = None
+    ):
         self._api_key = api_key
         self._api_base_url = api_base_url
         self._eval_config = eval_config
@@ -125,7 +135,7 @@ class Evaluator:
             FileNotFoundError: if a given file is not found.
         """
 
-        if not self._initialized:
+        if not self._initialized or self._eval_config is None:
             raise ValueError("Try to add file once the evaluator is closed.")
 
         path0 = None
@@ -133,14 +143,14 @@ class Evaluator:
 
         # Check the input parameters.
         audio_json = {}
-        if 'NMOS' == self._eval_config['eval_type']:
+        if EvalType.NMOS == self._eval_config.eval_type:
             if 'path' not in kwargs:
-                raise ValueError(f'"path" must be set for the evaluation type {self._eval_config["eval_type"]}')
+                raise ValueError(f'"path" must be set for the evaluation type {self._eval_config.eval_type}')
             path0 = kwargs['path']
             path_base0 = os.path.basename(path0)
             assert os.path.isfile(path0), f"File {path0} doesn't exist"
             assert os.access(path0, os.R_OK), f"File {path0} isn't readable"
-            remote_object_name0 = os.path.join(self._eval_config['eval_creation_timestamp'], path_base0)
+            remote_object_name0 = os.path.join(self._eval_config.eval_creation_timestamp, path_base0)
             log.debug(f'remote_object_name: {remote_object_name0}\n')
             nchannels0, framerate0, duration_in_ms0 = get_audio_info(path0)
             audio_json['name0'] = path_base0
@@ -150,14 +160,14 @@ class Evaluator:
             if 'tag' in kwargs:
                 audio_json['tag'] = kwargs['tag']
 
-        if 'P808' == self._eval_config['eval_type']:
+        if EvalType.P808 == self._eval_config.eval_type:
             if 'path' not in kwargs:
-                raise ValueError(f'"path" must be set for the evaluation type {self._eval_config["eval_type"]}')
+                raise ValueError(f'"path" must be set for the evaluation type {self._eval_config.eval_type}')
             path0 = kwargs['path']
             path_base0 = os.path.basename(path0)
             assert os.path.isfile(path0), f"File {path0} doesn't exist"
             assert os.access(path0, os.R_OK), f"File {path0} isn't readable"
-            remote_object_name0 = os.path.join(self._eval_config['eval_creation_timestamp'], path_base0)
+            remote_object_name0 = os.path.join(self._eval_config.eval_creation_timestamp, path_base0)
             log.debug(f'remote_object_name: {remote_object_name0}\n')
             nchannels0, framerate0, duration_in_ms0 = get_audio_info(path0)
             audio_json['name0'] = path_base0
@@ -167,11 +177,11 @@ class Evaluator:
             if 'tag' in kwargs:
                 audio_json['tag'] = kwargs['tag']
 
-        if 'SMOS' == self._eval_config['eval_type']:
+        if EvalType.SMOS == self._eval_config.eval_type:
             if 'path' in kwargs:
-                raise ValueError(f'"path" must not be set for {self._eval_config["_eval_type"]}')
+                raise ValueError(f'"path" must not be set for {self._eval_config.eval_type}')
             if 'path0' not in kwargs or 'path1' not in kwargs:
-                raise ValueError(f'Both "path0" and "path1" must be set for {self._eval_config["_eval_type"]}')
+                raise ValueError(f'Both "path0" and "path1" must be set for {self._eval_config.eval_type}')
             path0 = kwargs['path0']
             path1 = kwargs['path1']
             path_base0 = os.path.basename(path0)
@@ -180,8 +190,8 @@ class Evaluator:
             assert os.path.isfile(path1), f"File {path1} doesn't exist"
             assert os.access(path0, os.R_OK), f"File {path0} isn't readable"
             assert os.access(path1, os.R_OK), f"File {path1} isn't readable"
-            remote_object_name0 = os.path.join(self._eval_config['eval_creation_timestamp'], path_base0)
-            remote_object_name1 = os.path.join(self._eval_config['eval_creation_timestamp'], path_base1)
+            remote_object_name0 = os.path.join(self._eval_config.eval_creation_timestamp, path_base0)
+            remote_object_name1 = os.path.join(self._eval_config.eval_creation_timestamp, path_base1)
             log.debug(f'remote_object_names: {remote_object_name0} {remote_object_name1}')
             nchannels0, framerate0, duration_in_ms0 = get_audio_info(path0)
             nchannels1, framerate1, duration_in_ms1 = get_audio_info(path1)
@@ -221,13 +231,16 @@ class Evaluator:
         Raises:
             ValueError: if this function is called before calling init().
         """
+        if not self._initialized or self._eval_config is None:
+            raise ValueError("No evaluation session is open.")
+        
 
         # Create a json.
-        session_json = self._eval_config
+        session_json = self._eval_config.to_dict()
         session_json['files'] = self._eval_audio_json
 
         # Get the presigned URL for filename
-        remote_object_name = os.path.join(self._eval_config['eval_creation_timestamp'], 'session.json')
+        remote_object_name = os.path.join(self._eval_config.eval_creation_timestamp, 'session.json')
         headers = {
             'x-api-key': self._api_key
         }
@@ -235,8 +248,11 @@ class Evaluator:
             'filename': remote_object_name,
             'evaluation_id': self._api_key
         }
-        response = requests.post(f'{self._api_base_url}/clients/uploading-presigned-url',
-                                 json=params, headers=headers)
+        response = requests.post(
+            f'{self._api_base_url}/clients/uploading-presigned-url',
+            json=params, headers=headers
+        )
+        
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
         presigned_url = response.text
@@ -245,21 +261,26 @@ class Evaluator:
 
         upload_headers = {'Content-type': 'application/json'}
         try:
-            r = requests.put(presigned_url,
-                             json=session_json,
-                             headers=upload_headers)
+            r = requests.put(
+                presigned_url,
+                json=session_json,
+                headers=upload_headers
+            )
+            if r.status_code != 200:
+                raise requests.exceptions.HTTPError
         except requests.exceptions.HTTPError as e:
             log.error(f"HTTP Error: {e}")
-        if r.status_code != 200:
-            raise requests.exceptions.HTTPError
-
+        
         # Call evaluation requested.
-        params = {
-            'eval_id': self._eval_config['eval_id'],
-            'eval_type': self._eval_config['eval_type']
-        }
-        response = requests.post(f'{self._api_base_url}/request-evaluation',
-                                 json=params, headers=headers)
+        response = requests.post(
+            f'{self._api_base_url}/request-evaluation',
+            json={
+                'eval_id': self._eval_config.eval_id,
+                'eval_type': self._eval_config.eval_type
+            }, 
+            headers=headers
+        )
+        
         if response.status_code != 200:
             raise requests.exceptions.HTTPError
 
