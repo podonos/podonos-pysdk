@@ -2,13 +2,13 @@
 For details, please refer to https://github.com/podonos/pysdk/
 """
 
-import datetime
 import time
+from typing import Optional
 
-from podonos.constant import *
-from podonos.default_config import DefaultConfig
+from podonos.common.constant import *
+from podonos.core.client import Client
+from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.evaluator import Evaluator
-from podonos.eval_name import *
 from podonos.version import *
 
 # For logging
@@ -36,21 +36,23 @@ def progressbar(it, prefix="", size=60):
     print("\n", flush=True)
 
 
-class EvalClient:
+class EvalClient(Client):
     """Evaluation client class. Used for creating individual evaluator."""
 
-    _api_key = None
-    _api_base_url = None
-    _initialized = None
+    _eval_config: Optional[EvalConfig] = None
+    
+    def __init__(self, api_key: str, api_url: str):
+        super().__init__(api_key, api_url)
 
-    _eval_config = {}
-
-    def __init__(self, api_key, api_base_url):
-        self._api_key = api_key
-        self._api_base_url = api_base_url
-        self._initialized = True
-
-    def create_evaluator(self, **kwargs) -> Evaluator:
+    def create_evaluator(
+        self,
+        name: Optional[str] = None,
+        desc: Optional[str] = None,
+        type: str = EvalConfigDefault.TYPE.value,
+        lan: str = EvalConfigDefault.LAN.value,
+        num_eval: int = EvalConfigDefault.NUM_EVAL,
+        due_hours: int = EvalConfigDefault.DUE_HOURS
+    ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://docs.dyspatch.io/localization/supported_languages/
 
@@ -61,7 +63,7 @@ class EvalClient:
             lan: Human language for this audio. One of {'en-us', 'ko-kr', 'audio'}. Default: en-us
             num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 3.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
-                      Must be >= 12. Default: 12.
+                        Must be >= 12. Default: 12.
 
         Returns:
             Evaluator instance.
@@ -73,86 +75,15 @@ class EvalClient:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        self._eval_config = {}
-
-        # Mission name
-        if 'name' not in kwargs:
-            eval_name = generate_random_eval_name()
-        else:
-            if len(kwargs['name']) <= 1:
-                raise ValueError('"name" must be longer than 1.')
-            eval_name = kwargs['name']
-        log.debug(f'Name: {eval_name}')
-        self._eval_config['eval_name'] = eval_name
-
-        # Mission description
-        if 'desc' not in kwargs:
-            eval_desc = ""
-        else:
-            eval_desc = kwargs['desc']
-        log.debug(f'Desc: {eval_desc}')
-        self._eval_config['eval_desc'] = eval_desc
-
-        # Evaluation type
-        if 'type' not in kwargs:
-            eval_type = 'NMOS'
-        else:
-            eval_type = kwargs['type']
-        # We support one evaluation type in one session.
-        if eval_type not in ['NMOS', 'SMOS', 'P808']:
-            raise ValueError(f'"type" must be one of {{NMOS, SMOS, P808}}. '
-                             f'Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}.')
-        log.debug(f'Eval type: {eval_type}')
-        self._eval_config['eval_type'] = eval_type
-
-        # Language
-        if 'lan' not in kwargs:
-            eval_language = 'en-us'
-        else:
-            eval_language = kwargs['lan']
-
-        if eval_language not in ['en-us', 'ko-kr', 'audio']:
-            raise ValueError(f'"lan" must be one of {{en-us, ko-kr, audio}}. '
-                             f'Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}.')
-        log.debug(f'Language: {eval_language}')
-        self._eval_config['eval_lan'] = eval_language
-
-        # Num eval per sample
-        if 'num_eval' not in kwargs:
-            num_eval = DefaultConfig.NUM_EVAL
-        else:
-            num_eval = int(kwargs['num_eval'])
-        if num_eval < 1:
-            raise ValueError(f'"num_eval" must be >= 1.')
-        log.debug(f'num_eval: {num_eval}')
-        self._eval_config['num_eval'] = num_eval
-
-        # Expected due
-        if 'due_hours' not in kwargs:
-            # In 12 hours.
-            due_hours = DefaultConfig.DUE_HOURS
-        else:
-            due_hours = int(kwargs['due_hours'])
-        # TODO: allow floating point hours, e.g. 0.5.
-        if due_hours < 12:
-            raise ValueError('"due_hours" must be >=12.')
-        utcnow = datetime.datetime.now()
-        due = utcnow + datetime.timedelta(hours=due_hours)
-
-        # Due string in ISO 8601.
-        self._eval_config['eval_expected_due'] = due.astimezone().isoformat(timespec='milliseconds')
-        self._eval_config['eval_expected_due_tzname'] = utcnow.astimezone().tzname()
-        log.debug(f'Expected due: {self._eval_config["eval_expected_due"]} '
-                  f'{self._eval_config["eval_expected_due_tzname"]}')
-
-        # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
-        current_timestamp = utcnow.astimezone()
-        self._eval_config['eval_creation_timestamp'] = current_timestamp.isoformat(timespec='milliseconds')
-        # We use the timestamp as a unique evaluation ID.
-        # TODO create more human readable eval ID.
-        self._eval_config['eval_id'] = self._eval_config['eval_creation_timestamp']
-        log.debug(f'Evaluation ID: {self._eval_config["eval_id"]}')
-        etor = Evaluator(self._api_key, self._api_base_url, self._eval_config)
+        self.eval_config = EvalConfig(
+            name=name,
+            desc=desc,
+            type=type,
+            lan=lan,
+            num_eval=num_eval,
+            due_hours=due_hours
+        )
+        etor = Evaluator(self._api_key, self._api_url, self._eval_config)
         return etor
 
 
@@ -161,8 +92,10 @@ class Podonos:
     _initialized = False
 
     @staticmethod
-    def init(api_key: str,
-             api_base_url: str = PODONOS_API_BASE_URL) -> EvalClient:
+    def init(
+        api_key: str,
+        api_base_url: str = PODONOS_API_BASE_URL
+    ) -> EvalClient:
         """Initializes the SDK. This function must be called before calling other functions.
            Raises exception on invalid or missing API key. Also, raises exception on other failures.
            Returns: None
