@@ -8,14 +8,20 @@ from podonos.common.enum import EvalType, Language
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
+class EvalConfigDefault:
+    TYPE = EvalType.NMOS
+    LAN = Language.EN_US
+    NUM_EVAL = 3
+    DUE_HOURS = 12
+
 class EvalConfig:
     _eval_id: str # We use the timestamp as a unique evaluation ID. TODO create more human readable eval ID.
     _eval_name: str
     _eval_expected_due: str # Due string in ISO 8601.
     _eval_creation_timestamp: str # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
     _eval_description: Optional[str] = None
-    _eval_type: EvalType = EvalType.NMOS
-    _eval_language: Language = Language.EN_US
+    _eval_type: EvalType = EvalConfigDefault.TYPE
+    _eval_language: Language = EvalConfigDefault.LAN
     _eval_num: int = 3
     _eval_expected_due_tzname: Optional[str] = None
     
@@ -23,10 +29,10 @@ class EvalConfig:
         self,
         name: Optional[str] = None,
         desc: Optional[str] = None,
-        type: str = EvalType.NMOS.value,
-        lan: str = Language.EN_US.value,
-        num_eval: int = 3,
-        due_hours: int = 12 # TODO: allow floating point hours, e.g. 0.5.
+        type: str = EvalConfigDefault.TYPE.value,
+        lan: str = EvalConfigDefault.LAN.value,
+        num_eval: int = EvalConfigDefault.NUM_EVAL,
+        due_hours: int = EvalConfigDefault.DUE_HOURS # TODO: allow floating point hours, e.g. 0.5.
     ) -> None:
         self._eval_name = self._set_eval_name(name)
         self._eval_description = desc

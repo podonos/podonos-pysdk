@@ -6,9 +6,8 @@ import time
 from typing import Optional
 
 from podonos.common.constant import *
-from podonos.common.enum import EvalType, Language
 from podonos.core.client import Client
-from podonos.core.config import EvalConfig
+from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.evaluator import Evaluator
 from podonos.version import *
 
@@ -49,10 +48,10 @@ class EvalClient(Client):
         self,
         name: Optional[str] = None,
         desc: Optional[str] = None,
-        type: str = EvalType.NMOS.value,
-        lan: str = Language.EN_US.value,
-        num_eval: int = 3,
-        due_hours: int = 12
+        type: str = EvalConfigDefault.TYPE.value,
+        lan: str = EvalConfigDefault.LAN.value,
+        num_eval: int = EvalConfigDefault.NUM_EVAL,
+        due_hours: int = EvalConfigDefault.DUE_HOURS
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://docs.dyspatch.io/localization/supported_languages/
