@@ -16,7 +16,7 @@ class bcolors:
 PODONOS_HOME = 'https://www.podonos.com/'
 
 # Podonos API base URL
-PODONOS_API_BASE_URL = "https://dev.podonosapi.com"
+PODONOS_API_BASE_URL = "https://prod.podonosapi.com"
 
 # Contact email
 PODONOS_CONTACT_EMAIL = "hello@podonos.com"
