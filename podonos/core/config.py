@@ -72,9 +72,9 @@ class EvalConfig:
         return self._eval_type
     
     def _set_eval_type(self, eval_type: str) -> EvalType:
-        if eval_type in [EvalType.NMOS.value, EvalType.SMOS.value, EvalType.P808.value]:
+        if eval_type not in [EvalType.NMOS.value, EvalType.SMOS.value, EvalType.P808.value]:
             raise ValueError(
-                f'"type" must be one of {{NMOS, SMOS, P808}}.' +
+                f'"type" must be one of {{NMOS, SMOS, P808}}. \n' +
                 f'Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}'
             )
         return EvalType(eval_type)
@@ -82,7 +82,7 @@ class EvalConfig:
     def _set_eval_language(self, eval_language: str) -> Language:
         if eval_language not in [Language.EN_US.value, Language.KO_KR.value, Language.AUDIO.value]:
             raise ValueError(
-                f'"lan" must be one of {{en-us, ko-kr, audio}}.' +
+                f'"lan" must be one of {{en-us, ko-kr, audio}}. \n' +
                 f'Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}.'
             )
         return Language(eval_language)

@@ -133,9 +133,12 @@ class Evaluator:
             FileNotFoundError: if a given file is not found.
         """
 
-        if not self._initialized or self._eval_config is None:
+        if not self._initialized:
             raise ValueError("Try to add file once the evaluator is closed.")
 
+        if self._eval_config is None:
+            raise ValueError("Evaluation configuration is not set.")
+        
         path0 = None
         path1 = None
 
@@ -274,7 +277,7 @@ class Evaluator:
             f'{self._api_base_url}/request-evaluation',
             json={
                 'eval_id': self._eval_config.eval_id,
-                'eval_type': self._eval_config.eval_type
+                'eval_type': self._eval_config.eval_type.value
             }, 
             headers=headers
         )

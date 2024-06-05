@@ -75,7 +75,7 @@ class EvalClient(Client):
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        self.eval_config = EvalConfig(
+        self._eval_config = EvalConfig(
             name=name,
             desc=desc,
             type=type,
