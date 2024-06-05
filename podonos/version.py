@@ -2,7 +2,6 @@
 Package version related functions
 """
 
-
 import importlib.metadata
 import logging
 from packaging.version import Version
