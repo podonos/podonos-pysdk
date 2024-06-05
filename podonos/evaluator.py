@@ -47,7 +47,7 @@ class Evaluator:
             'evaluation_id': self._api_key
         }
         response = requests.post(
-            f'{self._api_base_url}/clients/uploading-presigned-url',
+            f'{self._api_base_url}/customers/uploading-presigned-url',
             json=params, headers=headers
         )
         if response.status_code != 200:
@@ -247,7 +247,7 @@ class Evaluator:
             'evaluation_id': self._api_key
         }
         response = requests.post(
-            f'{self._api_base_url}/clients/uploading-presigned-url',
+            f'{self._api_base_url}/customers/uploading-presigned-url',
             json=params, headers=headers
         )
         
