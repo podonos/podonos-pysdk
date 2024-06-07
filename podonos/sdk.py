@@ -27,8 +27,7 @@ def progressbar(it, prefix="", size=60):
         mins, sec = divmod(remaining, 60)
         time_str = f"{int(mins):02}:{sec:05.2f}"
 
-        print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] Est wait {time_str}", end='\r',
-              flush=True)
+        print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] Est wait {time_str}", end='\r', flush=True)
 
     for i, item in enumerate(it):
         yield item
@@ -89,18 +88,20 @@ class EvalClient(Client):
 
 class Podonos:
     """Class for Podonos SDK."""
-    _initialized = False
+    _api_key: str
+    _api_base_url: str
+    _initialized: bool = False
 
     @staticmethod
     def init(
         api_key: str,
         api_base_url: str = PODONOS_API_BASE_URL
     ) -> EvalClient:
-        """Initializes the SDK. This function must be called before calling other functions.
-           Raises exception on invalid or missing API key. Also, raises exception on other failures.
-           Returns: None
+        """ Initializes the SDK. This function must be called before calling other functions.
+            Raises exception on invalid or missing API key. Also, raises exception on other failures.
+            Returns: None
 
-           Raises: ValueError: if the API Key is not set or invalid.
+            Raises: ValueError: if the API Key is not set or invalid.
         """
         if not api_key:
             raise ValueError(f"Podonos API key is missing. Please visit {PODONOS_HOME}.")
@@ -114,8 +115,10 @@ class Podonos:
 
         # API key verification.
         if len(api_key) <= 3:
-            raise ValueError(f"The API key {api_key} is not valid. "
-                             f"Please use a valid API key or visit {PODONOS_HOME}.")
+            raise ValueError(
+                f"The API key {api_key} is not valid. \n"
+                f"Please use a valid API key or visit {PODONOS_HOME}."
+            )
 
         Podonos._api_key = api_key
         Podonos._api_base_url = api_base_url
