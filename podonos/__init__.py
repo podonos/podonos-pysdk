@@ -1,4 +1,4 @@
-from .sdk import Podonos
+from .sdk import Podonos, Client
 
 __version__ = "0.1.4"
 

@@ -6,6 +6,8 @@ from typing import Tuple, Dict, List, Optional
 
 from podonos.common.constant import *
 from podonos.common.enum import EvalType
+from podonos.common.exception import HTTPError
+from podonos.core.api import APIClient
 from podonos.core.audio import Audio
 from podonos.core.config import EvalConfig
 
@@ -16,8 +18,8 @@ log = logging.getLogger(__name__)
 class Evaluator:
     """Evaluator for a single type of evaluation session."""
     _initialized: bool = False
+    _api_client: APIClient
     _api_key: Optional[str] = None
-    _api_url: Optional[str] = None
     _eval_config: Optional[EvalConfig] = None
 
     # Contains the metadata for all the audio files for evaluation.
@@ -26,12 +28,11 @@ class Evaluator:
 
     def __init__(
         self, 
-        api_key: str, 
-        api_url: str, 
+        api_client: APIClient,
         eval_config: Optional[EvalConfig] = None
     ):
-        self._api_key = api_key
-        self._api_url = api_url
+        self._api_client = api_client
+        self._api_key = api_client.api_key
         self._eval_config = eval_config
         self._initialized = True
 
@@ -39,7 +40,6 @@ class Evaluator:
         """Initializes the variables for one evaluation session."""
         self._initialized = False
         self._api_key = None
-        self._api_url = None
         self._eval_config = None
         self._eval_audios = []
         self._eval_audio_json = []
@@ -144,65 +144,27 @@ class Evaluator:
         if not self._initialized or self._eval_config is None:
             raise ValueError("No evaluation session is open.")
         
-
         # Create a json.
         session_json = self._eval_config.to_dict()
         session_json['files'] = self._eval_audio_json
 
         # Get the presigned URL for filename
         remote_object_name = os.path.join(self._eval_config.eval_creation_timestamp, 'session.json')
-        headers = {
-            'x-api-key': self._api_key
-        }
-        params = {
-            'filename': remote_object_name,
-            'evaluation_id': self._api_key
-        }
-        response = requests.post(
-            f'{self._api_url}/customers/uploading-presigned-url',
-            json=params, headers=headers
-        )
-        
-        if response.status_code != 200:
-            raise requests.exceptions.HTTPError
-        presigned_url = response.text
-        
-        # Strip the double quotation marks
-        presigned_url = presigned_url.replace('"', '')
-
-        upload_headers = {'Content-type': 'application/json'}
+        presigned_url = self._get_presigned_url_for_put_method(remote_object_name)
         try:
-            r = requests.put(
-                presigned_url,
-                json=session_json,
-                headers=upload_headers
-            )
-            if r.status_code != 200:
-                raise requests.exceptions.HTTPError
+            response = self._api_client.put_json_presigned_url(url=presigned_url, data=session_json, headers={'Content-type': 'application/json'})
+            response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             log.error(f"HTTP Error: {e}")
+            raise HTTPError(f"Failed to upload session.json: {e}", status_code=e.response.status_code if e.response else None)
         
         # Call evaluation requested.
-        response = requests.post(
-            f'{self._api_url}/request-evaluation',
-            json={
-                'eval_id': self._eval_config.eval_id,
-                'eval_type': self._eval_config.eval_type.value
-            }, 
-            headers=headers
-        )
-        
-        if response.status_code != 200:
-            raise requests.exceptions.HTTPError
-
-        result_obj = {'status': 'ok'}
-
+        self._post_request_evaluation()
         print(f'{bcolors.OK}Upload finished. You will receive en email once the evaluation is done.{bcolors.ENDC}')
         
         # Initialize variables.
         self._init_eval_variables()
-
-        return result_obj
+        return {'status': 'ok'}
     
     def _upload_one_file(self, remote_object_name: str, path: str) -> Tuple[str, str]:
         """
@@ -217,48 +179,39 @@ class Evaluator:
             upload_finish_at: Upload start time in ISO 8601 string.
         """
         # Get the presigned URL for files
-        headers = {
-            'x-api-key': self._api_key
-        }
-        params = {
-            'filename': remote_object_name,
-            'evaluation_id': self._api_key
-        }
-        response = requests.post(
-            f'{self._api_url}/customers/uploading-presigned-url',
-            json=params, headers=headers
-        )
-        if response.status_code != 200:
-            raise requests.exceptions.HTTPError
-
-        presigned_url = response.text
-        # Strip the double quotation marks
-        presigned_url = presigned_url.replace('"', '')
-
-        # Upload the file.
-        _, ext = os.path.splitext(path)
-        if ext == '.wav':
-            upload_headers = {'Content-type': 'audio/wav'}
-        elif ext == '.mp3':
-            upload_headers = {'Content-type': 'audio/mpeg'}
-        elif ext == '.json':
-            upload_headers = {'Content-type': 'application/json'}
-        else:
-            upload_headers = {'Content-type': 'application/octet-stream'}
+        presigned_url = self._get_presigned_url_for_put_method(remote_object_name)
 
         # Timestamp in ISO 8601.
         upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
-        try:
-            r = requests.put(
-                presigned_url,
-                data=open(path, 'rb'),
-                headers=upload_headers
-            )
-        except requests.exceptions.HTTPError as e:
-            log.error(f"HTTP Error: {e}")
-        # Timestamp in ISO 8601.
+        self._api_client.put_file_presigned_url(presigned_url, path)
         upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
         return upload_start_at, upload_finish_at
+    
+    def _get_presigned_url_for_put_method(self, remote_object_name: str) -> str:
+        try:
+            response = self._api_client.post("customers/uploading-presigned-url", {
+                'filename': remote_object_name,
+                'evaluation_id': self._api_key
+            })
+            response.raise_for_status()
+            return response.text.replace('"', '')
+        except requests.exceptions.HTTPError as e:
+            log.error(f"HTTP Error: {e}")
+            raise HTTPError(f"Failed to get presigned URL for {remote_object_name}: {e}", status_code=e.response.status_code if e.response else None)
+    
+    def _post_request_evaluation(self) -> None:
+        if self._eval_config is None:
+            raise ValueError("No evaluation session is open.")
+        
+        try:
+            response = self._api_client.post("request-evaluation", {
+                'eval_id': self._eval_config.eval_id,
+                'eval_type': self._eval_config.eval_type.value
+            })
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            log.error(f"HTTP Error: {e}")
+            raise HTTPError(f"Failed to request evaluation: {e}", status_code=e.response.status_code if e.response else None)
     
     def _set_audio(self, path: str, tag: Optional[str], eval_config: EvalConfig) -> Audio:
         valid_path = self._validate_path(path)

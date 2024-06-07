@@ -1,27 +1,20 @@
 from typing import Optional
 
+from requests import HTTPError
+
+from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 
 class Client:
     """Podonos Client class. Used for creating individual evaluator."""
 
-    _api_key: str
-    _api_url: str
+    _api_client: APIClient
     _initialized: bool = False
     
-    def __init__(self, api_key: str, api_url: str):
-        self._api_key = api_key
-        self._api_url = api_url
+    def __init__(self, api_client: APIClient):
+        self._api_client = api_client
         self._initialized = True
-    
-    @property
-    def api_key(self) -> str:
-        return self._api_key
-    
-    @property
-    def api_url(self) -> str:
-        return self._api_url
 
     def create_evaluator(
         self,
@@ -55,8 +48,7 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         return Evaluator(
-            api_key=self._api_key, 
-            api_url=self._api_url, 
+            api_client=self._api_client,
             eval_config=EvalConfig(
                 name=name,
                 desc=desc,
@@ -65,3 +57,11 @@ class Client:
                 num_eval=num_eval,
                 due_hours=due_hours
             ))
+    
+    def get_evaluation_list(self):
+        try:
+            response = self._api_client.get("evaluations")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            raise HTTPError(f"Failed to get evaluation list: {e}")
