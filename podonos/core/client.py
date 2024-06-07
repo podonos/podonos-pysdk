@@ -1,9 +1,10 @@
-from typing import Optional
+from typing import Optional, List
 
 from requests import HTTPError
 
 from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig, EvalConfigDefault
+from podonos.core.evaluation import EvaluationInformation
 from podonos.core.evaluator import Evaluator
 
 class Client:
@@ -58,10 +59,10 @@ class Client:
                 due_hours=due_hours
             ))
     
-    def get_evaluation_list(self):
+    def get_evaluation_list(self) -> List[EvaluationInformation]:
         try:
             response = self._api_client.get("evaluations")
             response.raise_for_status()
-            return response.json()
+            return [EvaluationInformation(**evaluation) for evaluation in response.json()]
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
