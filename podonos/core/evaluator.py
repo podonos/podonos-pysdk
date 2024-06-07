@@ -17,7 +17,7 @@ class Evaluator:
     """Evaluator for a single type of evaluation session."""
     _initialized: bool = False
     _api_key: Optional[str] = None
-    _api_base_url: Optional[str] = None
+    _api_url: Optional[str] = None
     _eval_config: Optional[EvalConfig] = None
 
     # Contains the metadata for all the audio files for evaluation.
@@ -27,11 +27,11 @@ class Evaluator:
     def __init__(
         self, 
         api_key: str, 
-        api_base_url: str, 
+        api_url: str, 
         eval_config: Optional[EvalConfig] = None
     ):
         self._api_key = api_key
-        self._api_base_url = api_base_url
+        self._api_url = api_url
         self._eval_config = eval_config
         self._initialized = True
 
@@ -39,7 +39,7 @@ class Evaluator:
         """Initializes the variables for one evaluation session."""
         self._initialized = False
         self._api_key = None
-        self._api_base_url = None
+        self._api_url = None
         self._eval_config = None
         self._eval_audios = []
         self._eval_audio_json = []
@@ -159,7 +159,7 @@ class Evaluator:
             'evaluation_id': self._api_key
         }
         response = requests.post(
-            f'{self._api_base_url}/customers/uploading-presigned-url',
+            f'{self._api_url}/customers/uploading-presigned-url',
             json=params, headers=headers
         )
         
@@ -184,7 +184,7 @@ class Evaluator:
         
         # Call evaluation requested.
         response = requests.post(
-            f'{self._api_base_url}/request-evaluation',
+            f'{self._api_url}/request-evaluation',
             json={
                 'eval_id': self._eval_config.eval_id,
                 'eval_type': self._eval_config.eval_type.value
@@ -225,7 +225,7 @@ class Evaluator:
             'evaluation_id': self._api_key
         }
         response = requests.post(
-            f'{self._api_base_url}/customers/uploading-presigned-url',
+            f'{self._api_url}/customers/uploading-presigned-url',
             json=params, headers=headers
         )
         if response.status_code != 200:
