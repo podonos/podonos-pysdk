@@ -3,12 +3,9 @@ For details, please refer to https://github.com/podonos/pysdk/
 """
 
 import time
-from typing import Optional
 
 from podonos.common.constant import *
 from podonos.core.client import Client
-from podonos.core.config import EvalConfig, EvalConfigDefault
-from podonos.evaluator import Evaluator
 from podonos.version import *
 
 # For logging
@@ -27,80 +24,29 @@ def progressbar(it, prefix="", size=60):
         mins, sec = divmod(remaining, 60)
         time_str = f"{int(mins):02}:{sec:05.2f}"
 
-        print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] Est wait {time_str}", end='\r',
-              flush=True)
+        print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] Est wait {time_str}", end='\r', flush=True)
 
     for i, item in enumerate(it):
         yield item
         show(i + 1)
     print("\n", flush=True)
 
-
-class EvalClient(Client):
-    """Evaluation client class. Used for creating individual evaluator."""
-
-    _eval_config: Optional[EvalConfig] = None
-    
-    def __init__(self, api_key: str, api_url: str):
-        super().__init__(api_key, api_url)
-
-    def create_evaluator(
-        self,
-        name: Optional[str] = None,
-        desc: Optional[str] = None,
-        type: str = EvalConfigDefault.TYPE.value,
-        lan: str = EvalConfigDefault.LAN.value,
-        num_eval: int = EvalConfigDefault.NUM_EVAL,
-        due_hours: int = EvalConfigDefault.DUE_HOURS
-    ) -> Evaluator:
-        """Creates a new evaluator with a unique evaluation session ID.
-        For the language code, see https://docs.dyspatch.io/localization/supported_languages/
-
-        Args:
-            name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
-            desc: Description of this session. Optional.
-            type: Evaluation type. One of {'NMOS', 'SMOS', 'P808'}. Default: NMOS
-            lan: Human language for this audio. One of {'en-us', 'ko-kr', 'audio'}. Default: en-us
-            num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 3.
-            due_hours: An expected number of days of finishing this mission and getting the evaluation report.
-                        Must be >= 12. Default: 12.
-
-        Returns:
-            Evaluator instance.
-
-        Raises:
-            ValueError: if this function is called before calling init().
-        """
-
-        if not self._initialized:
-            raise ValueError("This function is called before initialization.")
-
-        self._eval_config = EvalConfig(
-            name=name,
-            desc=desc,
-            type=type,
-            lan=lan,
-            num_eval=num_eval,
-            due_hours=due_hours
-        )
-        etor = Evaluator(self._api_key, self._api_url, self._eval_config)
-        return etor
-
-
 class Podonos:
     """Class for Podonos SDK."""
-    _initialized = False
+    _api_key: str
+    _api_base_url: str
+    _initialized: bool = False
 
     @staticmethod
     def init(
         api_key: str,
         api_base_url: str = PODONOS_API_BASE_URL
-    ) -> EvalClient:
-        """Initializes the SDK. This function must be called before calling other functions.
-           Raises exception on invalid or missing API key. Also, raises exception on other failures.
-           Returns: None
+    ) -> Client:
+        """ Initializes the SDK. This function must be called before calling other functions.
+            Raises exception on invalid or missing API key. Also, raises exception on other failures.
+            Returns: None
 
-           Raises: ValueError: if the API Key is not set or invalid.
+            Raises: ValueError: if the API Key is not set or invalid.
         """
         if not api_key:
             raise ValueError(f"Podonos API key is missing. Please visit {PODONOS_HOME}.")
@@ -114,8 +60,10 @@ class Podonos:
 
         # API key verification.
         if len(api_key) <= 3:
-            raise ValueError(f"The API key {api_key} is not valid. "
-                             f"Please use a valid API key or visit {PODONOS_HOME}.")
+            raise ValueError(
+                f"The API key {api_key} is not valid. \n"
+                f"Please use a valid API key or visit {PODONOS_HOME}."
+            )
 
         Podonos._api_key = api_key
         Podonos._api_base_url = api_base_url
@@ -129,6 +77,4 @@ class Podonos:
 
         # Successfully initialized.
         Podonos._initialized = True
-
-        client = EvalClient(Podonos._api_key, Podonos._api_base_url)
-        return client
+        return Client(Podonos._api_key, Podonos._api_base_url)

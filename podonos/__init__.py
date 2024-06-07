@@ -1,4 +1,4 @@
-from .sdk import Podonos, EvalClient
+from .sdk import Podonos
 
 __version__ = "0.1.4"
 
