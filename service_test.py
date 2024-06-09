@@ -16,5 +16,13 @@ def test_get_all_evaluations():
     evaluations = client.get_evaluation_list()
     print(evaluations)
 
+def test_get_stimulus_stats_by_id():
+    api_key = ""
+    client = podonos.init(api_key=api_key, api_url=_PODONOS_API_BASE_URL)
+    evaluations = client.get_evaluation_list()
+    for evaluation in evaluations:
+        stats = client.get_stimulus_stats_by_id(evaluation.id)
+        print(stats)
+
 if __name__ == '__main__':
-    test_get_all_evaluations()
+    main()
