@@ -43,7 +43,7 @@ class TestPodonos(unittest.TestCase):
         # Valid api_key
         valid_api_key = '12345678'
         valid_client = podonos.init(valid_api_key)
-        self.assertTrue(isinstance(valid_client, podonos.EvalClient))
+        self.assertTrue(isinstance(valid_client, podonos.Client))
 
 
 class TestPodonosClient(unittest.TestCase):
