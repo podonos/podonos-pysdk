@@ -72,6 +72,13 @@ class Client:
         try:
             response = self._api_client.get(f"evaluations/{evaluation_id}/stats")
             response.raise_for_status()
-            return [StimulusStats.from_dict(**stats) for stats in response.json()]
+            return [StimulusStats.from_dict(stats) for stats in response.json()]
         except Exception as e:
             raise HTTPError(f"Failed to get stimulus stats: {e}")
+    
+    def download_stimulu_stats_csv_by_id(self, evaluation_id: str) -> None:
+        stats = self.get_stimulus_stats_by_id(evaluation_id)
+        with open(f"{evaluation_id}.csv", "w") as f:
+            f.write("stimulus_name,mean,median,std,ci_90,ci_95,ci_99\n")
+            for stat in stats:
+                f.write(f"{stat.stimulus_name},{stat.mean},{stat.median},{stat.std},{stat.ci_90},{stat.ci_95},{stat.ci_99}\n")
