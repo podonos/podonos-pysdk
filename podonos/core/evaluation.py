@@ -16,8 +16,10 @@ class EvaluationInformation:
 
     @staticmethod
     def from_dict(data: dict) -> 'EvaluationInformation':
-        if "id" not in data or "project_id" not in data or "title" not in data or "introduction" not in data or "status" not in data or "created_time" not in data or "updated_time" not in data:
-            raise ValueError(f"Invalid data format for EvaluationInformation: {data}")
+        required_keys = ["id", "project_id", "title", "introduction", "status", "created_time", "updated_time"]
+        for key in required_keys:
+            if key not in data:
+                raise ValueError(f"Invalid data format for EvaluationInformation: {data}")
         
         return EvaluationInformation(
             id=data['id'],
