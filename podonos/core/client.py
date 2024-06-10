@@ -6,6 +6,7 @@ from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluation import EvaluationInformation
 from podonos.core.evaluator import Evaluator
+from podonos.core.stimulus_stats import StimulusStats
 
 class Client:
     """Podonos Client class. Used for creating individual evaluator."""
@@ -66,3 +67,18 @@ class Client:
             return [EvaluationInformation(**evaluation) for evaluation in response.json()]
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
+    
+    def get_stimulus_stats_by_id(self, evaluation_id: str) -> List[StimulusStats]:
+        try:
+            response = self._api_client.get(f"evaluations/{evaluation_id}/stats")
+            response.raise_for_status()
+            return [StimulusStats.from_dict(stats) for stats in response.json()]
+        except Exception as e:
+            raise HTTPError(f"Failed to get stimulus stats: {e}")
+    
+    def download_stimulu_stats_csv_by_id(self, evaluation_id: str) -> None:
+        stats = self.get_stimulus_stats_by_id(evaluation_id)
+        with open(f"{evaluation_id}.csv", "w") as f:
+            f.write("stimulus_name,mean,median,std,ci_90,ci_95,ci_99\n")
+            for stat in stats:
+                f.write(f"{stat.stimulus_name},{stat.mean},{stat.median},{stat.std},{stat.ci_90},{stat.ci_95},{stat.ci_99}\n")
