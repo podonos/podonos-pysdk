@@ -8,8 +8,9 @@ from podonos.core.evaluation import EvaluationInformation
 from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
 
+
 class Client:
-    """Podonos Client class. Used for creating individual evaluator."""
+    """Podonos Client class. Used for creating individual evaluator and managing the evaluations."""
 
     _api_client: APIClient
     _initialized: bool = False
@@ -34,7 +35,7 @@ class Client:
             name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
             desc: Description of this session. Optional.
             type: Evaluation type. One of {'NMOS', 'SMOS', 'P808'}. Default: NMOS
-            lan: Human language for this audio. One of {'en-us', 'ko-kr', 'audio'}. Default: en-us
+            lan: Human language for this audio. One of those in Language. Default: en-us
             num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 3.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
                         Must be >= 12. Default: 12.
@@ -61,6 +62,13 @@ class Client:
             ))
     
     def get_evaluation_list(self) -> List[EvaluationInformation]:
+        """Gets a list of evaluations.
+
+        Args: None
+
+        Returns:
+            EvaluationInformation containing all the evaluation info
+        """
         try:
             response = self._api_client.get("evaluations")
             response.raise_for_status()
@@ -69,6 +77,14 @@ class Client:
             raise HTTPError(f"Failed to get evaluation list: {e}")
     
     def get_stimulus_stats_by_id(self, evaluation_id: str) -> List[StimulusStats]:
+        """Gets evaluation statistics referenced by id.
+
+        Args:
+            evaluation_id: Evaluation id.
+
+        Returns:
+            StimulusStats containing all evaluation statistics.
+        """
         try:
             response = self._api_client.get(f"evaluations/{evaluation_id}/stats")
             response.raise_for_status()
@@ -76,9 +92,17 @@ class Client:
         except Exception as e:
             raise HTTPError(f"Failed to get stimulus stats: {e}")
     
-    def download_stimulu_stats_csv_by_id(self, evaluation_id: str) -> None:
+    def download_stimulus_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
+        """Downloads the evaluation statistics into CSV referenced by id.
+
+        Args:
+            evaluation_id: Evaluation id
+            output_path: Path to the output CSV
+
+        Returns: None
+        """
         stats = self.get_stimulus_stats_by_id(evaluation_id)
-        with open(f"{evaluation_id}.csv", "w") as f:
+        with open(output_path, "w") as f:
             f.write("stimulus_name,mean,median,std,ci_90,ci_95,ci_99\n")
             for stat in stats:
                 f.write(f"{stat.stimulus_name},{stat.mean},{stat.median},{stat.std},{stat.ci_90},{stat.ci_95},{stat.ci_99}\n")
