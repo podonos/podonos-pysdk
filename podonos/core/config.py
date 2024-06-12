@@ -8,23 +8,27 @@ from podonos.common.enum import EvalType, Language
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
+
 class EvalConfigDefault:
     TYPE = EvalType.NMOS
     LAN = Language.EN_US
     NUM_EVAL = 3
     DUE_HOURS = 12
+    AUTO_START = False
+
 
 class EvalConfig:
-    _eval_id: str # We use the timestamp as a unique evaluation ID. TODO create more human readable eval ID.
+    _eval_id: str  # We use the timestamp as a unique evaluation ID. TODO create more human readable eval ID.
     _eval_name: str
-    _eval_expected_due: str # Due string in ISO 8601.
-    _eval_creation_timestamp: str # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
+    _eval_expected_due: str  # Due string in ISO 8601.
+    _eval_creation_timestamp: str  # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
     _eval_description: Optional[str] = None
     _eval_type: EvalType = EvalConfigDefault.TYPE
     _eval_language: Language = EvalConfigDefault.LAN
     _eval_num: int = 3
     _eval_expected_due_tzname: Optional[str] = None
-    
+    _eval_auto_start: bool = False
+
     def __init__(
         self,
         name: Optional[str] = None,
@@ -32,7 +36,8 @@ class EvalConfig:
         type: str = EvalConfigDefault.TYPE.value,
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
-        due_hours: int = EvalConfigDefault.DUE_HOURS # TODO: allow floating point hours, e.g. 0.5.
+        due_hours: int = EvalConfigDefault.DUE_HOURS,  # TODO: allow floating point hours, e.g. 0.5.
+        auto_start: bool = EvalConfigDefault.AUTO_START
     ) -> None:
         self._eval_name = self._set_eval_name(name)
         self._eval_description = desc
@@ -43,8 +48,9 @@ class EvalConfig:
         self._eval_expected_due_tzname = self._set_eval_expected_due_tzname()
         self._eval_creation_timestamp = self._set_eval_creation_timestamp()
         self._eval_id = self._eval_creation_timestamp
+        self._eval_auto_start = self._set_eval_auto_start(auto_start)
         self.log_eval_config()
-    
+
     def log_eval_config(self) -> None:
         log.debug(f'Name: {self._eval_name}')
         log.debug(f'Desc: {self._eval_description}')
@@ -53,11 +59,12 @@ class EvalConfig:
         log.debug(f'num_eval: {self._eval_num}')
         log.debug(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
         log.debug(f'Evaluation ID: {self._eval_id}')
-    
+        log.debug(f'Evaluation auto start: {self._eval_auto_start}')
+
     @property
     def eval_id(self) -> str:
         return self._eval_id
-    
+
     def _set_eval_name(self, eval_name: Optional[str]) -> str:
         if not eval_name:
             current = datetime.now()
@@ -66,11 +73,11 @@ class EvalConfig:
             return eval_name
         else:
             raise ValueError('"name" must be longer than 1.')
-    
+
     @property
     def eval_type(self) -> EvalType:
         return self._eval_type
-    
+
     def _set_eval_type(self, eval_type: str) -> EvalType:
         if eval_type not in [EvalType.NMOS.value, EvalType.SMOS.value, EvalType.P808.value]:
             raise ValueError(
@@ -80,36 +87,47 @@ class EvalConfig:
         return EvalType(eval_type)
 
     def _set_eval_language(self, eval_language: str) -> Language:
-        if eval_language not in [Language.EN_US.value, Language.KO_KR.value, Language.AUDIO.value]:
+        if eval_language not in [Language.EN_US.value, Language.EN_GB.value,
+                                 Language.EN_AU.value, Language.EN_CA.value,
+                                 Language.ES_ES.value, Language.ES_MX.value,
+                                 Language.KO_KR.value, Language.AUDIO.value]:
             raise ValueError(
-                f'"lan" must be one of {{en-us, ko-kr, audio}}. \n' +
+                f'"lan" must be one of the supported language strings. ' +
+                f'See https://docs.podonos.com/reference#create-evaluator \n' +
                 f'Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}.'
             )
         return Language(eval_language)
-    
+
     def _set_eval_num(self, num_eval: int) -> int:
         if num_eval < 1:
             raise ValueError(f'"num_eval" must be >= 1.')
         return num_eval
-    
+
     # TODO: allow floating point hours, e.g. 0.5.
     def _set_eval_expected_due(self, due_hours: int) -> str:
         if due_hours < 12:
             raise ValueError('"due_hours" must be >=12.')
-        
+
         due = datetime.now() + timedelta(hours=due_hours)
         return due.astimezone().isoformat(timespec='milliseconds')
-    
+
     def _set_eval_expected_due_tzname(self) -> Optional[str]:
         return datetime.now().astimezone().tzname()
-    
+
     @property
     def eval_creation_timestamp(self) -> str:
         return self._eval_creation_timestamp
-    
+
     def _set_eval_creation_timestamp(self) -> str:
         return datetime.now().isoformat(timespec='milliseconds')
-    
+
+    @property
+    def eval_auto_start(self) -> bool:
+        return self._eval_auto_start
+
+    def _set_eval_auto_start(self, eval_auto_start: bool) -> bool:
+        return eval_auto_start
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'eval_id': self._eval_id,
@@ -119,5 +137,6 @@ class EvalConfig:
             'eval_language': self._eval_language.value,
             'eval_num': self._eval_num,
             'eval_expected_due': self._eval_expected_due,
-            'eval_creation_timestamp': self._eval_creation_timestamp
+            'eval_creation_timestamp': self._eval_creation_timestamp,
+            'eval_auto_start': self._eval_auto_start
         }

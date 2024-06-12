@@ -18,5 +18,10 @@ class EvalType(Enum):
 
 class Language(Enum):
     EN_US = 'en-us'
+    EN_GB = 'en-gb'
+    EN_AU = 'en-au'
+    EN_CA = 'en-ca'
+    ES_ES = 'es-es'
+    ES_MX = 'es-mx'
     KO_KR = 'ko-kr'
     AUDIO = 'audio'

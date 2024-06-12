@@ -29,7 +29,7 @@ def test_get_stimulus_stats_csv_by_id():
     client = podonos.init(api_key=api_key, api_url=_PODONOS_API_BASE_URL)
     evaluations = client.get_evaluation_list()
     for evaluation in evaluations:
-        client.download_stimulu_stats_csv_by_id(evaluation.id)
+        client.download_stimulu_stats_csv_by_id(evaluation.id, './eval_stats.csv')
 
 if __name__ == '__main__':
     main()

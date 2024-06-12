@@ -88,7 +88,7 @@ class Evaluator:
         if self._eval_config is None:
             raise ValueError("Evaluation configuration is not set.")
 
-        if self._eval_config.eval_type in [EvalType.NMOS, EvalType.P808]:
+        if self._eval_config.eval_type in [EvalType.NMOS, EvalType.SMOS, EvalType.P808]:
             if not path:
                 raise ValueError(f'"path" must be set for the evaluation type {self._eval_config.eval_type}')
             
@@ -160,8 +160,11 @@ class Evaluator:
         
         # Call evaluation requested.
         self._post_request_evaluation()
-        print(f'{bcolors.OK}Upload finished. You will receive en email once the evaluation is done.{bcolors.ENDC}')
-        
+        if self._eval_config.eval_auto_start:
+            print(f'{bcolors.OK}Upload finished. The evaluation will start immediately.{bcolors.ENDC}')
+        else:
+            print(f'{bcolors.OK}Upload finished. Please start the evaluation at {PODONOS_WORKSPACE}.{bcolors.ENDC}')
+
         # Initialize variables.
         self._init_eval_variables()
         return {'status': 'ok'}
