@@ -26,3 +26,14 @@ class StimulusStats:
             ci_95=data['ci_95'],
             ci_99=data['ci_99']
         )
+    
+    def to_dict(self) -> dict:
+        return {
+            "stimulus_name": self.stimulus_name,
+            "mean": self.mean,
+            "median": self.median,
+            "std": self.std,
+            "ci_90": self.ci_90,
+            "ci_95": self.ci_95,
+            "ci_99": self.ci_99
+        }

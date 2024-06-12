@@ -32,3 +32,16 @@ class EvaluationInformation:
             created_time=datetime.fromisoformat(data["created_time"].replace('Z', '+00:00')),
             updated_time=datetime.fromisoformat(data["updated_time"].replace('Z', '+00:00'))
         )
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "project_id": self.project_id,
+            "title": self.title,
+            "introduction": self.introduction,
+            "internal_name": self.internal_name,
+            "description": self.description,
+            "status": self.status,
+            "created_time": self.created_time,
+            "updated_time": self.updated_time
+        }
