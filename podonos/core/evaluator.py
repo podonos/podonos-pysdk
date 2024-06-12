@@ -88,7 +88,7 @@ class Evaluator:
         if self._eval_config is None:
             raise ValueError("Evaluation configuration is not set.")
 
-        if self._eval_config.eval_type in [EvalType.NMOS, EvalType.P808]:
+        if self._eval_config.eval_type in [EvalType.NMOS, EvalType.SMOS, EvalType.P808]:
             if not path:
                 raise ValueError(f'"path" must be set for the evaluation type {self._eval_config.eval_type}')
             

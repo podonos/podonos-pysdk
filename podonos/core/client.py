@@ -26,7 +26,8 @@ class Client:
         type: str = EvalConfigDefault.TYPE.value,
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
-        due_hours: int = EvalConfigDefault.DUE_HOURS
+        due_hours: int = EvalConfigDefault.DUE_HOURS,
+        auto_start: bool = EvalConfigDefault.AUTO_START
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://docs.dyspatch.io/localization/supported_languages/
@@ -39,6 +40,7 @@ class Client:
             num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 3.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
                         Must be >= 12. Default: 12.
+            auto_start: The evaluation start automatically if True. Manually start in the workspace otherwise.
 
         Returns:
             Evaluator instance.
@@ -58,7 +60,8 @@ class Client:
                 type=type,
                 lan=lan,
                 num_eval=num_eval,
-                due_hours=due_hours
+                due_hours=due_hours,
+                auto_start=auto_start
             ))
     
     def get_evaluation_list(self) -> List[EvaluationInformation]:
