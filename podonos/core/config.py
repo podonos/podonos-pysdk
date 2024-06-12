@@ -80,9 +80,13 @@ class EvalConfig:
         return EvalType(eval_type)
 
     def _set_eval_language(self, eval_language: str) -> Language:
-        if eval_language not in [Language.EN_US.value, Language.KO_KR.value, Language.AUDIO.value]:
+        if eval_language not in [Language.EN_US.value, Language.EN_GB.value,
+                                 Language.EN_AU.value, Language.EN_CA.value,
+                                 Language.ES_ES.value, Language.ES_MX.value,
+                                 Language.KO_KR.value, Language.AUDIO.value]:
             raise ValueError(
-                f'"lan" must be one of {{en-us, ko-kr, audio}}. \n' +
+                f'"lan" must be one of the supported language strings. ' +
+                f'See https://docs.podonos.com/reference#create-evaluator \n' +
                 f'Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}.'
             )
         return Language(eval_language)
