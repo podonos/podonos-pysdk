@@ -15,6 +15,9 @@ class bcolors:
 # Podonos homepage
 PODONOS_HOME = 'https://www.podonos.com/'
 
+# Podonos Workspace
+PODONOS_WORKSPACE = "https://workspace.podonos.com"
+
 # Podonos API base URL
 PODONOS_API_BASE_URL = "https://prod.podonosapi.com"
 
