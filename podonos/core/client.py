@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
 
 from requests import HTTPError
 
@@ -64,7 +64,7 @@ class Client:
                 auto_start=auto_start
             ))
     
-    def get_evaluation_list(self) -> List[EvaluationInformation]:
+    def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
 
         Args: None
@@ -75,11 +75,12 @@ class Client:
         try:
             response = self._api_client.get("evaluations")
             response.raise_for_status()
-            return [EvaluationInformation(**evaluation) for evaluation in response.json()]
+            evaluations = [EvaluationInformation.from_dict(evaluation) for evaluation in response.json()]
+            return [evaluation.to_dict() for evaluation in evaluations]
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
     
-    def get_stimulus_stats_by_id(self, evaluation_id: str) -> List[StimulusStats]:
+    def get_stimulus_stats_by_id(self, evaluation_id: str) -> List[Dict[str, Any]]:
         """Gets evaluation statistics referenced by id.
 
         Args:
@@ -91,7 +92,8 @@ class Client:
         try:
             response = self._api_client.get(f"evaluations/{evaluation_id}/stats")
             response.raise_for_status()
-            return [StimulusStats.from_dict(stats) for stats in response.json()]
+            stats = [StimulusStats.from_dict(stats) for stats in response.json()]
+            return [stat.to_dict() for stat in stats]
         except Exception as e:
             raise HTTPError(f"Failed to get stimulus stats: {e}")
     
@@ -108,4 +110,4 @@ class Client:
         with open(output_path, "w") as f:
             f.write("stimulus_name,mean,median,std,ci_90,ci_95,ci_99\n")
             for stat in stats:
-                f.write(f"{stat.stimulus_name},{stat.mean},{stat.median},{stat.std},{stat.ci_90},{stat.ci_95},{stat.ci_99}\n")
+                f.write(f"{stat['stimulus_name']},{stat['mean']},{stat['median']},{stat['std']},{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n")
