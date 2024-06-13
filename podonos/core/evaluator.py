@@ -105,10 +105,6 @@ class Evaluator:
             audio1 = self._set_audio(path1, tag1, self._eval_config)
             self._eval_audios.append([audio0, audio1])
 
-        # Upload files
-        # TODO: add lazy & background upload
-        self.upload_files()
-
     def upload_files(self) -> None:
         """Uploads the files for evaluation.
         This function holds until the file uploading finishes.
@@ -143,7 +139,11 @@ class Evaluator:
         """
         if not self._initialized or self._eval_config is None:
             raise ValueError("No evaluation session is open.")
-        
+
+        # Upload files
+        # TODO: add lazy & background upload
+        self.upload_files()
+
         # Create a json.
         session_json = self._eval_config.to_dict()
         session_json['files'] = self._eval_audio_json
@@ -168,7 +168,7 @@ class Evaluator:
         # Initialize variables.
         self._init_eval_variables()
         return {'status': 'ok'}
-    
+
     def _upload_one_file(self, remote_object_name: str, path: str) -> Tuple[str, str]:
         """
         Upload one file to server.
