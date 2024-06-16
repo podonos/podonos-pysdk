@@ -5,7 +5,6 @@ from datetime import datetime
 @dataclass
 class EvaluationInformation:
     id: str
-    project_id: str
     title: str
     introduction: str
     internal_name: Optional[str]
@@ -16,14 +15,13 @@ class EvaluationInformation:
 
     @staticmethod
     def from_dict(data: dict) -> 'EvaluationInformation':
-        required_keys = ["id", "project_id", "title", "introduction", "status", "created_time", "updated_time"]
+        required_keys = ["id", "title", "introduction", "status", "created_time", "updated_time"]
         for key in required_keys:
             if key not in data:
                 raise ValueError(f"Invalid data format for EvaluationInformation: {data}")
         
         return EvaluationInformation(
             id=data['id'],
-            project_id=data['project_id'],
             title=data["title"],
             introduction=data["introduction"],
             internal_name=data["internal_name"],
@@ -36,7 +34,6 @@ class EvaluationInformation:
     def to_dict(self) -> dict:
         return {
             "id": self.id,
-            "project_id": self.project_id,
             "title": self.title,
             "introduction": self.introduction,
             "internal_name": self.internal_name,
