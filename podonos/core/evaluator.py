@@ -10,6 +10,7 @@ from podonos.common.exception import HTTPError
 from podonos.core.api import APIClient
 from podonos.core.audio import Audio
 from podonos.core.config import EvalConfig
+from podonos.core.evaluation import EvaluationInformation
 
 # For logging
 logging.basicConfig(level=logging.INFO)
@@ -88,7 +89,7 @@ class Evaluator:
         if self._eval_config is None:
             raise ValueError("Evaluation configuration is not set.")
 
-        if self._eval_config.eval_type in [EvalType.NMOS, EvalType.SMOS, EvalType.P808]:
+        if self._eval_config.eval_type in [EvalType.NMOS, EvalType.QMOS, EvalType.SMOS, EvalType.P808]:
             if not path:
                 raise ValueError(f'"path" must be set for the evaluation type {self._eval_config.eval_type}')
             
@@ -105,7 +106,7 @@ class Evaluator:
             audio1 = self._set_audio(path1, tag1, self._eval_config)
             self._eval_audios.append([audio0, audio1])
 
-    def upload_files(self) -> None:
+    def upload_files(self, evaluation_id: str) -> None:
         """Uploads the files for evaluation.
         This function holds until the file uploading finishes.
 
@@ -121,7 +122,7 @@ class Evaluator:
             audio_json_list = []
             for audio in audio_list:
                 # Get the presigned URL for filename
-                upload_start_at, upload_finish_at = self._upload_one_file(audio.remote_name, audio.path)
+                upload_start_at, upload_finish_at = self._upload_one_file(evaluation_id, audio.remote_name, audio.path)
                 audio.set_upload_at(upload_start_at, upload_finish_at)
                 audio_json_list.append(audio.to_dict())
             
@@ -142,7 +143,8 @@ class Evaluator:
 
         # Upload files
         # TODO: add lazy & background upload
-        self.upload_files()
+        evaluation = self._create_evaluation()
+        self.upload_files(evaluation_id=evaluation.id)
 
         # Create a json.
         session_json = self._eval_config.to_dict()
@@ -150,7 +152,7 @@ class Evaluator:
 
         # Get the presigned URL for filename
         remote_object_name = os.path.join(self._eval_config.eval_creation_timestamp, 'session.json')
-        presigned_url = self._get_presigned_url_for_put_method(remote_object_name)
+        presigned_url = self._get_presigned_url_for_put_method(evaluation.id, remote_object_name)
         try:
             response = self._api_client.put_json_presigned_url(url=presigned_url, data=session_json, headers={'Content-type': 'application/json'})
             response.raise_for_status()
@@ -169,7 +171,27 @@ class Evaluator:
         self._init_eval_variables()
         return {'status': 'ok'}
 
-    def _upload_one_file(self, remote_object_name: str, path: str) -> Tuple[str, str]:
+    def _create_evaluation(self) -> EvaluationInformation:
+        """
+        Create a new evaluation based on evaluation configuration
+
+        Raises:
+            HTTPError: If the value is invalid
+
+        Returns:
+            EvaluationInformation: Get new evaluation information
+        """
+        
+        if not self._eval_config:
+            raise 
+        try:
+            response = self._api_client.post("evaluations", data=self._eval_config.to_create_request_dto())
+            response.raise_for_status()
+            return EvaluationInformation.from_dict(response.json())
+        except Exception as e:
+                raise HTTPError(f"Failed to create the evaluation: {e}")
+
+    def _upload_one_file(self, evaluation_id: str, remote_object_name: str, path: str) -> Tuple[str, str]:
         """
         Upload one file to server.
 
@@ -182,7 +204,7 @@ class Evaluator:
             upload_finish_at: Upload start time in ISO 8601 string.
         """
         # Get the presigned URL for files
-        presigned_url = self._get_presigned_url_for_put_method(remote_object_name)
+        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, remote_object_name)
 
         # Timestamp in ISO 8601.
         upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
@@ -190,11 +212,11 @@ class Evaluator:
         upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
         return upload_start_at, upload_finish_at
     
-    def _get_presigned_url_for_put_method(self, remote_object_name: str) -> str:
+    def _get_presigned_url_for_put_method(self, evaluation_id: str, remote_object_name: str) -> str:
         try:
             response = self._api_client.post("customers/uploading-presigned-url", {
                 'filename': remote_object_name,
-                'evaluation_id': self._api_key
+                'evaluation_id': evaluation_id
             })
             response.raise_for_status()
             return response.text.replace('"', '')

@@ -8,7 +8,6 @@ from podonos.core.evaluation import EvaluationInformation
 from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
 
-
 class Client:
     """Podonos Client class. Used for creating individual evaluator and managing the evaluations."""
 
@@ -25,6 +24,7 @@ class Client:
         desc: Optional[str] = None,
         type: str = EvalConfigDefault.TYPE.value,
         lan: str = EvalConfigDefault.LAN.value,
+        granularity: float = EvalConfigDefault.GRANULARITY,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,
         auto_start: bool = EvalConfigDefault.AUTO_START
@@ -59,6 +59,7 @@ class Client:
                 desc=desc,
                 type=type,
                 lan=lan,
+                granularity=granularity,
                 num_eval=num_eval,
                 due_hours=due_hours,
                 auto_start=auto_start
