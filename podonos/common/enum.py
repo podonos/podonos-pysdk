@@ -26,3 +26,7 @@ class Language(Enum):
     ES_MX = 'es-mx'
     KO_KR = 'ko-kr'
     AUDIO = 'audio'
+
+class QuestionFileType(str, Enum):
+    STIMULUS = "STIMULUS"
+    REF = "REF"

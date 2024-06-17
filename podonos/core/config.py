@@ -19,7 +19,7 @@ class EvalConfigDefault:
 
 
 class EvalConfig:
-    _eval_id: str  # We use the timestamp as a unique evaluation ID. TODO create more human readable eval ID.
+    _eval_id: str 
     _eval_name: str
     _eval_expected_due: str  # Due string in ISO 8601.
     _eval_creation_timestamp: str  # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
@@ -80,6 +80,10 @@ class EvalConfig:
     @property
     def eval_auto_start(self) -> bool:
         return self._eval_auto_start
+    
+    @eval_id.setter
+    def eval_id(self, eval_id: str) -> None:
+        self._eval_id = eval_id
 
     def _set_eval_name(self, eval_name: Optional[str]) -> str:
         if not eval_name:

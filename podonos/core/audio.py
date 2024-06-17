@@ -86,19 +86,22 @@ class Audio:
     _upload_start_at: Optional[str] = None
     _upload_finish_at: Optional[str] = None
     _tag: Optional[str] = None
+    _group: Optional[str] = None
     
     def __init__(
         self, 
         path: str,
         name: str, 
         remote_name: str,
-        tag: Optional[str]
+        tag: Optional[str],
+        group: Optional[str]
     ) -> None:
         self._path = path
         self._name = name
         self._remote_name = remote_name
         self._metadata = AudioMeta(path)
         self._tag = tag
+        self._group = group
 
     @property
     def path(self) -> str:
@@ -111,6 +114,14 @@ class Audio:
     @property
     def remote_name(self) -> str:
         return self._remote_name
+    
+    @property
+    def tag(self) -> Optional[str]:
+        return self._tag
+    
+    @property
+    def group(self) -> Optional[str]:
+        return self._group
 
     def set_upload_at(self, start_at: str, finish_at: str) -> None:
         self._upload_start_at = start_at
@@ -125,5 +136,6 @@ class Audio:
             "duration_in_ms": self._metadata.duration_in_ms,
             "upload_start_at": self._upload_start_at,
             "upload_finish_at": self._upload_finish_at,
-            "tag": self._tag
+            "tag": self._tag,
+            "group": self._group
         }
