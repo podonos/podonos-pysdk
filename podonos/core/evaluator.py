@@ -5,7 +5,7 @@ import requests
 from typing import Tuple, Dict, List, Optional
 
 from podonos.common.constant import *
-from podonos.common.enum import EvalType
+from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.exception import HTTPError
 from podonos.core.api import APIClient
 from podonos.core.audio import Audio
@@ -93,7 +93,7 @@ class Evaluator:
             if not path:
                 raise ValueError(f'"path" must be set for the evaluation type {self._eval_config.eval_type}')
             
-            audio = self._set_audio(path, tag, self._eval_config)
+            audio = self._set_audio(path=path, tag=tag, group=None, eval_config=self._eval_config)
             self._eval_audios.append([audio])
 
         if EvalType.SMOS == self._eval_config.eval_type:
@@ -102,8 +102,8 @@ class Evaluator:
             if not path0 or not path1:
                 raise ValueError(f'Both "path0" and "path1" must be set for {self._eval_config.eval_type}')
             
-            audio0 = self._set_audio(path0, tag0, self._eval_config)
-            audio1 = self._set_audio(path1, tag1, self._eval_config)
+            audio0 = self._set_audio(path0, tag0, None, self._eval_config)
+            audio1 = self._set_audio(path1, tag1, None, self._eval_config)
             self._eval_audios.append([audio0, audio1])
 
     def upload_files(self, evaluation_id: str) -> None:
@@ -122,7 +122,14 @@ class Evaluator:
             audio_json_list = []
             for audio in audio_list:
                 # Get the presigned URL for filename
-                upload_start_at, upload_finish_at = self._upload_one_file(evaluation_id, audio.remote_name, audio.path)
+                upload_start_at, upload_finish_at = self._upload_one_file(
+                    evaluation_id=evaluation_id, 
+                    remote_object_name=audio.remote_name, 
+                    path=audio.path,
+                    tags=[audio.tag] if audio.tag else [],
+                    type=QuestionFileType.STIMULUS,
+                    group=audio.group
+                )
                 audio.set_upload_at(upload_start_at, upload_finish_at)
                 audio_json_list.append(audio.to_dict())
             
@@ -160,8 +167,6 @@ class Evaluator:
             log.error(f"HTTP Error: {e}")
             raise HTTPError(f"Failed to upload session.json: {e}", status_code=e.response.status_code if e.response else None)
         
-        # Call evaluation requested.
-        self._post_request_evaluation()
         if self._eval_config.eval_auto_start:
             print(f'{bcolors.OK}Upload finished. The evaluation will start immediately.{bcolors.ENDC}')
         else:
@@ -183,28 +188,41 @@ class Evaluator:
         """
         
         if not self._eval_config:
-            raise 
+            raise ValueError("Evaluator is not initialized")
         try:
             response = self._api_client.post("evaluations", data=self._eval_config.to_create_request_dto())
             response.raise_for_status()
-            return EvaluationInformation.from_dict(response.json())
+            evaluation = EvaluationInformation.from_dict(response.json())
+            self._eval_config.eval_id = evaluation.id
+            return evaluation
         except Exception as e:
-                raise HTTPError(f"Failed to create the evaluation: {e}")
+            raise HTTPError(f"Failed to create the evaluation: {e}")
 
-    def _upload_one_file(self, evaluation_id: str, remote_object_name: str, path: str) -> Tuple[str, str]:
+    def _upload_one_file(
+        self, 
+        evaluation_id: str, 
+        remote_object_name: str, 
+        path: str,
+        tags: List[str] = [],
+        type: QuestionFileType = QuestionFileType.STIMULUS,
+        group: Optional[str] = None,
+    ) -> Tuple[str, str]:
         """
         Upload one file to server.
 
         Args:
+            evaluation_id: New evaluation's id.
             remote_object_name: Path to the remote file name.
             path: Path to the local file.
-
+            tags: Specific name list about file.
+            type: Type used in QuestionFile.
+            group: Group's name for combining with other files.
         Returns:
             upload_start_at: Upload start time in ISO 8601 string.
             upload_finish_at: Upload start time in ISO 8601 string.
         """
         # Get the presigned URL for files
-        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, remote_object_name)
+        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, remote_object_name, tags, type, group)
 
         # Timestamp in ISO 8601.
         upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
@@ -212,11 +230,20 @@ class Evaluator:
         upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
         return upload_start_at, upload_finish_at
     
-    def _get_presigned_url_for_put_method(self, evaluation_id: str, remote_object_name: str) -> str:
+    def _get_presigned_url_for_put_method(
+        self, 
+        evaluation_id: str, 
+        remote_object_name: str,
+        tags: List[str] = [],
+        type: QuestionFileType = QuestionFileType.STIMULUS,
+        group: Optional[str] = None,
+    ) -> str:
         try:
-            response = self._api_client.post("customers/uploading-presigned-url", {
-                'filename': remote_object_name,
-                'evaluation_id': evaluation_id
+            response = self._api_client.put(f"evaluations/{evaluation_id}/uploading-presigned-url", {
+                "filename": remote_object_name,
+                "tags": tags,
+                "type": type,
+                "group": group
             })
             response.raise_for_status()
             return response.text.replace('"', '')
@@ -238,13 +265,14 @@ class Evaluator:
             log.error(f"HTTP Error: {e}")
             raise HTTPError(f"Failed to request evaluation: {e}", status_code=e.response.status_code if e.response else None)
     
-    def _set_audio(self, path: str, tag: Optional[str], eval_config: EvalConfig) -> Audio:
+    def _set_audio(self, path: str, tag: Optional[str], group: Optional[str], eval_config: EvalConfig) -> Audio:
         valid_path = self._validate_path(path)
         name, remote_name = self._get_name_and_remote_name(valid_path, eval_config)
                 
         log.debug(f'remote_object_name: {remote_name}\n')
         return Audio(
-            path=valid_path, name=name, remote_name=remote_name, tag=tag
+            path=valid_path, name=name, remote_name=remote_name,
+            tag=tag, group=group
         )
     
     def _validate_path(self, path: str) -> str:
