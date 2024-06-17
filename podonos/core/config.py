@@ -15,6 +15,7 @@ class EvalConfigDefault:
     NUM_EVAL = 3
     DUE_HOURS = 12
     AUTO_START = False
+    GRANULARITY = 1.0
 
 
 class EvalConfig:
@@ -25,6 +26,7 @@ class EvalConfig:
     _eval_description: Optional[str] = None
     _eval_type: EvalType = EvalConfigDefault.TYPE
     _eval_language: Language = EvalConfigDefault.LAN
+    _eval_granularity: float = EvalConfigDefault.GRANULARITY
     _eval_num: int = 3
     _eval_expected_due_tzname: Optional[str] = None
     _eval_auto_start: bool = False
@@ -35,6 +37,7 @@ class EvalConfig:
         desc: Optional[str] = None,
         type: str = EvalConfigDefault.TYPE.value,
         lan: str = EvalConfigDefault.LAN.value,
+        granularity: float = EvalConfigDefault.GRANULARITY,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,  # TODO: allow floating point hours, e.g. 0.5.
         auto_start: bool = EvalConfigDefault.AUTO_START
@@ -44,6 +47,7 @@ class EvalConfig:
         self._eval_type = self._set_eval_type(type)
         self._eval_language = self._set_eval_language(lan)
         self._eval_num = self._set_eval_num(num_eval)
+        self._eval_granularity = self._set_eval_granularity(granularity)
         self._eval_expected_due = self._set_eval_expected_due(due_hours)
         self._eval_expected_due_tzname = self._set_eval_expected_due_tzname()
         self._eval_creation_timestamp = self._set_eval_creation_timestamp()
@@ -64,6 +68,18 @@ class EvalConfig:
     @property
     def eval_id(self) -> str:
         return self._eval_id
+    
+    @property
+    def eval_type(self) -> EvalType:
+        return self._eval_type
+    
+    @property
+    def eval_creation_timestamp(self) -> str:
+        return self._eval_creation_timestamp
+
+    @property
+    def eval_auto_start(self) -> bool:
+        return self._eval_auto_start
 
     def _set_eval_name(self, eval_name: Optional[str]) -> str:
         if not eval_name:
@@ -74,12 +90,8 @@ class EvalConfig:
         else:
             raise ValueError('"name" must be longer than 1.')
 
-    @property
-    def eval_type(self) -> EvalType:
-        return self._eval_type
-
     def _set_eval_type(self, eval_type: str) -> EvalType:
-        if eval_type not in [EvalType.NMOS.value, EvalType.SMOS.value, EvalType.P808.value]:
+        if eval_type not in [EvalType.NMOS.value, EvalType.QMOS.value, EvalType.SMOS.value, EvalType.P808.value]:
             raise ValueError(
                 f'"type" must be one of {{NMOS, SMOS, P808}}. \n' +
                 f'Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}'
@@ -87,10 +99,12 @@ class EvalConfig:
         return EvalType(eval_type)
 
     def _set_eval_language(self, eval_language: str) -> Language:
-        if eval_language not in [Language.EN_US.value, Language.EN_GB.value,
-                                 Language.EN_AU.value, Language.EN_CA.value,
-                                 Language.ES_ES.value, Language.ES_MX.value,
-                                 Language.KO_KR.value, Language.AUDIO.value]:
+        if eval_language not in [
+            Language.EN_US.value, Language.EN_GB.value,
+            Language.EN_AU.value, Language.EN_CA.value,
+            Language.ES_ES.value, Language.ES_MX.value,
+            Language.KO_KR.value, Language.AUDIO.value
+        ]:
             raise ValueError(
                 f'"lan" must be one of the supported language strings. ' +
                 f'See https://docs.podonos.com/reference#create-evaluator \n' +
@@ -114,16 +128,13 @@ class EvalConfig:
     def _set_eval_expected_due_tzname(self) -> Optional[str]:
         return datetime.now().astimezone().tzname()
 
-    @property
-    def eval_creation_timestamp(self) -> str:
-        return self._eval_creation_timestamp
+    def _set_eval_granularity(self, granularity: float) -> float:
+        if granularity not in [0.5, 1.0]:
+            raise ValueError(f'"granularity" must be one of 0.5 and 1.9')
+        return granularity
 
     def _set_eval_creation_timestamp(self) -> str:
         return datetime.now().isoformat(timespec='milliseconds')
-
-    @property
-    def eval_auto_start(self) -> bool:
-        return self._eval_auto_start
 
     def _set_eval_auto_start(self, eval_auto_start: bool) -> bool:
         return eval_auto_start
@@ -139,4 +150,14 @@ class EvalConfig:
             'eval_expected_due': self._eval_expected_due,
             'eval_creation_timestamp': self._eval_creation_timestamp,
             'eval_auto_start': self._eval_auto_start
+        }
+    
+    def to_create_request_dto(self) -> Dict[str, Any]:
+        return {
+            "title": self._eval_name,
+            "internal_name": self._eval_name,
+            "description": self._eval_description,
+            "language": self._eval_language.value,
+            "granularity": self._eval_granularity,
+            "evaluation_type": self._eval_type.value
         }
