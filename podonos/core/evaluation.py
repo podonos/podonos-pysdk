@@ -6,7 +6,6 @@ from datetime import datetime
 class EvaluationInformation:
     id: str
     title: str
-    introduction: str
     internal_name: Optional[str]
     description: Optional[str]
     status: str
@@ -15,7 +14,7 @@ class EvaluationInformation:
 
     @staticmethod
     def from_dict(data: dict) -> 'EvaluationInformation':
-        required_keys = ["id", "title", "introduction", "status", "created_time", "updated_time"]
+        required_keys = ["id", "title", "status", "created_time", "updated_time"]
         for key in required_keys:
             if key not in data:
                 raise ValueError(f"Invalid data format for EvaluationInformation: {data}")
@@ -23,7 +22,6 @@ class EvaluationInformation:
         return EvaluationInformation(
             id=data['id'],
             title=data["title"],
-            introduction=data["introduction"],
             internal_name=data["internal_name"],
             description=data["description"],
             status=data["status"],
@@ -35,7 +33,6 @@ class EvaluationInformation:
         return {
             "id": self.id,
             "title": self.title,
-            "introduction": self.introduction,
             "internal_name": self.internal_name,
             "description": self.description,
             "status": self.status,

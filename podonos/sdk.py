@@ -13,23 +13,6 @@ from podonos.core.client import Client
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-def progressbar(it, prefix="", size=60):
-    count = len(it)
-    start = time.time()
-
-    def show(j):
-        x = int(size * j / count)
-        remaining = ((time.time() - start) / j) * (count - j)
-
-        mins, sec = divmod(remaining, 60)
-        time_str = f"{int(mins):02}:{sec:05.2f}"
-
-        print(f"{prefix}[{u'█' * x}{('.' * (size - x))}] Est wait {time_str}", end='\r', flush=True)
-
-    for i, item in enumerate(it):
-        yield item
-        show(i + 1)
-    print("\n", flush=True)
 
 class Podonos:
     """Class for Podonos SDK."""
