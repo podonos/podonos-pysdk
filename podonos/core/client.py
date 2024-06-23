@@ -85,14 +85,14 @@ class Client:
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
     
-    def get_stimulus_stats_by_id(self, evaluation_id: str) -> List[Dict[str, Any]]:
-        """Gets evaluation statistics referenced by id.
+    def get_stats_dict_by_id(self, evaluation_id: str) -> List[Dict[str, Any]]:
+        """Gets a list of evaluation statistics referenced by id.
 
         Args:
-            evaluation_id: Evaluation id.
+            evaluation_id: Evaluation id. See get_evaluation_list() above.
 
         Returns:
-            StimulusStats containing all evaluation statistics.
+            List of statistics for the evaluation.
         """
         try:
             response = self._api_client.get(f"evaluations/{evaluation_id}/stats")
@@ -102,12 +102,12 @@ class Client:
         except Exception as e:
             raise HTTPError(f"Failed to get stimulus stats: {e}")
     
-    def download_stimulus_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
+    def download_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
         """Downloads the evaluation statistics into CSV referenced by id.
 
         Args:
-            evaluation_id: Evaluation id
-            output_path: Path to the output CSV
+            evaluation_id: Evaluation id. See get_evaluation_list() above.
+            output_path: Path to the output CSV.
 
         Returns: None
         """
