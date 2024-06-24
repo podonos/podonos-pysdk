@@ -1,3 +1,9 @@
+## 0.1.10
+- Allow accessing the evaluation results.
+- Ensure more stability.
+- Add more unit tests. Reached 70% of test coverage.
+- Fix bugs.
+
 ## 0.1.6
 - Fix duplicate upload bug.
 
