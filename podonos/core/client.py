@@ -53,7 +53,7 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         # TODO: fix this clearly
-        if type not in "SPEECH_":
+        if "SPEECH_" not in type:
             type = "SPEECH_" + type
 
         return Evaluator(
