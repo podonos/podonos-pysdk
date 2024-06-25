@@ -69,9 +69,9 @@ def main():
     evaluations = client.get_evaluation_list()
     for evaluation in evaluations:
         eval_id = evaluation['id']
-        stats = client.get_stimulus_stats_by_id(eval_id)
+        stats = client.get_stats_dict_by_id(eval_id)
         log.debug(stats)
-        client.download_stimulus_stats_csv_by_id(eval_id, f'./eval_stats_{eval_id}.csv')
+        client.download_stats_csv_by_id(eval_id, f'./eval_stats_{eval_id}.csv')
 
 
 if __name__ == '__main__':
