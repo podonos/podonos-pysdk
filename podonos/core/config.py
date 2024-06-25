@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 class EvalConfigDefault:
     TYPE = EvalType.NMOS
-    LAN = Language.EN_US
+    LAN = Language.ENGLISH_AMERICAN
     NUM_EVAL = 3
     DUE_HOURS = 12
     AUTO_START = False
@@ -104,10 +104,13 @@ class EvalConfig:
 
     def _set_eval_language(self, eval_language: str) -> Language:
         if eval_language not in [
-            Language.EN_US.value, Language.EN_GB.value,
-            Language.EN_AU.value, Language.EN_CA.value,
-            Language.ES_ES.value, Language.ES_MX.value,
-            Language.KO_KR.value, Language.AUDIO.value
+            Language.ENGLISH_AMERICAN.value, Language.ENGLISH_AUSTRALIAN.value,
+            Language.ENGLISH_BRITISH.value, Language.ENGLISH_CANADIAN.value,
+            Language.KOREAN.value, Language.MANDARIN.value, 
+            Language.SPANISH_SPAIN.value, Language.SPANISH_MEXICO.value,
+            Language.FRENCH.value, Language.GERNAM.value,
+            Language.JAPANESE.value, Language.ITALIAN.value,
+            Language.POLISH.value, Language.AUDIO.value
         ]:
             raise ValueError(
                 f'"lan" must be one of the supported language strings. ' +
