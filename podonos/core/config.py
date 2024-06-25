@@ -163,5 +163,5 @@ class EvalConfig:
             "description": self._eval_description,
             "language": self._eval_language.value,
             "granularity": self._eval_granularity,
-            "evaluation_type": self._eval_type.value
+            "evaluation_type": self._eval_type.get_type()
         }
