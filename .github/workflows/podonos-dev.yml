@@ -1,4 +1,4 @@
-name: Podonos package testing
+name: Podonos package testing for Development
 
 on:
   push:
@@ -29,6 +29,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -i https://test.pypi.org/simple/ podonos
 
       - name: Run tests
         run: |
