@@ -12,10 +12,13 @@ class TerminalColor(Enum):
     WARN = '\033[93m'
 
 class EvalType(Enum):
-    NMOS = 'SPEECH_NMOS'
-    QMOS = "SPEECH_QMOS"
-    P808 = 'SPEECH_P808'
-    SMOS = 'SPEECH_SMOS'
+    NMOS = 'NMOS'
+    QMOS = "QMOS"
+    P808 = 'P808'
+    SMOS = 'SMOS'
+    
+    def get_type(self) -> str:
+        return f"SPEECH_{self.value}"
 
 class Language(Enum):
     EN_US = 'en-us'

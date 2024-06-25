@@ -258,7 +258,7 @@ class Evaluator:
         try:
             response = self._api_client.post("request-evaluation", {
                 'eval_id': self._eval_config.eval_id,
-                'eval_type': self._eval_config.eval_type.value
+                'eval_type': self._eval_config.eval_type.get_type()
             })
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:

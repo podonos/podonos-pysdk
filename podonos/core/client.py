@@ -52,10 +52,6 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        # TODO: fix this clearly
-        if "SPEECH_" not in type:
-            type = "SPEECH_" + type
-
         return Evaluator(
             api_client=self._api_client,
             eval_config=EvalConfig(
