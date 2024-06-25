@@ -1,8 +1,9 @@
 import os
-from urllib import response
+import podonos
 import requests
 import logging
 import importlib.metadata
+
 from requests import Response
 from typing import Dict, Any, Optional
 from packaging.version import Version
@@ -113,7 +114,7 @@ class APIClient:
         response = self.get("version/sdk")
         api_version = APIVersion(**response.json())
         
-        current_version = importlib.metadata.version("podonos")
+        current_version = self._get_podonos_version()
         log.debug(f'current package version: {current_version}')
         
         if Version(current_version) >= api_version.recommended:
@@ -135,3 +136,11 @@ class APIClient:
             TerminalColor.BOLD.value + "Please upgrade" + TerminalColor.ENDC.value + f" by 'pip install podonos --upgrade'"
         )
         raise ValueError(f"Minimum supported version is {api_version.minimum}")
+
+    def _get_podonos_version(self):
+        try:
+            # Try to get the version using importlib.metadata
+            return importlib.metadata.version("podonos")
+        except importlib.metadata.PackageNotFoundError:
+            # Fallback to __version__ from podonos package if importlib fails
+            return podonos.__version__
