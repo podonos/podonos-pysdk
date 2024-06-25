@@ -77,7 +77,7 @@ class TestEvaluationClient(unittest.TestCase):
     def test_stimulus_stats_by_id(self, mock_get):
         valid_api_key = "1234567890"
         self._mock_client = podonos.init(api_key=valid_api_key)
-        response = self._mock_client.get_stimulus_stats_by_id(evaluation_id="mock_id")
+        response = self._mock_client.get_stats_dict_by_id(evaluation_id="mock_id")
         self.assertTrue(isinstance(response, list))
         self.assertTrue(len(response) > 0)
         json = response[0]

@@ -111,7 +111,7 @@ class Client:
 
         Returns: None
         """
-        stats = self.get_stimulus_stats_by_id(evaluation_id)
+        stats = self.get_stats_dict_by_id(evaluation_id)
         with open(output_path, "w") as f:
             f.write("stimulus_name,mean,median,std,ci_90,ci_95,ci_99\n")
             for stat in stats:
