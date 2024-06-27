@@ -122,6 +122,10 @@ class Audio:
     @property
     def group(self) -> Optional[str]:
         return self._group
+    
+    @property
+    def metadata(self) -> AudioMeta:
+        return self._metadata
 
     def set_upload_at(self, start_at: str, finish_at: str) -> None:
         self._upload_start_at = start_at
