@@ -1,3 +1,7 @@
+## 0.1.11
+- Store the duration of file
+- Add more languages like mandarin, italian, japan, french, german
+
 ## 0.1.10
 - Allow accessing the evaluation results.
 - Ensure more stability.
