@@ -126,7 +126,7 @@ class Evaluator:
                     evaluation_id=evaluation_id, 
                     remote_object_name=audio.remote_name, 
                     path=audio.path,
-                    duration=audio.metadata.duration_in_ms,
+                    duration_in_ms=audio.metadata.duration_in_ms,
                     tags=[audio.tag] if audio.tag else [],
                     type=QuestionFileType.STIMULUS,
                     group=audio.group
@@ -204,7 +204,7 @@ class Evaluator:
         evaluation_id: str, 
         remote_object_name: str, 
         path: str,
-        duration: int,
+        duration_in_ms: int,
         tags: List[str] = [],
         type: QuestionFileType = QuestionFileType.STIMULUS,
         group: Optional[str] = None,
@@ -224,7 +224,7 @@ class Evaluator:
             upload_finish_at: Upload start time in ISO 8601 string.
         """
         # Get the presigned URL for files
-        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, remote_object_name, duration, tags, type, group)
+        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, remote_object_name, duration_in_ms, tags, type, group)
 
         # Timestamp in ISO 8601.
         upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
@@ -236,7 +236,7 @@ class Evaluator:
         self, 
         evaluation_id: str, 
         remote_object_name: str,
-        duration: int,
+        duration_in_ms: int,
         tags: List[str] = [],
         type: QuestionFileType = QuestionFileType.STIMULUS,
         group: Optional[str] = None,
@@ -244,7 +244,7 @@ class Evaluator:
         try:
             response = self._api_client.put(f"evaluations/{evaluation_id}/uploading-presigned-url", {
                 "filename": remote_object_name,
-                "duration": duration,
+                "duration": duration_in_ms,
                 "tags": tags,
                 "type": type,
                 "group": group
