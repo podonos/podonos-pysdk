@@ -3,7 +3,7 @@ from typing import Optional
 from datetime import datetime
 
 @dataclass
-class EvaluationInformation:
+class Evaluation:
     id: str
     title: str
     internal_name: Optional[str]
@@ -13,13 +13,13 @@ class EvaluationInformation:
     updated_time: datetime
 
     @staticmethod
-    def from_dict(data: dict) -> 'EvaluationInformation':
+    def from_dict(data: dict) -> 'Evaluation':
         required_keys = ["id", "title", "status", "created_time", "updated_time"]
         for key in required_keys:
             if key not in data:
-                raise ValueError(f"Invalid data format for EvaluationInformation: {data}")
+                raise ValueError(f"Invalid data format for Evaluation: {data}")
         
-        return EvaluationInformation(
+        return Evaluation(
             id=data['id'],
             title=data["title"],
             internal_name=data["internal_name"],

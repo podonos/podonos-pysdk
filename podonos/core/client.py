@@ -2,10 +2,12 @@ from typing import Any, Dict, Optional, List
 
 from requests import HTTPError
 
+from podonos.common.enum import EvalType
 from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig, EvalConfigDefault
-from podonos.core.evaluation import EvaluationInformation
+from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
+from podonos.core.single_evaluator import SingleEvaluator
 from podonos.core.stimulus_stats import StimulusStats
 
 class Client:
@@ -13,6 +15,9 @@ class Client:
 
     _api_client: APIClient
     _initialized: bool = False
+    _supported_eval_types: List[EvalType] = [
+        EvalType.NMOS, EvalType.QMOS, EvalType.P808
+    ]
     
     def __init__(self, api_client: APIClient):
         self._api_client = api_client
@@ -51,8 +56,8 @@ class Client:
 
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
-
-        return Evaluator(
+        
+        return SingleEvaluator(
             api_client=self._api_client,
             eval_config=EvalConfig(
                 name=name,
@@ -76,7 +81,7 @@ class Client:
         try:
             response = self._api_client.get("evaluations")
             response.raise_for_status()
-            evaluations = [EvaluationInformation.from_dict(evaluation) for evaluation in response.json()]
+            evaluations = [Evaluation.from_dict(evaluation) for evaluation in response.json()]
             return [evaluation.to_dict() for evaluation in evaluations]
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")

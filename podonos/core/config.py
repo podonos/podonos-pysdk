@@ -97,7 +97,7 @@ class EvalConfig:
     def _set_eval_type(self, eval_type: str) -> EvalType:
         if eval_type not in [EvalType.NMOS.value, EvalType.QMOS.value, EvalType.SMOS.value, EvalType.P808.value]:
             raise ValueError(
-                f'"type" must be one of {{NMOS, SMOS, P808}}. \n' +
+                f'"type" must be one of {{NMOS, QMOS, SMOS, P808}}. \n' +
                 f'Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}'
             )
         return EvalType(eval_type)

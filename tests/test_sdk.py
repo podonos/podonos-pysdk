@@ -156,7 +156,7 @@ class TestPodonosEvaluator(unittest.TestCase):
         self.assertIsNotNone(etor)
 
         some_file = os.path.join(os.path.dirname(__file__), '../speech_0_0.mp3')
-        etor.add_file(path=some_file, tag='unknown_file,new_model')
+        etor.add_file(path=some_file, tags=['unknown_file,new_model'])
         etor.close()
 
 

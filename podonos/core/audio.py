@@ -1,6 +1,6 @@
 import wave
 from pathlib import Path
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional, Dict, Any, List
 
 class AudioMeta:
     _nchannels: int
@@ -85,7 +85,7 @@ class Audio:
     _metadata: AudioMeta
     _upload_start_at: Optional[str] = None
     _upload_finish_at: Optional[str] = None
-    _tag: Optional[str] = None
+    _tags: Optional[List[str]] = None
     _group: Optional[str] = None
     
     def __init__(
@@ -93,14 +93,14 @@ class Audio:
         path: str,
         name: str, 
         remote_name: str,
-        tag: Optional[str],
+        tags: Optional[List[str]],
         group: Optional[str]
     ) -> None:
         self._path = path
         self._name = name
         self._remote_name = remote_name
         self._metadata = AudioMeta(path)
-        self._tag = tag
+        self._tags = tags
         self._group = group
 
     @property
@@ -116,8 +116,8 @@ class Audio:
         return self._remote_name
     
     @property
-    def tag(self) -> Optional[str]:
-        return self._tag
+    def tags(self) -> Optional[List[str]]:
+        return self._tags
     
     @property
     def group(self) -> Optional[str]:
@@ -140,6 +140,6 @@ class Audio:
             "duration_in_ms": self._metadata.duration_in_ms,
             "upload_start_at": self._upload_start_at,
             "upload_finish_at": self._upload_finish_at,
-            "tag": self._tag,
+            "tag": self._tags,
             "group": self._group
         }
