@@ -1,20 +1,21 @@
 import logging
 from typing import Optional, Union, List
 
-from podonos.common.enum import EvalType
+from podonos.common.enum import EvalType, QuestionFileType
 from podonos.core.api import APIClient
+from podonos.core.audio import AudioConfig
 from podonos.core.config import EvalConfig
-
-from .evaluator import Evaluator
+from podonos.core.evaluator import Evaluator
+from podonos.errors.error import NotSupportedError
 
 # For logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-class SingleEvaluator(Evaluator):
-    def __init__(self, api_client: APIClient, eval_config: Union[EvalConfig, None] = None):
+class SingleStimuliEvaluator(Evaluator):
+    def __init__(self, supported_evaluation_type: List[EvalType], api_client: APIClient, eval_config: Union[EvalConfig, None] = None):
         super().__init__(api_client, eval_config)
-        self._supported_evaluation_type = [EvalType.NMOS, EvalType.QMOS, EvalType.P808]
+        self._supported_evaluation_type = supported_evaluation_type
     
     def add_file(
         self, 
@@ -47,7 +48,10 @@ class SingleEvaluator(Evaluator):
 
         if eval_config.eval_type in self._supported_evaluation_type:
             if not path:
-                raise ValueError(f'"path" must be set for the evaluation type {eval_config.eval_type}')
+                raise ValueError(f'"path" must be set for the evaluation type {eval_config.eval_type.value}')
             
-            audio = self._set_audio(path=path, tags=tags, group=None)
+            audio = self._set_audio(path=path, tags=tags, group=None, type=QuestionFileType.STIMULUS)
             self._eval_audios.append([audio])
+    
+    def add_file_pair(self, target: AudioConfig, ref: AudioConfig) -> None:
+        raise NotSupportedError("This function is not supported in this Evaluation Type")

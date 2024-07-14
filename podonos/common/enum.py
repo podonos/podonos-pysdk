@@ -19,6 +19,10 @@ class EvalType(Enum):
     
     def get_type(self) -> str:
         return f"SPEECH_{self.value}"
+    
+    @staticmethod
+    def is_eval_type(type: str) -> bool:
+        return any([item for item in EvalType if item.value == type])
 
 class Language(Enum):
     ENGLISH_AMERICAN = "en-us"
