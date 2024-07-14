@@ -2,6 +2,8 @@ import wave
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List
 
+from podonos.common.enum import QuestionFileType
+
 class AudioMeta:
     _nchannels: int
     _framerate: int
@@ -87,6 +89,7 @@ class Audio:
     _upload_finish_at: Optional[str] = None
     _tags: Optional[List[str]] = None
     _group: Optional[str] = None
+    _type: QuestionFileType = QuestionFileType.STIMULUS
     
     def __init__(
         self, 
@@ -94,7 +97,8 @@ class Audio:
         name: str, 
         remote_name: str,
         tags: Optional[List[str]],
-        group: Optional[str]
+        group: Optional[str],
+        type: QuestionFileType
     ) -> None:
         self._path = path
         self._name = name
@@ -102,6 +106,7 @@ class Audio:
         self._metadata = AudioMeta(path)
         self._tags = tags
         self._group = group
+        self._type = type
 
     @property
     def path(self) -> str:
@@ -126,6 +131,10 @@ class Audio:
     @property
     def metadata(self) -> AudioMeta:
         return self._metadata
+    
+    @property
+    def type(self) -> QuestionFileType:
+        return self._type
 
     def set_upload_at(self, start_at: str, finish_at: str) -> None:
         self._upload_start_at = start_at

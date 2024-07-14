@@ -12,6 +12,7 @@ from podonos.core.api import APIClient
 from podonos.core.audio import Audio
 from podonos.core.config import EvalConfig
 from podonos.core.evaluation import Evaluation
+from podonos.core.file import File
 
 # For logging
 logging.basicConfig(level=logging.INFO)
@@ -50,8 +51,23 @@ class Evaluator(ABC):
     @abstractmethod
     def add_file(
         self, 
-        path: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        file: File
+    ) -> None:
+        pass
+    
+    @abstractmethod
+    def add_file_pair(
+        self, 
+        target: File,
+        ref: File
+    ) -> None:
+        pass
+    
+    @abstractmethod
+    def add_file_set(
+        self, 
+        file0: File,
+        file1: File
     ) -> None:
         pass
     
@@ -79,7 +95,7 @@ class Evaluator(ABC):
 
         # Get the presigned URL for filename
         remote_object_name = os.path.join(self._eval_config.eval_creation_timestamp, 'session.json')
-        presigned_url = self._get_presigned_url_for_put_method(evaluation.id, remote_object_name, 0)
+        presigned_url = self._get_presigned_url_for_put_method(evaluation.id, remote_object_name, 0, QuestionFileType.REF)
         try:
             response = self._api_client.put_json_presigned_url(url=presigned_url, data=session_json, headers={'Content-type': 'application/json'})
             response.raise_for_status()
@@ -109,7 +125,7 @@ class Evaluator(ABC):
             HTTPError: If the value is invalid
 
         Returns:
-            EvaluationInformation: Get new evaluation information
+            Evaluation: Get new evaluation information
         """
         
         eval_config = self._get_eval_config()
@@ -144,7 +160,7 @@ class Evaluator(ABC):
                     path=audio.path,
                     duration_in_ms=audio.metadata.duration_in_ms,
                     tags=audio.tags if audio.tags else [],
-                    type=QuestionFileType.STIMULUS,
+                    type=audio.type,
                     group=audio.group
                 )
                 audio.set_upload_at(upload_start_at, upload_finish_at)
@@ -158,8 +174,8 @@ class Evaluator(ABC):
         remote_object_name: str, 
         path: str,
         duration_in_ms: int,
+        type: QuestionFileType,
         tags: List[str] = [],
-        type: QuestionFileType = QuestionFileType.STIMULUS,
         group: Optional[str] = None,
     ) -> Tuple[str, str]:
         """
@@ -177,7 +193,7 @@ class Evaluator(ABC):
             upload_finish_at: Upload start time in ISO 8601 string.
         """
         # Get the presigned URL for files
-        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, remote_object_name, duration_in_ms, tags, type, group)
+        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, remote_object_name, duration_in_ms, type, tags, group)
 
         # Timestamp in ISO 8601.
         upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
@@ -190,8 +206,8 @@ class Evaluator(ABC):
         evaluation_id: str, 
         remote_object_name: str,
         duration_in_ms: int,
+        type: QuestionFileType,
         tags: List[str] = [],
-        type: QuestionFileType = QuestionFileType.STIMULUS,
         group: Optional[str] = None,
     ) -> str:
         try:
@@ -220,14 +236,14 @@ class Evaluator(ABC):
             log.error(f"HTTP Error: {e}")
             raise HTTPError(f"Failed to request evaluation: {e}", status_code=e.response.status_code if e.response else None)
     
-    def _set_audio(self, path: str, tags: Optional[List[str]], group: Optional[str]) -> Audio:
+    def _set_audio(self, path: str, tags: Optional[List[str]], group: Optional[str], type: QuestionFileType) -> Audio:
         valid_path = self._validate_path(path)
         name, remote_name = self._get_name_and_remote_name(valid_path)
                 
         log.debug(f'remote_object_name: {remote_name}\n')
         return Audio(
             path=valid_path, name=name, remote_name=remote_name,
-            tags=tags, group=group
+            tags=tags, group=group, type=type
         )
     
     def _validate_path(self, path: str) -> str:

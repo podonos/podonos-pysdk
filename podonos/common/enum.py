@@ -16,9 +16,16 @@ class EvalType(Enum):
     QMOS = "QMOS"
     P808 = 'P808'
     SMOS = 'SMOS'
+    PREF = 'PREF'
+    CMOS = 'CMOS'
+    DMOS = 'DMOS'
     
     def get_type(self) -> str:
         return f"SPEECH_{self.value}"
+    
+    @staticmethod
+    def is_eval_type(type: str) -> bool:
+        return any([item for item in EvalType if item.value == type])
 
 class Language(Enum):
     ENGLISH_AMERICAN = "en-us"

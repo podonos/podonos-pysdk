@@ -7,17 +7,15 @@ from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
-from podonos.core.single_evaluator import SingleEvaluator
 from podonos.core.stimulus_stats import StimulusStats
+from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
+from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 
 class Client:
     """Podonos Client class. Used for creating individual evaluator and managing the evaluations."""
 
     _api_client: APIClient
     _initialized: bool = False
-    _supported_eval_types: List[EvalType] = [
-        EvalType.NMOS, EvalType.QMOS, EvalType.P808
-    ]
     
     def __init__(self, api_client: APIClient):
         self._api_client = api_client
@@ -57,18 +55,27 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
         
-        return SingleEvaluator(
+        if not EvalType.is_eval_type(type):
+            raise ValueError("Not supported evaluation types. Use one of the {'NMOS', 'QMOS', 'P808', 'SMOS'}")
+        
+        eval_config = EvalConfig(
+            name=name, desc=desc,
+            type=type, lan=lan,
+            granularity=granularity, num_eval=num_eval,
+            due_hours=due_hours, auto_start=auto_start
+        )
+        if type in [EvalType.SMOS.value]:
+            return DoubleStimuliEvaluator(
+                supported_evaluation_type=[EvalType.SMOS],
+                api_client=self._api_client,
+                eval_config=eval_config
+            )
+        
+        return SingleStimulusEvaluator(
+            supported_evaluation_type=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
             api_client=self._api_client,
-            eval_config=EvalConfig(
-                name=name,
-                desc=desc,
-                type=type,
-                lan=lan,
-                granularity=granularity,
-                num_eval=num_eval,
-                due_hours=due_hours,
-                auto_start=auto_start
-            ))
+            eval_config=eval_config
+        )
     
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
