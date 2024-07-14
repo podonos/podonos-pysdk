@@ -16,6 +16,9 @@ class EvalType(Enum):
     QMOS = "QMOS"
     P808 = 'P808'
     SMOS = 'SMOS'
+    PREFERENCE = 'PREFERENCE'
+    CMOS = 'CMOS'
+    DMOS = 'DMOS'
     
     def get_type(self) -> str:
         return f"SPEECH_{self.value}"

@@ -4,22 +4,6 @@ from typing import Tuple, Optional, Dict, Any, List
 
 from podonos.common.enum import QuestionFileType
 
-class AudioConfig:
-    _path: str
-    _tags: List[str]
-    
-    def __init__(self, path: str, tags: List[str] = []) -> None:
-        self._path = path
-        self._tags = tags
-    
-    @property
-    def path(self) -> str:
-        return self._path
-    
-    @property
-    def tags(self) -> List[str]:
-        return self._tags
-
 class AudioMeta:
     _nchannels: int
     _framerate: int

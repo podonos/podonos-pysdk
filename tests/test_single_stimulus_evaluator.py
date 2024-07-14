@@ -3,35 +3,37 @@ from unittest.mock import Mock
 
 from podonos.common.enum import EvalType
 from podonos.core.api import APIClient
-from podonos.core.audio import AudioConfig
 from podonos.core.config import EvalConfig
+from podonos.core.file import File
 from podonos.errors.error import NotSupportedError
-from podonos.evaluators.single_stimuli_evaluator import SingleStimuliEvaluator
+from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 
-class TestSingleStimuliEvaluator:
+class TestSingleStimulusEvaluator:
     def setup_method(self):
         self.api_client = Mock(spec=APIClient)
         self.eval_config = EvalConfig(type='NMOS')
-        self.evaluator = SingleStimuliEvaluator(
+        self.evaluator = SingleStimulusEvaluator(
             supported_evaluation_type=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
             api_client=self.api_client,
             eval_config=self.eval_config
         )
 
-    def test_add_file_without_path(self):
-        with pytest.raises(ValueError) as excinfo:
-            self.evaluator.add_file()
-        assert '"path" must be set for the evaluation type NMOS' in str(excinfo.value)
-
     def test_add_file_before_initialized(self):
         self.evaluator._initialized = False
         with pytest.raises(ValueError) as excinfo:
-            self.evaluator.add_file(path='/a/b/0.wav')
+            self.evaluator.add_file(file=File(path='./male.wav', tags=['male']))
         assert 'Try to add file once the evaluator is closed.' in str(excinfo.value)
 
     def test_add_file_pair_not_supported(self):
-        target_audio_config = AudioConfig(path='target.wav', tags=['target'])
-        ref_audio_config = AudioConfig(path='ref.wav', tags=['ref'])
+        target_audio_config = File(path='target.wav', tags=['target'])
+        ref_audio_config = File(path='ref.wav', tags=['ref'])
         with pytest.raises(NotSupportedError) as excinfo:
             self.evaluator.add_file_pair(target=target_audio_config, ref=ref_audio_config)
+        assert 'This function is not supported in this Evaluation Type' in str(excinfo.value)
+
+    def test_add_file_set_not_supported(self):
+        file1 = File(path='original.wav', tags=['original'])
+        file2 = File(path='generated.wav', tags=['generated'])
+        with pytest.raises(NotSupportedError) as excinfo:
+            self.evaluator.add_file_set(file1=file1, file2=file2)
         assert 'This function is not supported in this Evaluation Type' in str(excinfo.value)

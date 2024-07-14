@@ -9,7 +9,7 @@ from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
 from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
-from podonos.evaluators.single_stimuli_evaluator import SingleStimuliEvaluator
+from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 
 class Client:
     """Podonos Client class. Used for creating individual evaluator and managing the evaluations."""
@@ -71,7 +71,7 @@ class Client:
                 eval_config=eval_config
             )
         
-        return SingleStimuliEvaluator(
+        return SingleStimulusEvaluator(
             supported_evaluation_type=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
             api_client=self._api_client,
             eval_config=eval_config

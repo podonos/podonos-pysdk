@@ -9,9 +9,10 @@ from podonos.common.constant import *
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.exception import HTTPError
 from podonos.core.api import APIClient
-from podonos.core.audio import Audio, AudioConfig
+from podonos.core.audio import Audio
 from podonos.core.config import EvalConfig
 from podonos.core.evaluation import Evaluation
+from podonos.core.file import File
 
 # For logging
 logging.basicConfig(level=logging.INFO)
@@ -50,16 +51,23 @@ class Evaluator(ABC):
     @abstractmethod
     def add_file(
         self, 
-        path: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        file: File
     ) -> None:
         pass
     
     @abstractmethod
     def add_file_pair(
         self, 
-        target: AudioConfig,
-        ref: AudioConfig
+        target: File,
+        ref: File
+    ) -> None:
+        pass
+    
+    @abstractmethod
+    def add_file_set(
+        self, 
+        file1: File,
+        file2: File
     ) -> None:
         pass
     
