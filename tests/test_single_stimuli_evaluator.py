@@ -8,8 +8,6 @@ from podonos.core.config import EvalConfig
 from podonos.errors.error import NotSupportedError
 from podonos.evaluators.single_stimuli_evaluator import SingleStimuliEvaluator
 
-
-# Pytest 테스트 클래스
 class TestSingleStimuliEvaluator:
     def setup_method(self):
         self.api_client = Mock(spec=APIClient)
