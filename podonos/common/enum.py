@@ -16,7 +16,7 @@ class EvalType(Enum):
     QMOS = "QMOS"
     P808 = 'P808'
     SMOS = 'SMOS'
-    PREFERENCE = 'PREFERENCE'
+    PREF = 'PREF'
     CMOS = 'CMOS'
     DMOS = 'DMOS'
     

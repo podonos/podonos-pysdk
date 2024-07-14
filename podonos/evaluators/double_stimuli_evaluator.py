@@ -60,7 +60,7 @@ class DoubleStimuliEvaluator(Evaluator):
             ref_audio = self._set_audio(path=ref.path, tags=ref.tags, group=group, type=QuestionFileType.REF)
             self._eval_audios.append([target_audio, ref_audio])
     
-    def add_file_set(self, file1: File, file2: File) -> None:
+    def add_file_set(self, file0: File, file1: File) -> None:
         """Adds a new set of files for evaluation.
         This function adds a set of files for evaluation purposes. The files may be either in {wav, mp3} format.
         The files will be securely uploaded to the Podonos service system.
@@ -87,13 +87,13 @@ class DoubleStimuliEvaluator(Evaluator):
             raise ValueError("Try to add_file_set once the evaluator is closed.")
         
         eval_config = self._get_eval_config()
-        if eval_config.eval_type not in [EvalType.SMOS, EvalType.PREFERENCE]:
-            raise ValueError("The add_file_set function is used for 'SMOS', 'PREFERENCE'")
+        if eval_config.eval_type not in [EvalType.SMOS, EvalType.PREF]:
+            raise ValueError("The add_file_set function is used for 'SMOS', 'PREF'")
         
         if eval_config.eval_type in self._supported_evaluation_type:
             group = self._generate_random_group_name()
-            audio1 = self._set_audio(path=file1.path, tags=file1.tags, group=group, type=QuestionFileType.STIMULUS)
-            audio2 = self._set_audio(path=file2.path, tags=file2.tags, group=group, type=QuestionFileType.STIMULUS)
+            audio1 = self._set_audio(path=file0.path, tags=file0.tags, group=group, type=QuestionFileType.STIMULUS)
+            audio2 = self._set_audio(path=file1.path, tags=file1.tags, group=group, type=QuestionFileType.STIMULUS)
             self._eval_audios.append([audio1, audio2])
 
     def _generate_random_group_name(self) -> str:

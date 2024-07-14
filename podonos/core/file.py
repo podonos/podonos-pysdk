@@ -7,8 +7,8 @@ class File:
     def __init__(self, path: str, tags: List[str] = []) -> None:
         """
         Args:
-            path: Path to the file to evaluate. Must be set for single file eval like NMOS.
-            tag: A comma separated list of string tags for path. Optional.
+            path: Path to the file to evaluate.
+            tags: A list of string for file. Optional.
         """
         self._path = path
         self._tags = tags

@@ -50,5 +50,5 @@ class SingleStimulusEvaluator(Evaluator):
     def add_file_pair(self, target: File, ref: File) -> None:
         raise NotSupportedError("This function is not supported in this Evaluation Type")
     
-    def add_file_set(self, file1: File, file2: File) -> None:
+    def add_file_set(self, file0: File, file1: File) -> None:
         raise NotSupportedError("This function is not supported in this Evaluation Type")

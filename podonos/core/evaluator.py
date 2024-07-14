@@ -66,8 +66,8 @@ class Evaluator(ABC):
     @abstractmethod
     def add_file_set(
         self, 
-        file1: File,
-        file2: File
+        file0: File,
+        file1: File
     ) -> None:
         pass
     
@@ -125,7 +125,7 @@ class Evaluator(ABC):
             HTTPError: If the value is invalid
 
         Returns:
-            EvaluationInformation: Get new evaluation information
+            Evaluation: Get new evaluation information
         """
         
         eval_config = self._get_eval_config()

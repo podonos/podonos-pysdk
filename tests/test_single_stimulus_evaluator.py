@@ -32,8 +32,8 @@ class TestSingleStimulusEvaluator:
         assert 'This function is not supported in this Evaluation Type' in str(excinfo.value)
 
     def test_add_file_set_not_supported(self):
-        file1 = File(path='original.wav', tags=['original'])
-        file2 = File(path='generated.wav', tags=['generated'])
+        file0 = File(path='original.wav', tags=['original'])
+        file1 = File(path='generated.wav', tags=['generated'])
         with pytest.raises(NotSupportedError) as excinfo:
-            self.evaluator.add_file_set(file1=file1, file2=file2)
+            self.evaluator.add_file_set(file0=file0, file1=file1)
         assert 'This function is not supported in this Evaluation Type' in str(excinfo.value)

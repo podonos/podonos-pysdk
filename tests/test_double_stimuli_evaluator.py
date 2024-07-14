@@ -48,13 +48,13 @@ class TestDoubleStimuliEvaluator:
         self.evaluator._initialized = True
         self.eval_config._eval_type = EvalType.CMOS
 
-        file1 = File(path='file1.wav', tags=['file1'])
-        file2 = File(path='file2.wav', tags=['file2'])
+        file0 = File(path='file1.wav', tags=['file1'])
+        file1 = File(path='file2.wav', tags=['file2'])
 
         with pytest.raises(ValueError) as excinfo:
-            self.evaluator.add_file_set(file1=file1, file2=file2)
+            self.evaluator.add_file_set(file0=file0, file1=file1)
 
-        assert "The add_file_set function is used for 'SMOS', 'PREFERENCE'" in str(excinfo.value)
+        assert "The add_file_set function is used for 'SMOS', 'PREF'" in str(excinfo.value)
 
     def test_generate_random_group_name(self):
         group_name = self.evaluator._generate_random_group_name()
