@@ -35,8 +35,9 @@ def mocked_requests_get(*args, **kwargs):
     if '/evaluations' in args[0] and '/stats' in args[0]:
         # Stats by id
         evaluation_stats = [dict(
-            stimulus_name="tr16.wav", mean=3.4, median=3.5, std=1.07,
-            ci_90=1.14, ci_95=1.48, ci_99=1.53)]
+            files=[{"name": "tr16.wav", "tags": ["generated"]}], mean=3.4, median=3.5, std=1.07,
+            ci_90=1.14, ci_95=1.48, ci_99=1.53
+        )]
         return MockResponse(None, evaluation_stats, 200)
 
     if '/evaluations' in args[0]:
@@ -81,7 +82,7 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue(isinstance(response, list))
         self.assertTrue(len(response) > 0)
         json = response[0]
-        self.assertTrue('stimulus_name' in json)
+        self.assertTrue('files' in json)
         self.assertTrue('mean' in json)
         self.assertTrue('median' in json)
         self.assertTrue('std' in json)

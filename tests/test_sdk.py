@@ -3,6 +3,8 @@ import podonos
 import unittest
 from unittest import mock
 
+from podonos.core.file import File
+
 
 # Mocks HTTP GET request.
 def mocked_requests_get(*args, **kwargs):
@@ -156,7 +158,7 @@ class TestPodonosEvaluator(unittest.TestCase):
         self.assertIsNotNone(etor)
 
         some_file = os.path.join(os.path.dirname(__file__), '../speech_0_0.mp3')
-        etor.add_file(path=some_file, tags=['unknown_file,new_model'])
+        etor.add_file(File(path=some_file, tags=['unknown_file,new_model']))
         etor.close()
 
 
