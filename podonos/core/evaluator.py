@@ -39,6 +39,8 @@ class Evaluator(ABC):
         self._api_key = api_client.api_key
         self._eval_config = eval_config
         self._initialized = True
+        self._eval_audios = []
+        self._eval_audio_json = []
 
     def _init_eval_variables(self):
         """Initializes the variables for one evaluation session."""
