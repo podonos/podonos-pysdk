@@ -31,7 +31,7 @@ class TestDoubleStimuliEvaluator:
     def test_add_file_not_supported(self):
         with pytest.raises(NotSupportedError) as excinfo:
             self.evaluator.add_file(File(path="1.wav", tags=["test"]))
-        assert "Not supported function. Use one of {'NMOS', 'QMOS', 'P808'}" in str(excinfo.value)
+        assert "The 'add_file' is only supported in these evaluation types: {'NMOS', 'QMOS', 'P808'}" in str(excinfo.value)
 
     def test_add_file_pair_unsupported_eval_type(self):
         self.evaluator._initialized = True

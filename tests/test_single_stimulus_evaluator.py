@@ -29,11 +29,11 @@ class TestSingleStimulusEvaluator:
         ref_audio_config = File(path='ref.wav', tags=['ref'])
         with pytest.raises(NotSupportedError) as excinfo:
             self.evaluator.add_file_pair(target=target_audio_config, ref=ref_audio_config)
-        assert "Not supported function. Use one of {'CMOS', 'DMOS'}" in str(excinfo.value)
+        assert "The 'add_file_pair' is only supported in these evaluation types: {'CMOS', 'DMOS'}" in str(excinfo.value)
 
     def test_add_file_set_not_supported(self):
         file0 = File(path='original.wav', tags=['original'])
         file1 = File(path='generated.wav', tags=['generated'])
         with pytest.raises(NotSupportedError) as excinfo:
             self.evaluator.add_file_set(file0=file0, file1=file1)
-        assert "Not supported function. Use one of {'SMOS', 'PREF'}" in str(excinfo.value)
+        assert "The 'add_file_set' is only supported in these evaluation types: {'SMOS', 'PREF'}" in str(excinfo.value)
