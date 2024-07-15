@@ -1,3 +1,7 @@
+## 0.1.13
+
+- Fix bug when initializing `Evaluator`
+
 ## 0.1.12
 
 - Create `File` object for containing `path`, `tags`
