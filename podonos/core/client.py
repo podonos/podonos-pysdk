@@ -121,7 +121,7 @@ class Client:
         """
         stats = self.get_stats_dict_by_id(evaluation_id)
         with open(output_path, "w") as f:
-            f.write("stimulus_name,tags,mean,median,std,ci_90,ci_95,ci_99\n")
+            f.write("name,tags,mean,median,std,ci_90,ci_95,ci_99\n")
             for stat in stats:
                 for file in stat['files']:
                     tags = ";".join(file["tags"])
