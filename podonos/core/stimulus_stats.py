@@ -1,8 +1,32 @@
 from dataclasses import dataclass
+from typing import List
+
 
 @dataclass
+class StimulusStatsFile:
+    name: str
+    tags: List[str]
+    
+    @staticmethod
+    def from_dict(data: dict) -> 'StimulusStatsFile':
+        required_keys = ["name", "tags"]
+        for key in required_keys:
+            if key not in data:
+                raise ValueError(f"Invalid data format for StimulusStatsFile: {data}")
+        return StimulusStatsFile(
+            name=data["name"],
+            tags=data["tags"]
+        )
+        
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "tags": self.tags
+        }
+    
+@dataclass
 class StimulusStats:
-    stimulus_name: str
+    files: List[StimulusStatsFile]
     mean: float
     median: float
     std: float
@@ -12,13 +36,14 @@ class StimulusStats:
     
     @staticmethod
     def from_dict(data: dict) -> 'StimulusStats':
-        required_keys = ["stimulus_name", "mean", "median", "std", "ci_90", "ci_95", "ci_99"]
+        required_keys = ["files", "mean", "median", "std", "ci_90", "ci_95", "ci_99"]
         for key in required_keys:
             if key not in data:
-                raise ValueError(f"Invalid data format for StimulusStatsResponseDto: {data}")
+                raise ValueError(f"Invalid data format for StimulusStats: {data}")
         
+        files = [StimulusStatsFile.from_dict(file) for file in data["files"]]
         return StimulusStats(
-            stimulus_name=data['stimulus_name'],
+            files=files,
             mean=data['mean'],
             median=data['median'],
             std=data['std'],
@@ -29,7 +54,7 @@ class StimulusStats:
     
     def to_dict(self) -> dict:
         return {
-            "stimulus_name": self.stimulus_name,
+            "files": [file.to_dict() for file in self.files],
             "mean": self.mean,
             "median": self.median,
             "std": self.std,
