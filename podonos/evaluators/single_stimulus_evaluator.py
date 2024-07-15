@@ -48,7 +48,7 @@ class SingleStimulusEvaluator(Evaluator):
             self._eval_audios.append([audio])
     
     def add_file_pair(self, target: File, ref: File) -> None:
-        raise NotSupportedError("Not supported function. Use one of {'CMOS', 'DMOS'}")
+        raise NotSupportedError("The 'add_file_pair' is only supported in these evaluation types: {'CMOS', 'DMOS'}")
     
     def add_file_set(self, file0: File, file1: File) -> None:
-        raise NotSupportedError("Not supported function. Use one of {'SMOS', 'PREF'}")
+        raise NotSupportedError("The 'add_file_set' is only supported in these evaluation types: {'SMOS', 'PREF'}")
