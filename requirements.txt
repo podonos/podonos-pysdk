@@ -38,5 +38,4 @@ soundfile==0.12.1
 tomli==2.0.1
 twine==5.1.0
 typing-extensions==4.12.1
-urllib3==2.2.2
 zipp==3.19.2
