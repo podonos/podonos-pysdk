@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "podonos"
-version = "0.1.14"
+version = "0.1.16"
 description = "Managed evaluation for audio & speech"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -15,7 +15,7 @@ requires-python = ">=3.8"
 dependencies = [
     "packaging",
     "requests",
-    "soundfile"
+    "soundfile==0.12.1"
 ]
 keywords = ["ai", "speech", "synthesis"]
 classifiers = [

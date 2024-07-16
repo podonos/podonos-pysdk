@@ -1,4 +1,4 @@
-## 0.1.14
+## 0.1.16
 
 - Add `soundfile` library
 - Support only `wav` format
