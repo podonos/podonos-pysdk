@@ -1,6 +1,7 @@
 backports.tarfile==1.2.0
 build==1.2.1
-certifi==2024.2.2
+certifi==2024.7.4
+cffi==1.16.0
 charset-normalizer==3.3.2
 docutils==0.20.1
 exceptiongroup==1.2.1
@@ -20,6 +21,7 @@ nh3==0.2.17
 packaging==24.1
 pkginfo==1.11.0
 pluggy==1.5.0
+pycparser==2.22
 pygments==2.18.0
 pyparsing==2.4.6
 pyproject-hooks==1.1.0
@@ -32,8 +34,9 @@ rfc3986==2.0.0
 rich==13.7.1
 s3transfer==0.10.1
 six==1.10.0
+soundfile==0.12.1
 tomli==2.0.1
 twine==5.1.0
 typing-extensions==4.12.1
-urllib3==1.26.18
+urllib3==2.2.2
 zipp==3.19.2
