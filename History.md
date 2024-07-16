@@ -1,3 +1,8 @@
+## 0.1.14
+
+- Add `soundfile` library
+- Support only `wav` format
+
 ## 0.1.13
 
 - Fix bug when initializing `Evaluator`
