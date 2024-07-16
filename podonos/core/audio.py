@@ -1,8 +1,9 @@
-import wave
+import soundfile as sf
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List
 
 from podonos.common.enum import QuestionFileType
+from podonos.errors.error import InvalidFileError
 
 class AudioMeta:
     _nchannels: int
@@ -35,16 +36,14 @@ class AudioMeta:
         Raises:
             FileNotFoundError: if the file is not found.
             wave.Error: if the file doesn't read properly.
+            AssertionError: if the file format is not wav.
         """
 
         # Check if this is wav or mp3.
         suffix = Path(path).suffix
-        assert suffix == '.wav' or suffix == '.mp3', \
-            f"Unsupported file format: {path}. It must be either wav or mp3."
+        assert suffix == '.wav', f"Unsupported file format: {path}. It must be wav."
         if suffix == '.wav':
             return self._get_wave_info(path)
-        elif suffix == '.mp3':
-            return self._get_mp3_info(path)
         return 0, 0, 0
 
     def _get_wave_info(self, filepath: str) -> Tuple[int, int, int]:
@@ -59,9 +58,14 @@ class AudioMeta:
             FileNotFoundError: if the file is not found.
             wave.Error: if the file doesn't read properly.
         """
-        wav = wave.open(filepath, "r")
-        nchannels, sampwidth, framerate, nframes, comptype, compname = wav.getparams()
-        assert comptype == 'NONE'
+        
+        f = sf.SoundFile(filepath)
+        nframes = f.frames
+        nchannels = f.channels
+        framerate = f.samplerate
+        if framerate == 0:
+            raise InvalidFileError()
+        
         duration_in_ms = int(nframes * 1000.0 / float(framerate))
         return nchannels, framerate, duration_in_ms
 

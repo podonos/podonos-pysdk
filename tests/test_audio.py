@@ -1,7 +1,5 @@
 import os
-import podonos
 import unittest
-from unittest import mock
 from podonos.core.audio import AudioMeta
 
 TESTDATA_SPEECH_CH1_MP3 = os.path.join(os.path.dirname(__file__), 'speech_ch1.mp3')
@@ -21,6 +19,11 @@ class TestAudioMeta(unittest.TestCase):
         self.assertTrue(meta.nchannels == 2)
         self.assertTrue(meta.framerate == 16000)
         self.assertTrue(meta.duration_in_ms == 558)
+        
+    def test_audio_meta_unsupported_format(self):
+        with self.assertRaises(AssertionError) as context:
+            AudioMeta(TESTDATA_SPEECH_CH1_MP3)
+        self.assertTrue('Unsupported file format' in str(context.exception))
 
 
 if __name__ == '__main__':
