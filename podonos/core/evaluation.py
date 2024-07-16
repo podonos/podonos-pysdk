@@ -30,12 +30,14 @@ class Evaluation:
         )
     
     def to_dict(self) -> dict:
+        created_time_str = self.created_time.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+        updated_time_str = self.updated_time.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
         return {
             "id": self.id,
             "title": self.title,
             "internal_name": self.internal_name,
             "description": self.description,
             "status": self.status,
-            "created_time": self.created_time,
-            "updated_time": self.updated_time
+            "created_time": created_time_str,
+            "updated_time": updated_time_str
         }
