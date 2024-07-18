@@ -12,6 +12,7 @@ class AudioMeta:
 
     def __init__(self, path: str) -> None:
         self._nchannels, self._framerate, self._duration_in_ms = self._set_audio_meta(path)
+        print(self._nchannels, self._framerate, self._duration_in_ms)
 
     @property
     def nchannels(self) -> int:
@@ -41,9 +42,11 @@ class AudioMeta:
 
         # Check if this is wav or mp3.
         suffix = Path(path).suffix
-        assert suffix == '.wav', f"Unsupported file format: {path}. It must be wav."
+        assert suffix in ['.wav', '.mp3'], f"Unsupported file format: {path}. It must be wav or mp3."
         if suffix == '.wav':
             return self._get_wave_info(path)
+        elif suffix == '.mp3':
+            return self._get_mp3_info(path)
         return 0, 0, 0
 
     def _get_wave_info(self, filepath: str) -> Tuple[int, int, int]:
@@ -82,7 +85,16 @@ class AudioMeta:
             FileNotFoundError: if the file is not found.
         """
         # TODO parse the mp3 without pydub, which installs ffmpeg and causes lots of error.
-        return 0, 0, 0
+        f = sf.SoundFile(filepath)
+        nframes = f.frames
+        nchannels = f.channels
+        framerate = f.samplerate
+        if framerate == 0:
+            raise InvalidFileError()
+        
+        duration_in_ms = int(nframes * 1000.0 / float(framerate))
+        return nchannels, framerate, duration_in_ms
+        # return 0, 0, 0
 
 class Audio:
     _path: str
