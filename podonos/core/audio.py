@@ -12,7 +12,6 @@ class AudioMeta:
 
     def __init__(self, path: str) -> None:
         self._nchannels, self._framerate, self._duration_in_ms = self._set_audio_meta(path)
-        print(self._nchannels, self._framerate, self._duration_in_ms)
 
     @property
     def nchannels(self) -> int:
