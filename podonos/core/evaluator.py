@@ -109,9 +109,9 @@ class Evaluator(ABC):
             raise HTTPError(f"Failed to upload session.json: {e}", status_code=e.response.status_code if e.response else None)
         
         if self._eval_config.eval_auto_start:
-            print(f'{bcolors.OK}Upload finished. The evaluation will start immediately.{bcolors.ENDC}')
+            print(f'{TerminalColor.OK}Upload finished. The evaluation will start immediately.{TerminalColor.ENDC}')
         else:
-            print(f'{bcolors.OK}Upload finished. Please start the evaluation at {PODONOS_WORKSPACE}.{bcolors.ENDC}')
+            print(f'{TerminalColor.OK}Upload finished. Please start the evaluation at {PODONOS_WORKSPACE}.{TerminalColor.ENDC}')
 
         # Initialize variables.
         self._init_eval_variables()
