@@ -64,9 +64,9 @@ class Client:
             granularity=granularity, num_eval=num_eval,
             due_hours=due_hours, auto_start=auto_start
         )
-        if type in [EvalType.SMOS.value]:
+        if type in [EvalType.SMOS.value, EvalType.PREF.value]:
             return DoubleStimuliEvaluator(
-                supported_evaluation_type=[EvalType.SMOS],
+                supported_evaluation_type=[EvalType.SMOS, EvalType.PREF],
                 api_client=self._api_client,
                 eval_config=eval_config
             )

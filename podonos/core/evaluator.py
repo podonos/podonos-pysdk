@@ -85,9 +85,12 @@ class Evaluator(ABC):
         """
         if not self._initialized or self._eval_config is None:
             raise ValueError("No evaluation session is open.")
-
+        
         # Upload files
         # TODO: add lazy & background upload
+        if self._eval_config.eval_type not in self._supported_evaluation_type:
+            raise ValueError("Not supported evaluation type")
+        
         evaluation = self._create_evaluation()
         self._upload_files(evaluation_id=evaluation.id)
 

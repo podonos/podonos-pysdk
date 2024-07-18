@@ -21,6 +21,8 @@ class EvalType(Enum):
     DMOS = 'DMOS'
     
     def get_type(self) -> str:
+        if self.value == "PREF":
+            return "SPEECH_PREFERENCE"
         return f"SPEECH_{self.value}"
     
     @staticmethod
