@@ -4,6 +4,7 @@ import unittest
 from unittest import mock
 
 from podonos.core.file import File
+from podonos.common.constant import *
 
 
 # Mocks HTTP GET request.
@@ -47,6 +48,21 @@ class TestPodonos(unittest.TestCase):
             _ = podonos.init(invalid_api_key)
 
         # Valid api_key
+        valid_api_key = '12345678'
+        valid_client = podonos.init(valid_api_key)
+        self.assertTrue(isinstance(valid_client, podonos.Client))
+
+    @mock.patch('requests.get', side_effect=mocked_requests_get)
+    def test_init_api_key_env(self, mock_get):
+        # Valid api_key_env
+        os.environ[PODONOS_API_KEY] = "ABCDEFG"
+        valid_client = podonos.init()
+        self.assertTrue(isinstance(valid_client, podonos.Client))
+
+    @mock.patch('requests.get', side_effect=mocked_requests_get)
+    def test_init_both_api_keys(self, mock_get):
+        # Valid api_key_env
+        os.environ[PODONOS_API_KEY] = "ABCDEFG"
         valid_api_key = '12345678'
         valid_client = podonos.init(valid_api_key)
         self.assertTrue(isinstance(valid_client, podonos.Client))

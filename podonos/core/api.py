@@ -8,8 +8,9 @@ from requests import Response
 from typing import Dict, Any, Optional
 from packaging.version import Version
 
+from podonos.common.constant import *
 from podonos.common.exception import HTTPError
-from podonos.common.enum import TerminalColor
+
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ class APIClient:
         
         response = self.get("customers/verify/api-key")
         if response.text != "true":
-            raise ValueError(f"Invalid API key: {self._api_key}")
+            raise ValueError(TerminalColor.FAIL + f"Invalid API key: {self._api_key}"  + TerminalColor.ENDC)
         return True
     
     def add_headers(self, key: str, value: str) -> None:
@@ -90,7 +91,8 @@ class APIClient:
             return response
         except requests.exceptions.RequestException as e:
             log.error(f"HTTP Error: {e}")
-            raise HTTPError(f"Failed to Upload File {path}: {e}", status_code=e.response.status_code if e.response else None)
+            raise HTTPError(f"Failed to Upload File {path}: {e}",
+                            status_code=e.response.status_code if e.response else None)
     
     def put_json_presigned_url(self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Response:
         try:
@@ -98,7 +100,8 @@ class APIClient:
             return response
         except requests.exceptions.RequestException as e:
             log.error(f"HTTP Error: {e}")
-            raise HTTPError(f"Failed to Upload JSON {data}: {e}", status_code=e.response.status_code if e.response else None)
+            raise HTTPError(f"Failed to Upload JSON {data}: {e}",
+                            status_code=e.response.status_code if e.response else None)
         
     def _set_content_type_by_filename(self, path: str) -> str:
         _, ext = os.path.splitext(path)
@@ -130,10 +133,10 @@ class APIClient:
         
         # This version is lower than the minimum required version. Cannot proceed.
         print(
-            TerminalColor.FAIL.value + 
+            TerminalColor.FAIL +
             f"The current podonos package version is {current_version} "
-            f"while the minimum supported version is {api_version.minimum}" + TerminalColor.ENDC.value + "\n" +
-            TerminalColor.BOLD.value + "Please upgrade" + TerminalColor.ENDC.value + f" by 'pip install podonos --upgrade'"
+            f"while the minimum supported version is {api_version.minimum}" + TerminalColor.ENDC + "\n" +
+            TerminalColor.BOLD + "Please upgrade" + TerminalColor.ENDC + f" by 'pip install podonos --upgrade'"
         )
         raise ValueError(f"Minimum supported version is {api_version.minimum}")
 
