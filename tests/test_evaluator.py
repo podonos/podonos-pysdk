@@ -3,12 +3,16 @@ import unittest
 import requests
 from unittest.mock import Mock, patch, MagicMock
 from typing import Optional
+from datetime import datetime
 
+from podonos.common.enum import QuestionFileType
 from podonos.common.exception import HTTPError
 from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig
+from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
 from podonos.core.file import File
+from tests.test_audio import TESTDATA_SPEECH_CH1_MP3
 
 class MockEvaluator(Evaluator):
     def __init__(self, api_client = Mock(spec=APIClient), eval_config: Optional[EvalConfig] = None):
@@ -44,6 +48,23 @@ class TestEvaluator(unittest.TestCase):
         
         self.assertEqual(str(context.exception), "Evaluator is not initialized")
 
+    def test_create_evaluation_success(self):
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = None  # No exception
+        mock_response.json.return_value = Evaluation(
+            id="id", title="title", internal_name=None, description=None, status="DRAFT",
+            created_time=datetime.now(), updated_time=datetime.now(),
+        )
+        
+        eval_config = EvalConfig("NMOS")
+        evaluator = MockEvaluator(api_client=MagicMock(), eval_config=eval_config)
+        evaluator._api_client.post.return_value = mock_response # type: ignore
+
+        result = evaluator._create_evaluation()
+
+        self.assertEqual(result.id, "id")
+        self.assertEqual(eval_config.eval_id, "id")
+
     def test_post_request_evaluation_success(self):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = MagicMock(status_code=200)
@@ -61,12 +82,34 @@ class TestEvaluator(unittest.TestCase):
     def test_post_request_evaluation_http_error(self):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=MagicMock(status_code=400))
-        mock_api_client = MagicMock()
-        evaluator = MockEvaluator(api_client=mock_api_client, eval_config=EvalConfig("NMOS"))
+
+        evaluator = MockEvaluator(api_client=MagicMock(), eval_config=EvalConfig("NMOS"))
         evaluator._api_client.post.return_value = mock_response # type: ignore
 
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HTTPError) as context:
             evaluator._post_request_evaluation()
+        
+        self.assertIn("Failed to request", str(context.exception))
+
+    @patch('os.path.isfile', return_value=True)
+    @patch('os.access', return_value=True)
+    def test_set_audio(self, mock_access, mock_isfile):
+        path = TESTDATA_SPEECH_CH1_MP3
+        tags = ["tag1", "tag2"]
+        group = "group1"
+        type = QuestionFileType.STIMULUS
+        
+        audio = self.evaluator._set_audio(path, tags, group, type)
+        
+        expected_name = "speech_ch1.mp3"
+        expected_remote_name = os.path.join(self.eval_config.eval_creation_timestamp, expected_name)
+        
+        self.assertEqual(audio.path, path)
+        self.assertEqual(audio.name, expected_name)
+        self.assertEqual(audio.remote_name, expected_remote_name)
+        self.assertEqual(audio.tags, tags)
+        self.assertEqual(audio.group, group)
+        self.assertEqual(audio.type, type)
 
     @patch('os.path.isfile')
     @patch('os.access')
@@ -87,7 +130,7 @@ class TestEvaluator(unittest.TestCase):
     @patch('os.access')
     def test_validate_path_file_not_exist(self, mock_access, mock_isfile):
         mock_isfile.return_value = False
-        evaluator = MockEvaluator(eval_config=EvalConfig(type='NMOS'))
+        evaluator = MockEvaluator(api_client=MagicMock(), eval_config=EvalConfig(type='NMOS'))
         
         invalid_path = '/invalid/path/to/file.txt'
         with self.assertRaises(FileNotFoundError) as context:
@@ -114,6 +157,16 @@ class TestEvaluator(unittest.TestCase):
         
         mock_isfile.assert_called_once_with(unreadable_path)
         mock_access.assert_called_once_with(unreadable_path, os.R_OK)
+    
+    def test_get_name_and_remote_name(self):
+        valid_path = "/path/to/file.txt"
+        expected_name = "file.txt"
+        expected_remote_name = os.path.join(self.eval_config.eval_creation_timestamp, expected_name)
+        
+        name, remote_name = self.evaluator._get_name_and_remote_name(valid_path)
+        
+        self.assertEqual(name, expected_name)
+        self.assertEqual(remote_name, expected_remote_name)
 
 if __name__ == '__main__':
     unittest.main()
