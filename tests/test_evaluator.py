@@ -51,10 +51,15 @@ class TestEvaluator(unittest.TestCase):
     def test_create_evaluation_success(self):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = None  # No exception
-        mock_response.json.return_value = Evaluation(
-            id="id", title="title", internal_name=None, description=None, status="DRAFT",
-            created_time=datetime.now(), updated_time=datetime.now(),
-        )
+        mock_response.json.return_value = {
+            "id": "123",
+            "title": "title",
+            "internal_name": None,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": datetime.now().isoformat(),
+            "updated_time": datetime.now().isoformat(),
+        }
         
         eval_config = EvalConfig("NMOS")
         evaluator = MockEvaluator(api_client=MagicMock(), eval_config=eval_config)
@@ -62,8 +67,21 @@ class TestEvaluator(unittest.TestCase):
 
         result = evaluator._create_evaluation()
 
-        self.assertEqual(result.id, "id")
-        self.assertEqual(eval_config.eval_id, "id")
+        self.assertEqual(result.id, "123")
+        self.assertEqual(eval_config.eval_id, "123")
+
+    def test_create_evaluation_http_error(self):
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=MagicMock(status_code=400))
+
+        eval_config = EvalConfig("NMOS")
+        evaluator = MockEvaluator(api_client=MagicMock(), eval_config=eval_config)
+        evaluator._api_client.post.return_value = mock_response # type: ignore
+
+        with self.assertRaises(HTTPError) as context:
+            evaluator._create_evaluation()
+
+        self.assertIn("Failed to create", str(context.exception))
 
     def test_post_request_evaluation_success(self):
         mock_response = MagicMock()
