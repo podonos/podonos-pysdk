@@ -1,3 +1,8 @@
+## 0.1.17
+
+- Create `Preference` type for evaluation
+- Support `mp3` format
+
 ## 0.1.16
 
 - Add `soundfile` library
