@@ -8,6 +8,7 @@ from typing import Tuple, Dict, List, Optional
 from podonos.common.constant import *
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.exception import HTTPError
+from podonos.common.util import generate_random_name
 from podonos.core.api import APIClient
 from podonos.core.audio import Audio
 from podonos.core.config import EvalConfig
@@ -100,7 +101,7 @@ class Evaluator(ABC):
 
         # Get the presigned URL for filename
         remote_object_name = os.path.join(self._eval_config.eval_creation_timestamp, 'session.json')
-        presigned_url = self._get_presigned_url_for_put_method(evaluation.id, remote_object_name, 0, QuestionFileType.REF)
+        presigned_url = self._get_presigned_url_for_put_method(evaluation.id, "session.json", remote_object_name, 0, QuestionFileType.REF)
         try:
             response = self._api_client.put_json_presigned_url(url=presigned_url, data=session_json, headers={'Content-type': 'application/json'})
             response.raise_for_status()
@@ -198,7 +199,7 @@ class Evaluator(ABC):
             upload_finish_at: Upload start time in ISO 8601 string.
         """
         # Get the presigned URL for files
-        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, remote_object_name, duration_in_ms, type, tags, group)
+        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, path, remote_object_name, duration_in_ms, type, tags, group)
 
         # Timestamp in ISO 8601.
         upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
@@ -209,6 +210,7 @@ class Evaluator(ABC):
     def _get_presigned_url_for_put_method(
         self, 
         evaluation_id: str, 
+        path: str,
         remote_object_name: str,
         duration_in_ms: int,
         type: QuestionFileType,
@@ -217,7 +219,8 @@ class Evaluator(ABC):
     ) -> str:
         try:
             response = self._api_client.put(f"evaluations/{evaluation_id}/uploading-presigned-url", {
-                "filename": remote_object_name,
+                "original_uri": path,
+                "processed_uri": remote_object_name,
                 "duration": duration_in_ms,
                 "tags": tags,
                 "type": type,
@@ -261,6 +264,5 @@ class Evaluator(ABC):
     
     def _get_name_and_remote_name(self, valid_path: str) -> Tuple[str, str]:
         eval_config = self._get_eval_config()
-        name = os.path.basename(valid_path)
-        remote_name = os.path.join(eval_config.eval_creation_timestamp, name)
-        return name, remote_name
+        remote_name = os.path.join(eval_config.eval_creation_timestamp, generate_random_name())
+        return valid_path, remote_name

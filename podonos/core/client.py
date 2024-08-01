@@ -40,7 +40,7 @@ class Client:
             desc: Description of this session. Optional.
             type: Evaluation type. One of {'NMOS', 'SMOS', 'P808'}. Default: NMOS
             lan: Human language for this audio. One of those in Language. Default: en-us
-            num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 3.
+            num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 10.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
                         Must be >= 12. Default: 12.
             auto_start: The evaluation start automatically if True. Manually start in the workspace otherwise.
