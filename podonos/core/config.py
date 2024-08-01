@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 class EvalConfigDefault:
     TYPE = EvalType.NMOS
     LAN = Language.ENGLISH_AMERICAN
-    NUM_EVAL = 3
+    NUM_EVAL = 10
     DUE_HOURS = 12
     AUTO_START = False
     GRANULARITY = 1.0
@@ -27,7 +27,7 @@ class EvalConfig:
     _eval_type: EvalType = EvalConfigDefault.TYPE
     _eval_language: Language = EvalConfigDefault.LAN
     _eval_granularity: float = EvalConfigDefault.GRANULARITY
-    _eval_num: int = 3
+    _eval_num: int = EvalConfigDefault.NUM_EVAL
     _eval_expected_due_tzname: Optional[str] = None
     _eval_auto_start: bool = False
 
@@ -171,6 +171,7 @@ class EvalConfig:
             "internal_name": self._eval_name,
             "description": self._eval_description,
             "language": self._eval_language.value,
+            "num_required_etors": self._eval_num,
             "granularity": self._eval_granularity,
             "evaluation_type": self._eval_type.get_type()
         }

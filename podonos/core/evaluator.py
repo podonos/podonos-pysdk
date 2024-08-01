@@ -8,6 +8,7 @@ from typing import Tuple, Dict, List, Optional
 from podonos.common.constant import *
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.exception import HTTPError
+from podonos.common.util import generate_random_name
 from podonos.core.api import APIClient
 from podonos.core.audio import Audio
 from podonos.core.config import EvalConfig
@@ -261,6 +262,5 @@ class Evaluator(ABC):
     
     def _get_name_and_remote_name(self, valid_path: str) -> Tuple[str, str]:
         eval_config = self._get_eval_config()
-        name = os.path.basename(valid_path)
-        remote_name = os.path.join(eval_config.eval_creation_timestamp, name)
-        return name, remote_name
+        remote_name = os.path.join(eval_config.eval_creation_timestamp, generate_random_name())
+        return valid_path, remote_name
