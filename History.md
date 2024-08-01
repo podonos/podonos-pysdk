@@ -1,3 +1,7 @@
+## 0.1.18
+
+- Create `random_uuid_path` of `file` before uploading `file`
+
 ## 0.1.17
 
 - Create `Preference` type for evaluation
