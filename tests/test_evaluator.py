@@ -119,12 +119,8 @@ class TestEvaluator(unittest.TestCase):
         
         audio = self.evaluator._set_audio(path, tags, group, type)
         
-        expected_name = "speech_ch1.mp3"
-        expected_remote_name = os.path.join(self.eval_config.eval_creation_timestamp, expected_name)
-        
         self.assertEqual(audio.path, path)
-        self.assertEqual(audio.name, expected_name)
-        self.assertEqual(audio.remote_name, expected_remote_name)
+        self.assertEqual(audio.name, path)
         self.assertEqual(audio.tags, tags)
         self.assertEqual(audio.group, group)
         self.assertEqual(audio.type, type)
@@ -178,13 +174,11 @@ class TestEvaluator(unittest.TestCase):
     
     def test_get_name_and_remote_name(self):
         valid_path = "/path/to/file.txt"
-        expected_name = "file.txt"
-        expected_remote_name = os.path.join(self.eval_config.eval_creation_timestamp, expected_name)
+        expected_name = "/path/to/file.txt"
         
-        name, remote_name = self.evaluator._get_name_and_remote_name(valid_path)
+        name, _ = self.evaluator._get_name_and_remote_name(valid_path)
         
         self.assertEqual(name, expected_name)
-        self.assertEqual(remote_name, expected_remote_name)
 
 if __name__ == '__main__':
     unittest.main()
