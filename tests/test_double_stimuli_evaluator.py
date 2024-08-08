@@ -21,8 +21,8 @@ class TestDoubleStimuliEvaluator:
 
     def test_add_file_pair_without_init(self):
         self.evaluator._initialized = False
-        target_audio_config = File(path='generated.wav', tags=['target'])
-        ref_audio_config = File(path='original.wav', tags=['reference'])
+        target_audio_config = File(path='generated.wav', tags=['target'], script="This is target audio file")
+        ref_audio_config = File(path='original.wav', tags=['reference'], script=None)
 
         with pytest.raises(ValueError) as excinfo:
             self.evaluator.add_file_pair(target=target_audio_config, ref=ref_audio_config)
@@ -49,7 +49,7 @@ class TestDoubleStimuliEvaluator:
         self.evaluator._initialized = True
         self.eval_config._eval_type = EvalType.CMOS
 
-        file0 = File(path='file1.wav', tags=['file1'])
+        file0 = File(path='file1.wav', tags=['file1'], script="We are the world")
         file1 = File(path='file2.wav', tags=['file2'])
 
         with pytest.raises(ValueError) as excinfo:

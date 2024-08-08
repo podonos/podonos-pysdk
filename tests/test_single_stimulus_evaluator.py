@@ -32,8 +32,8 @@ class TestSingleStimulusEvaluator:
         assert "The 'add_file_pair' is only supported in these evaluation types: {'CMOS', 'DMOS'}" in str(excinfo.value)
 
     def test_add_file_set_not_supported(self):
-        file0 = File(path='original.wav', tags=['original'])
-        file1 = File(path='generated.wav', tags=['generated'])
+        file0 = File(path='original.wav', tags=['original'], script="Dog is very cute")
+        file1 = File(path='generated.wav', tags=['generated'], script="Dog is very cute")
         with pytest.raises(NotSupportedError) as excinfo:
             self.evaluator.add_file_set(file0=file0, file1=file1)
         assert "The 'add_file_set' is only supported in these evaluation types: {'SMOS', 'PREF'}" in str(excinfo.value)

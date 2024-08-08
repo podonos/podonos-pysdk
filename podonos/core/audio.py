@@ -100,6 +100,7 @@ class Audio:
     _name: str
     _remote_name: str
     _metadata: AudioMeta
+    _script: Optional[str] = None
     _upload_start_at: Optional[str] = None
     _upload_finish_at: Optional[str] = None
     _tags: Optional[List[str]] = None
@@ -111,6 +112,7 @@ class Audio:
         path: str,
         name: str, 
         remote_name: str,
+        script: Optional[str],
         tags: Optional[List[str]],
         group: Optional[str],
         type: QuestionFileType
@@ -118,6 +120,7 @@ class Audio:
         self._path = path
         self._name = name
         self._remote_name = remote_name
+        self._script = script
         self._metadata = AudioMeta(path)
         self._tags = tags
         self._group = group
@@ -134,6 +137,10 @@ class Audio:
     @property
     def remote_name(self) -> str:
         return self._remote_name
+    
+    @property
+    def script(self) -> Optional[str]:
+        return self._script
     
     @property
     def tags(self) -> Optional[List[str]]:

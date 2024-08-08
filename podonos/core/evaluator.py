@@ -167,7 +167,8 @@ class Evaluator(ABC):
                     duration_in_ms=audio.metadata.duration_in_ms,
                     tags=audio.tags if audio.tags else [],
                     type=audio.type,
-                    group=audio.group
+                    group=audio.group,
+                    script=audio.script,
                 )
                 audio.set_upload_at(upload_start_at, upload_finish_at)
                 audio_json_list.append(audio.to_dict())
@@ -183,6 +184,7 @@ class Evaluator(ABC):
         type: QuestionFileType,
         tags: List[str] = [],
         group: Optional[str] = None,
+        script: Optional[str] = None,
     ) -> Tuple[str, str]:
         """
         Upload one file to server.
@@ -199,7 +201,7 @@ class Evaluator(ABC):
             upload_finish_at: Upload start time in ISO 8601 string.
         """
         # Get the presigned URL for files
-        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, path, remote_object_name, duration_in_ms, type, tags, group)
+        presigned_url = self._get_presigned_url_for_put_method(evaluation_id, path, remote_object_name, duration_in_ms, type, tags, group, script)
 
         # Timestamp in ISO 8601.
         upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
@@ -216,6 +218,7 @@ class Evaluator(ABC):
         type: QuestionFileType,
         tags: List[str] = [],
         group: Optional[str] = None,
+        script: Optional[str] = None,
     ) -> str:
         try:
             response = self._api_client.put(f"evaluations/{evaluation_id}/uploading-presigned-url", {
@@ -224,7 +227,8 @@ class Evaluator(ABC):
                 "duration": duration_in_ms,
                 "tags": tags,
                 "type": type,
-                "group": group
+                "group": group,
+                "script": script
             })
             response.raise_for_status()
             return response.text.replace('"', '')
@@ -244,13 +248,13 @@ class Evaluator(ABC):
             log.error(f"HTTP Error: {e}")
             raise HTTPError(f"Failed to request evaluation: {e}", status_code=e.response.status_code if e.response else None)
     
-    def _set_audio(self, path: str, tags: Optional[List[str]], group: Optional[str], type: QuestionFileType) -> Audio:
+    def _set_audio(self, path: str, tags: Optional[List[str]], script: Optional[str], group: Optional[str], type: QuestionFileType) -> Audio:
         valid_path = self._validate_path(path)
         name, remote_name = self._get_name_and_remote_name(valid_path)
                 
         log.debug(f'remote_object_name: {remote_name}\n')
         return Audio(
-            path=valid_path, name=name, remote_name=remote_name,
+            path=valid_path, name=name, remote_name=remote_name, script=script,
             tags=tags, group=group, type=type
         )
     
