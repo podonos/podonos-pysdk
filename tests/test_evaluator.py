@@ -114,14 +114,16 @@ class TestEvaluator(unittest.TestCase):
     def test_set_audio(self, mock_access, mock_isfile):
         path = TESTDATA_SPEECH_CH1_MP3
         tags = ["tag1", "tag2"]
+        script = "Hello World"
         group = "group1"
         type = QuestionFileType.STIMULUS
         
-        audio = self.evaluator._set_audio(path, tags, group, type)
+        audio = self.evaluator._set_audio(path, tags, script, group, type)
         
         self.assertEqual(audio.path, path)
         self.assertEqual(audio.name, path)
         self.assertEqual(audio.tags, tags)
+        self.assertEqual(audio.script, script)
         self.assertEqual(audio.group, group)
         self.assertEqual(audio.type, type)
 
