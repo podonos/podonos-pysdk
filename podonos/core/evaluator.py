@@ -29,6 +29,7 @@ class Evaluator(ABC):
     _supported_evaluation_type: List[EvalType]
     _evaluation: Evaluation = None
 
+    # Upload manager. Lazy initialization when used for saving resources.
     _upload_manager: UploadManager = None
     # Contains the metadata for all the audio files for evaluation.
     _eval_audios: List[List[Audio]] = []
@@ -45,7 +46,6 @@ class Evaluator(ABC):
         self._initialized = True
         self._eval_audios = []
         self._eval_audio_json = []
-        self._upload_manager = UploadManager(max_workers=MAX_UPLOADER_WORKER)
         self._evaluation = self._create_evaluation()
 
     def _init_eval_variables(self):
@@ -106,7 +106,7 @@ class Evaluator(ABC):
             raise ValueError("Not supported evaluation type")
 
         # Wait until file uploading finishes.
-        self._upload_manager.wait_and_close()
+        assert self._upload_manager.wait_and_close()
 
         # Get the upload time & finish time.
         upload_start, upload_finish = self._upload_manager.get_upload_time()
@@ -168,7 +168,6 @@ class Evaluator(ABC):
             response = self._api_client.post("evaluations", data=eval_config.to_create_request_dto())
             response.raise_for_status()
             evaluation = Evaluation.from_dict(response.json())
-            eval_config.eval_id = evaluation.id
             return evaluation
         except Exception as e:
             raise HTTPError(f"Failed to create the evaluation: {e}")
@@ -231,6 +230,9 @@ class Evaluator(ABC):
         # Get the presigned URL for one file
         presigned_url = self._get_presigned_url_for_put_method(evaluation_id, path, remote_object_name,
                                                                duration_in_ms, type, tags, group, script)
+        # Lazy initialization of upload manager.
+        if self._upload_manager is None:
+            self._upload_manager = UploadManager(api_client=self._api_client, max_workers=MAX_UPLOAD_WORKER)
         self._upload_manager.add_file_to_queue(presigned_url, remote_object_name, path)
         return
     
