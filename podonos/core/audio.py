@@ -106,6 +106,7 @@ class Audio:
     _tags: Optional[List[str]] = None
     _group: Optional[str] = None
     _type: QuestionFileType = QuestionFileType.STIMULUS
+    _order_in_group: int = 0
     
     def __init__(
         self, 
@@ -115,7 +116,8 @@ class Audio:
         script: Optional[str],
         tags: Optional[List[str]],
         group: Optional[str],
-        type: QuestionFileType
+        type: QuestionFileType,
+        order_in_group: int
     ) -> None:
         self._path = path
         self._name = name
@@ -125,6 +127,7 @@ class Audio:
         self._tags = tags
         self._group = group
         self._type = type
+        self._order_in_group = order_in_group
 
     @property
     def path(self) -> str:
@@ -157,6 +160,10 @@ class Audio:
     @property
     def type(self) -> QuestionFileType:
         return self._type
+    
+    @property
+    def order_in_group(self) -> int:
+        return self._order_in_group
 
     def set_upload_at(self, start_at: str, finish_at: str) -> None:
         self._upload_start_at = start_at
@@ -172,5 +179,6 @@ class Audio:
             "upload_start_at": self._upload_start_at,
             "upload_finish_at": self._upload_finish_at,
             "tag": self._tags,
-            "group": self._group
+            "group": self._group,
+            "order_in_group": self._order_in_group
         }

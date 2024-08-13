@@ -44,7 +44,7 @@ class SingleStimulusEvaluator(Evaluator):
 
         eval_config = self._get_eval_config()
         if eval_config.eval_type in self._supported_evaluation_type:
-            audio = self._set_audio(path=file.path, tags=file.tags, script=file.script, group=None, type=QuestionFileType.STIMULUS)
+            audio = self._set_audio(path=file.path, tags=file.tags, script=file.script, group=None, type=QuestionFileType.STIMULUS, order_in_group=0)
             self._eval_audios.append([audio])
     
     def add_file_pair(self, target: File, ref: File) -> None:
