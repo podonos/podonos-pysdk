@@ -98,7 +98,7 @@ class AudioMeta:
 class Audio:
     _path: str
     _name: str
-    _remote_name: str
+    _remote_object_name: str
     _metadata: AudioMeta
     _script: Optional[str] = None
     _upload_start_at: Optional[str] = None
@@ -111,7 +111,7 @@ class Audio:
         self, 
         path: str,
         name: str, 
-        remote_name: str,
+        remote_object_name: str,
         script: Optional[str],
         tags: Optional[List[str]],
         group: Optional[str],
@@ -119,7 +119,7 @@ class Audio:
     ) -> None:
         self._path = path
         self._name = name
-        self._remote_name = remote_name
+        self._remote_object_name = remote_object_name
         self._script = script
         self._metadata = AudioMeta(path)
         self._tags = tags
@@ -135,8 +135,8 @@ class Audio:
         return self._name
     
     @property
-    def remote_name(self) -> str:
-        return self._remote_name
+    def remote_object_name(self) -> str:
+        return self._remote_object_name
     
     @property
     def script(self) -> Optional[str]:
@@ -165,7 +165,7 @@ class Audio:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self._name,
-            "remote_name": self._remote_name, 
+            "remote_name": self._remote_object_name,
             "nchannels": self._metadata.nchannels,
             "framerate": self._metadata.framerate,
             "duration_in_ms": self._metadata.duration_in_ms,
