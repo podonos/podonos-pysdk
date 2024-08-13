@@ -248,13 +248,13 @@ class Evaluator(ABC):
             raise HTTPError(f"Failed to request evaluation: {e}", status_code=e.response.status_code if e.response else None)
     
     def _set_audio(self, path: str, tags: Optional[List[str]], script: Optional[str], group: Optional[str],
-                   type: QuestionFileType) -> Audio:
+                   type: QuestionFileType, order_in_group: int) -> Audio:
         valid_path = self._validate_path(path)
         name, remote_object_name = self._get_name_and_remote_object_name(valid_path)
                 
         log.debug(f'remote_object_name: {remote_object_name}\n')
         return Audio(
-            path=valid_path, name=name, remote_name=remote_name, script=script,
+            path=valid_path, name=name, remote_object_name=remote_object_name, script=script,
             tags=tags, group=group, type=type, order_in_group=order_in_group
         )
     
