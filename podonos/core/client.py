@@ -11,6 +11,7 @@ from podonos.core.stimulus_stats import StimulusStats
 from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
 from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 
+
 class Client:
     """Podonos Client class. Used for creating individual evaluator and managing the evaluations."""
 

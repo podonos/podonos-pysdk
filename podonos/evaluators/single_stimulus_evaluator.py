@@ -18,9 +18,9 @@ class SingleStimulusEvaluator(Evaluator):
                  eval_config: Union[EvalConfig, None] = None):
         super().__init__(api_client, eval_config)
         self._supported_evaluation_type = supported_evaluation_type
-    
+
     def add_file(
-        self, 
+        self,
         file: File
     ) -> None:
         """Add new file for speech evaluation.
@@ -59,9 +59,9 @@ class SingleStimulusEvaluator(Evaluator):
                 group=audio.group,
                 script=audio.script,
             )
-    
+
     def add_file_pair(self, target: File, ref: File) -> None:
         raise NotSupportedError("The 'add_file_pair' is only supported in these evaluation types: {'CMOS', 'DMOS'}")
-    
+
     def add_file_set(self, file0: File, file1: File) -> None:
         raise NotSupportedError("The 'add_file_set' is only supported in these evaluation types: {'SMOS', 'PREF'}")
