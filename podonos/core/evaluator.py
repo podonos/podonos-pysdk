@@ -126,6 +126,7 @@ class Evaluator(ABC):
 
         # Get the presigned URL for filename
         remote_object_name = os.path.join(self._eval_config.eval_creation_timestamp, 'session.json')
+
         presigned_url = self._get_presigned_url_for_put_method(
             self.get_evaluation_id(), "session.json", remote_object_name, 0, QuestionFileType.META)
         try:
@@ -215,6 +216,7 @@ class Evaluator(ABC):
         tags: List[str] = [],
         group: Optional[str] = None,
         script: Optional[str] = None,
+        order_in_group: int = 0
     ) -> str:
         try:
             response = self._api_client.put(f"evaluations/{evaluation_id}/uploading-presigned-url", {
@@ -224,7 +226,8 @@ class Evaluator(ABC):
                 "tags": tags,
                 "type": type,
                 "group": group,
-                "script": script
+                "script": script,
+                "order_in_group": order_in_group
             })
             response.raise_for_status()
             return response.text.replace('"', '')
@@ -251,8 +254,8 @@ class Evaluator(ABC):
                 
         log.debug(f'remote_object_name: {remote_object_name}\n')
         return Audio(
-            path=valid_path, name=name, remote_object_name=remote_object_name, script=script,
-            tags=tags, group=group, type=type
+            path=valid_path, name=name, remote_name=remote_name, script=script,
+            tags=tags, group=group, type=type, order_in_group=order_in_group
         )
     
     def _validate_path(self, path: str) -> str:

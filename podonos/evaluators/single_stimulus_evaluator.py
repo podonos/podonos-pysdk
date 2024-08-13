@@ -47,7 +47,7 @@ class SingleStimulusEvaluator(Evaluator):
         eval_config = self._get_eval_config()
         if eval_config.eval_type in self._supported_evaluation_type:
             audio = self._set_audio(path=file.path, tags=file.tags, script=file.script, group=None,
-                                    type=QuestionFileType.STIMULUS)
+                                    type=QuestionFileType.STIMULUS, order_in_group=0)
             self._eval_audios.append([audio])
             self._upload_one_file(
                 evaluation_id=self.get_evaluation_id(),
