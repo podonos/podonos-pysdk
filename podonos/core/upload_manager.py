@@ -45,7 +45,7 @@ class UploadManager:
         self._upload_start = {}
         self._upload_finish = {}
         self._api_client = api_client
-        self._queue = queue.Queue[Tuple]()
+        self._queue = queue.Queue()
         self._worker_event = Event()
         self._daemon_thread = threading.Thread(target=self._uploader_daemon, daemon=True)
         self._daemon_thread.start()
