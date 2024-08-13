@@ -16,6 +16,7 @@ class EvalConfigDefault:
     DUE_HOURS = 12
     AUTO_START = False
     GRANULARITY = 1.0
+    MAX_UPLOAD_WORKERS = 10
 
 
 class EvalConfig:
@@ -29,7 +30,8 @@ class EvalConfig:
     _eval_granularity: float = EvalConfigDefault.GRANULARITY
     _eval_num: int = EvalConfigDefault.NUM_EVAL
     _eval_expected_due_tzname: Optional[str] = None
-    _eval_auto_start: bool = False
+    _eval_auto_start: bool = False,
+    _max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
 
     def __init__(
         self,
@@ -40,7 +42,8 @@ class EvalConfig:
         granularity: float = EvalConfigDefault.GRANULARITY,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,  # TODO: allow floating point hours, e.g. 0.5.
-        auto_start: bool = EvalConfigDefault.AUTO_START
+        auto_start: bool = EvalConfigDefault.AUTO_START,
+        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
     ) -> None:
         self._eval_name = self._set_eval_name(name)
         self._eval_description = desc
@@ -53,6 +56,7 @@ class EvalConfig:
         self._eval_creation_timestamp = self._set_eval_creation_timestamp()
         self._eval_id = self._eval_creation_timestamp
         self._eval_auto_start = self._set_eval_auto_start(auto_start)
+        self._max_upload_workers = self._set_max_upload_workers(max_upload_workers)
         self.log_eval_config()
 
     def log_eval_config(self) -> None:
@@ -64,6 +68,7 @@ class EvalConfig:
         log.debug(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
         log.debug(f'Evaluation ID: {self._eval_id}')
         log.debug(f'Evaluation auto start: {self._eval_auto_start}')
+        log.debug(f'Max upload workers: {self._max_upload_workers}')
 
     @property
     def eval_id(self) -> str:
@@ -80,7 +85,11 @@ class EvalConfig:
     @property
     def eval_auto_start(self) -> bool:
         return self._eval_auto_start
-    
+
+    @property
+    def max_upload_workers(self) -> int:
+        return self._max_upload_workers
+
     @eval_id.setter
     def eval_id(self, eval_id: str) -> None:
         self._eval_id = eval_id
@@ -120,7 +129,7 @@ class EvalConfig:
         ]:
             raise ValueError(
                 f'"lan" must be one of the supported language strings. ' +
-                f'See https://docs.podonos.com/reference#create-evaluator \n' +
+                f'See https://www.podonos.com/docs/reference#create-evaluator \n' +
                 f'Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}.'
             )
         return Language(eval_language)
@@ -152,6 +161,9 @@ class EvalConfig:
     def _set_eval_auto_start(self, eval_auto_start: bool) -> bool:
         return eval_auto_start
 
+    def _set_max_upload_workers(self, max_upload_workers: int) -> int:
+        return max_upload_workers
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'eval_id': self._eval_id,
@@ -162,7 +174,8 @@ class EvalConfig:
             'eval_num': self._eval_num,
             'eval_expected_due': self._eval_expected_due,
             'eval_creation_timestamp': self._eval_creation_timestamp,
-            'eval_auto_start': self._eval_auto_start
+            'eval_auto_start': self._eval_auto_start,
+            'max_upload_workers': self._max_upload_workers
         }
     
     def to_create_request_dto(self) -> Dict[str, Any]:

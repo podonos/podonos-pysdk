@@ -202,7 +202,8 @@ class Evaluator(ABC):
                                                                duration_in_ms, type, tags, group, script)
         # Lazy initialization of upload manager.
         if self._upload_manager is None:
-            self._upload_manager = UploadManager(api_client=self._api_client, max_workers=MAX_UPLOAD_WORKER)
+            self._upload_manager = UploadManager(api_client=self._api_client,
+                                                 max_workers=self._eval_config.max_upload_workers)
         self._upload_manager.add_file_to_queue(presigned_url, remote_object_name, path)
         return
     
