@@ -7,11 +7,10 @@ import time
 
 from threading import Event
 from concurrent.futures import ThreadPoolExecutor
-from typing import Tuple
 from podonos.core.api import APIClient
 
 # For logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
@@ -19,7 +18,7 @@ class UploadManager:
     """Concurrent file upload manager.
     Internally creates multiple threads, and manages the uploading status.
     """
-    # Maximum number of uploader worker thread
+    # Maximum number of uploader worker threads
     _max_workers: int
     # File path queue
     # TODO: use a file queue.
@@ -53,15 +52,15 @@ class UploadManager:
         atexit.register(self.wait_and_close)
 
     def _uploader_daemon(self) -> None:
-        logging.debug(f'Uploader daemon is running')
+        log.debug(f'Uploader daemon is running')
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
             for index in range(self._max_workers):
                 future = executor.submit(self._upload_worker, index, self._worker_event)
-        logging.debug(f'Uploader daemon is shutting down')
+        log.debug(f'Uploader daemon is shutting down')
         executor.shutdown(wait=True)
 
     def _upload_worker(self, index, worker_event) -> None:
-        logging.debug(f'Worker is {index} ready')
+        log.debug(f'Worker is {index} ready')
         while True:
             if not self._queue.empty():
                 item = self._queue.get()
@@ -69,39 +68,40 @@ class UploadManager:
                 remote_object_name = item[1]
                 path = item[2]
 
-                log.debug(f'Uploading {path}')
+                log.debug(f'Worker {index} uploading {path}')
                 # Timestamp in ISO 8601.
                 upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
-                self._api_client.put_file_presigned_url(presigned_url, path)
+                with CodeTimer('upload file'):
+                    self._api_client.put_file_presigned_url(presigned_url, path)
                 upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
-                logging.debug(f'Finished uploading {item}')
+                log.debug(f'Worker {index} finished uploading {item}')
 
                 self._upload_start[remote_object_name] = upload_start_at
                 self._upload_finish[remote_object_name] = upload_finish_at
                 self._queue.task_done()
             time.sleep(0.1)
             if worker_event.is_set():
-                logging.debug(f'Worker is {index} done')
+                log.debug(f'Worker {index} is done')
                 return
 
     def add_file_to_queue(self, presigned_url: str, remote_object_name: str, path: str) -> None:
-        logging.debug(f'Added: {path}')
+        log.debug(f'Added: {path}')
         self._queue.put((presigned_url, remote_object_name, path))
 
     def wait_and_close(self) -> bool:
         if not self._status:
             return False
         # Block until all tasks are done.
-        logging.debug('Queue join')
+        log.debug('Queue join')
         self._queue.join()
 
         # Signal all the workers to exit.
-        logging.debug('Set exit event to workers')
+        log.debug('Set exit event to workers')
         self._worker_event.set()
         # Shutdown the executor.
-        logging.debug('Shutdown uploader daemon')
+        log.debug('Shutdown uploader daemon')
         self._daemon_thread.join()
 
-        logging.info('All upload work complete')
+        log.info('All upload work complete')
         self._status = False
         return True

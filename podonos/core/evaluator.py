@@ -15,6 +15,7 @@ from podonos.core.evaluation import Evaluation
 from podonos.core.file import File
 from podonos.core.upload_manager import UploadManager
 
+
 # For logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
