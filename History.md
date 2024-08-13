@@ -1,3 +1,10 @@
+## 0.1.19
+
+- Add `script` into `File`
+- Remove coloring text
+- Add `META` type for non audio file
+- Add `order_in_group` for finding the order of files in a query
+
 ## 0.1.18
 
 - Create `random_uuid_path` of `file` before uploading `file`
