@@ -1,3 +1,4 @@
+import atexit
 import datetime
 import logging
 import queue
@@ -38,17 +39,18 @@ class UploadManager:
     def get_upload_time(self):
         return self._upload_start, self._upload_finish
 
-    def __init__(self, max_workers:int) -> None:
+    def __init__(self, api_client: APIClient, max_workers: int) -> None:
         self._max_workers = max_workers
 
         self._upload_start = {}
         self._upload_finish = {}
-
+        self._api_client = api_client
         self._queue = queue.Queue[Tuple]()
         self._worker_event = Event()
         self._daemon_thread = threading.Thread(target=self._uploader_daemon, daemon=True)
         self._daemon_thread.start()
         self._status = True
+        atexit.register(self.wait_and_close)
 
     def _uploader_daemon(self) -> None:
         logging.debug(f'Uploader daemon is running')
@@ -86,7 +88,7 @@ class UploadManager:
         logging.debug(f'Added: {path}')
         self._queue.put((presigned_url, remote_object_name, path))
 
-    def wait_and_close(self) -> None:
+    def wait_and_close(self) -> bool:
         # Block until all tasks are done.
         logging.debug('Queue join')
         self._queue.join()
@@ -98,4 +100,5 @@ class UploadManager:
         logging.debug('Shutdown uploader daemon')
         self._daemon_thread.join()
 
-        logging.debug('All upload work completed')
+        logging.info('All upload work completed')
+        return True
