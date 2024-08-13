@@ -15,7 +15,7 @@ class TerminalColor:
 PODONOS_HOME = 'https://www.podonos.com/'
 
 # Podonos docs API key
-PODONOS_DOCS_API_KEY = 'https://docs.podonos.com/apikey'
+PODONOS_DOCS_API_KEY = 'https://www.podonos.com/docs/apikey'
 
 # API key environment variable
 PODONOS_API_KEY = 'PODONOS_API_KEY'
@@ -28,6 +28,3 @@ PODONOS_API_BASE_URL = "https://prod.podonosapi.com"
 
 # Contact email
 PODONOS_CONTACT_EMAIL = "hello@podonos.com"
-
-# Maximum upload worker
-MAX_UPLOAD_WORKER = 10
