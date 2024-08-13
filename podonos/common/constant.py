@@ -28,3 +28,6 @@ PODONOS_API_BASE_URL = "https://prod.podonosapi.com"
 
 # Contact email
 PODONOS_CONTACT_EMAIL = "hello@podonos.com"
+
+# Maximum upload worker
+MAX_UPLOADER_WORKER = 10
