@@ -41,3 +41,4 @@ class Language(Enum):
 class QuestionFileType(str, Enum):
     STIMULUS = "STIMULUS"
     REF = "REF"
+    META = "META"

@@ -117,8 +117,9 @@ class TestEvaluator(unittest.TestCase):
         script = "Hello World"
         group = "group1"
         type = QuestionFileType.STIMULUS
+        order_in_group = 0
         
-        audio = self.evaluator._set_audio(path, tags, script, group, type)
+        audio = self.evaluator._set_audio(path, tags, script, group, type, order_in_group)
         
         self.assertEqual(audio.path, path)
         self.assertEqual(audio.name, path)
@@ -126,6 +127,7 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(audio.script, script)
         self.assertEqual(audio.group, group)
         self.assertEqual(audio.type, type)
+        self.assertEqual(audio.order_in_group, order_in_group)
 
     @patch('os.path.isfile')
     @patch('os.access')

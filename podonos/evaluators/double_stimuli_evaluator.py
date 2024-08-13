@@ -56,8 +56,8 @@ class DoubleStimuliEvaluator(Evaluator):
         
         if eval_config.eval_type in self._supported_evaluation_type:
             group = self._generate_random_group_name()
-            target_audio = self._set_audio(path=target.path, tags=target.tags, script=target.script, group=group, type=QuestionFileType.STIMULUS)
-            ref_audio = self._set_audio(path=ref.path, tags=ref.tags, script=ref.script, group=group, type=QuestionFileType.REF)
+            target_audio = self._set_audio(path=target.path, tags=target.tags, script=target.script, group=group, type=QuestionFileType.STIMULUS, order_in_group=0)
+            ref_audio = self._set_audio(path=ref.path, tags=ref.tags, script=ref.script, group=group, type=QuestionFileType.REF, order_in_group=1)
             self._eval_audios.append([target_audio, ref_audio])
     
     def add_file_set(self, file0: File, file1: File) -> None:
@@ -92,8 +92,8 @@ class DoubleStimuliEvaluator(Evaluator):
         
         if eval_config.eval_type in self._supported_evaluation_type:
             group = self._generate_random_group_name()
-            audio1 = self._set_audio(path=file0.path, tags=file0.tags, script=file0.script, group=group, type=QuestionFileType.STIMULUS)
-            audio2 = self._set_audio(path=file1.path, tags=file1.tags, script=file1.script, group=group, type=QuestionFileType.STIMULUS)
+            audio1 = self._set_audio(path=file0.path, tags=file0.tags, script=file0.script, group=group, type=QuestionFileType.STIMULUS, order_in_group=0)
+            audio2 = self._set_audio(path=file1.path, tags=file1.tags, script=file1.script, group=group, type=QuestionFileType.STIMULUS, order_in_group=1)
             self._eval_audios.append([audio1, audio2])
 
     def _generate_random_group_name(self) -> str:
