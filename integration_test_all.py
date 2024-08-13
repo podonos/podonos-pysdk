@@ -34,7 +34,7 @@ def main():
     log.info(f"Python version: {sys.version}")
     log.info(f"Podonos package version: {podonos.__version__}")
     log.debug(f"API Key: {args.api_key}")
-    log.debug(f"Base URK: {args.base_url}")
+    log.debug(f"Base URL: {args.base_url}")
     client = podonos.init(api_key=args.api_key, api_url=args.base_url)
 
     # Default evaluator.
