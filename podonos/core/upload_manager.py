@@ -71,8 +71,7 @@ class UploadManager:
                 log.debug(f'Worker {index} uploading {path}')
                 # Timestamp in ISO 8601.
                 upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
-                with CodeTimer('upload file'):
-                    self._api_client.put_file_presigned_url(presigned_url, path)
+                self._api_client.put_file_presigned_url(presigned_url, path)
                 upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec='milliseconds')
                 log.debug(f'Worker {index} finished uploading {item}')
 
