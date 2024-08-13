@@ -114,7 +114,7 @@ class EvalConfig:
             Language.ENGLISH_BRITISH.value, Language.ENGLISH_CANADIAN.value,
             Language.KOREAN.value, Language.MANDARIN.value, 
             Language.SPANISH_SPAIN.value, Language.SPANISH_MEXICO.value,
-            Language.FRENCH.value, Language.GERNAM.value,
+            Language.FRENCH.value, Language.GERMAN.value,
             Language.JAPANESE.value, Language.ITALIAN.value,
             Language.POLISH.value, Language.AUDIO.value
         ]:
