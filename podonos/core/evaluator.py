@@ -171,37 +171,6 @@ class Evaluator(ABC):
             return evaluation
         except Exception as e:
             raise HTTPError(f"Failed to create the evaluation: {e}")
-    
-    # def _upload_files(self, evaluation_id: str) -> None:
-    #     """Uploads the files for evaluation.
-    #     This function holds until the file uploading finishes.
-    #
-    #     Returns: None
-    #
-    #     Raises:
-    #         ValueError: if this function is called before calling init().
-    #     """
-    #     if not self._initialized or self._eval_config is None:
-    #         raise ValueError("No evaluation session is open.")
-    #
-    #     for audio_list in self._eval_audios:
-    #         audio_json_list = []
-    #         for audio in audio_list:
-    #             # Get the presigned URL for filename
-    #             upload_start_at, upload_finish_at = self._upload_one_file(
-    #                 evaluation_id=evaluation_id,
-    #                 remote_object_name=audio.remote_name,
-    #                 path=audio.path,
-    #                 duration_in_ms=audio.metadata.duration_in_ms,
-    #                 tags=audio.tags if audio.tags else [],
-    #                 type=audio.type,
-    #                 group=audio.group,
-    #                 script=audio.script,
-    #             )
-    #             audio.set_upload_at(upload_start_at, upload_finish_at)
-    #             audio_json_list.append(audio.to_dict())
-    #
-    #         self._eval_audio_json.append(audio_json_list)
 
     def _upload_one_file(
         self, 
