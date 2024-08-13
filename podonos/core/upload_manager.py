@@ -89,6 +89,8 @@ class UploadManager:
         self._queue.put((presigned_url, remote_object_name, path))
 
     def wait_and_close(self) -> bool:
+        if not self._status:
+            return False
         # Block until all tasks are done.
         logging.debug('Queue join')
         self._queue.join()
@@ -100,5 +102,6 @@ class UploadManager:
         logging.debug('Shutdown uploader daemon')
         self._daemon_thread.join()
 
-        logging.info('All upload work completed')
+        logging.info('All upload work complete')
+        self._status = False
         return True
