@@ -8,6 +8,7 @@ from podonos.core.file import File
 from podonos.errors.error import NotSupportedError
 from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 
+
 class TestSingleStimulusEvaluator:
     def setup_method(self):
         self.api_client = Mock(spec=APIClient)

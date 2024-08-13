@@ -126,7 +126,7 @@ class DoubleStimuliEvaluator(Evaluator):
                                      group=group, type=QuestionFileType.STIMULUS)
             audio2 = self._set_audio(path=file1.path, tags=file1.tags, script=file1.script,
                                      group=group, type=QuestionFileType.STIMULUS)
-            #self._eval_audios.append([audio1, audio2])
+            self._eval_audios.append([audio1, audio2])
             # Audio 1
             self._upload_one_file(
                 evaluation_id=self.get_evaluation_id(),
@@ -150,7 +150,6 @@ class DoubleStimuliEvaluator(Evaluator):
                 group=audio2.group,
                 script=audio2.script,
             )
-
 
     def _generate_random_group_name(self) -> str:
         current_time_milliseconds = int(time.time() * 1000)
