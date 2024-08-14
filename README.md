@@ -42,7 +42,7 @@ python -m unittest
 
 ## 📗 Documentation
 
-For a deeper dive on all capabilities and details, please refer to [Documentation](https://docs.podonos.com/).
+For a deeper dive on all capabilities and details, please refer to [Documentation](https://www.podonos.com/docs).
 
 ## 📑 License
 [MIT License](https://github.com/podonos/pysdk/blob/main/LICENSE)

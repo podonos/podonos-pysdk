@@ -38,6 +38,37 @@ def mocked_requests_get(*args, **kwargs):
     return MockResponse(None, None, 404)
 
 
+def mocked_requests_post(*args, **kwargs):
+    class MockResponse:
+        def __init__(self, response_text, response_json, status_code):
+            self.text = response_text
+            self.json_response = response_json
+            self.status_code = status_code
+
+        def json(self):
+            return self.json_response
+
+        def raise_for_status(self):
+            return
+
+    if '/evaluations' in args[0]:
+        # evaluations
+        evaluation_response = dict(
+            id="mock_id",
+            title="mock_title",
+            internal_name="mock_internal_name",
+            description="mock_desc",
+            status="mock_status",
+            created_time="2024-05-21T06:18:09.659270Z",
+            updated_time="2024-05-22T06:18:09.659270Z"
+        )
+        return MockResponse(None,
+                            evaluation_response,
+                            200)
+
+    return MockResponse(None, None, 404)
+
+
 class TestPodonos(unittest.TestCase):
 
     @mock.patch('requests.get', side_effect=mocked_requests_get)
@@ -83,7 +114,8 @@ class TestPodonosClient(unittest.TestCase):
         }
 
     @mock.patch('requests.get', side_effect=mocked_requests_get)
-    def test_create_evaluator(self, mock_get):
+    @mock.patch('requests.post', side_effect=mocked_requests_post)
+    def test_create_evaluator(self, mock_get, mock_post):
         # Missing name is allowed.
         etor = self._mock_client.create_evaluator(
             desc=self.config['desc'],

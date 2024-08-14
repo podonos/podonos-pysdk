@@ -11,6 +11,7 @@ from podonos.core.stimulus_stats import StimulusStats
 from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
 from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 
+
 class Client:
     """Podonos Client class. Used for creating individual evaluator and managing the evaluations."""
 
@@ -30,7 +31,8 @@ class Client:
         granularity: float = EvalConfigDefault.GRANULARITY,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,
-        auto_start: bool = EvalConfigDefault.AUTO_START
+        auto_start: bool = EvalConfigDefault.AUTO_START,
+        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://docs.dyspatch.io/localization/supported_languages/
@@ -54,15 +56,17 @@ class Client:
 
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
-        
+
         if not EvalType.is_eval_type(type):
-            raise ValueError("Not supported evaluation types. Use one of the {'NMOS', 'QMOS', 'P808', 'SMOS'}")
+            raise ValueError("Not supported evaluation types. Use one of the "
+                             "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF'")
         
         eval_config = EvalConfig(
             name=name, desc=desc,
             type=type, lan=lan,
             granularity=granularity, num_eval=num_eval,
-            due_hours=due_hours, auto_start=auto_start
+            due_hours=due_hours, auto_start=auto_start,
+            max_upload_workers=max_upload_workers
         )
         if type in [EvalType.SMOS.value, EvalType.PREF.value]:
             return DoubleStimuliEvaluator(

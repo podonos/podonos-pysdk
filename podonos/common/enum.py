@@ -19,8 +19,9 @@ class EvalType(Enum):
         return f"SPEECH_{self.value}"
     
     @staticmethod
-    def is_eval_type(type: str) -> bool:
-        return any([item for item in EvalType if item.value == type])
+    def is_eval_type(eval_type: str) -> bool:
+        return any([item for item in EvalType if item.value == eval_type])
+
 
 class Language(Enum):
     ENGLISH_AMERICAN = "en-us"
@@ -32,11 +33,12 @@ class Language(Enum):
     SPANISH_SPAIN = "es-es"
     SPANISH_MEXICO = "es-mx"
     FRENCH = "fr-fr"
-    GERNAM = "de-de"
+    GERMAN = "de-de"
     JAPANESE = "ja-jp"
     ITALIAN = "it-it"
     POLISH = "pl-pl"
     AUDIO = 'audio'
+
 
 class QuestionFileType(str, Enum):
     STIMULUS = "STIMULUS"

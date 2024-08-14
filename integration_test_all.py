@@ -13,6 +13,7 @@ import argparse
 from datetime import datetime
 import logging
 import podonos
+from podonos import *
 import random
 import sys
 
@@ -33,13 +34,15 @@ def main():
     log.info(f"Python version: {sys.version}")
     log.info(f"Podonos package version: {podonos.__version__}")
     log.debug(f"API Key: {args.api_key}")
-    log.debug(f"Base URK: {args.base_url}")
+    log.debug(f"Base URL: {args.base_url}")
     client = podonos.init(api_key=args.api_key, api_url=args.base_url)
 
     # Default evaluator.
     etor = client.create_evaluator()
-    etor.add_file(path=f'tests/speech_two_ch1.wav')
-    etor.add_file(path=f'tests/speech_two_ch2.wav')
+    evaluation_id = etor.get_evaluation_id()
+    log.info(f'Evaluation id: {evaluation_id}')
+    etor.add_file(File(path=f'tests/speech_two_ch1.wav'))
+    etor.add_file(File(path=f'tests/speech_two_ch2.wav'))
     etor.close()
 
     #
@@ -62,16 +65,21 @@ def main():
                                    desc=f"{name_prefix}_desc",
                                    type=test_type, lan=test_lan, num_eval=test_num_eval,
                                    due_hours=test_due_hours, auto_start=test_auto_start)
-    etor.add_file(path=f'tests/speech_two_ch1.wav')
-    etor.add_file(path=f'tests/speech_two_ch2.wav')
+    evaluation_id = etor.get_evaluation_id()
+    log.info(f'Evaluation id: {evaluation_id}')
+    etor.add_file(File(path=f'tests/speech_two_ch1.wav'))
+    etor.add_file(File(path=f'tests/speech_two_ch2.wav'))
     etor.close()
 
+    stats = client.get_stats_dict_by_id(evaluation_id)
+    log.debug(stats)
+    client.download_stats_csv_by_id(evaluation_id, f'./eval_stats_{evaluation_id}.csv')
+
+    log.info(f'Evaluation id list')
     evaluations = client.get_evaluation_list()
     for evaluation in evaluations:
         eval_id = evaluation['id']
-        stats = client.get_stats_dict_by_id(eval_id)
-        log.debug(stats)
-        client.download_stats_csv_by_id(eval_id, f'./eval_stats_{eval_id}.csv')
+        log.info(f'ID: {eval_id}')
 
 
 if __name__ == '__main__':

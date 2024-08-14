@@ -15,7 +15,7 @@ class TerminalColor:
 PODONOS_HOME = 'https://www.podonos.com/'
 
 # Podonos docs API key
-PODONOS_DOCS_API_KEY = 'https://docs.podonos.com/apikey'
+PODONOS_DOCS_API_KEY = 'https://www.podonos.com/docs/apikey'
 
 # API key environment variable
 PODONOS_API_KEY = 'PODONOS_API_KEY'
