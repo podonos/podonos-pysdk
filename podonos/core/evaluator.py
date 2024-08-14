@@ -28,10 +28,10 @@ class Evaluator(ABC):
     _api_key: Optional[str] = None
     _eval_config: Optional[EvalConfig] = None
     _supported_evaluation_type: List[EvalType]
-    _evaluation: Evaluation = None
+    _evaluation: Optional[Evaluation] = None
 
     # Upload manager. Lazy initialization when used for saving resources.
-    _upload_manager: UploadManager = None
+    _upload_manager: Optional[UploadManager] = None
     # Contains the metadata for all the audio files for evaluation.
     _eval_audios: List[List[Audio]] = []
     _eval_audio_json = []
