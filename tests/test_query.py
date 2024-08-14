@@ -11,13 +11,13 @@ class TestQuery(unittest.TestCase):
 
         question = Question(TITLE, DESCRIPTION)
         query = Query(question=question)
-        self.assertTrue(query.title == TITLE)
-        self.assertTrue(query.description == DESCRIPTION)
-        self.assertTrue(question.title == TITLE)
-        self.assertTrue(question.description == DESCRIPTION)
-        self.assertTrue(query.question == question)
-        self.assertTrue(query.question.to_dict() == QUESTION_DICT)
-        self.assertTrue(query.to_dict() == QUERY_DICT)
+        self.assertEqual(query.title, TITLE)
+        self.assertEqual(query.description, DESCRIPTION)
+        self.assertEqual(question.title, TITLE)
+        self.assertEqual(question.description, DESCRIPTION)
+        self.assertEqual(query.question, question)
+        self.assertEqual(query.question.to_dict(), QUESTION_DICT)
+        self.assertEqual(query.to_dict(), QUERY_DICT)
 
     def test_query_with_null(self):
         TITLE = "This is custom question"
@@ -27,13 +27,13 @@ class TestQuery(unittest.TestCase):
 
         question = Question(TITLE, DESCRIPTION)
         query = Query(question=question)
-        self.assertTrue(query.title == TITLE)
-        self.assertTrue(query.description == DESCRIPTION)
-        self.assertTrue(question.title == TITLE)
-        self.assertTrue(question.description == DESCRIPTION)
-        self.assertTrue(query.question == question)
-        self.assertTrue(query.question.to_dict() == QUESTION_DICT)
-        self.assertTrue(query.to_dict() == QUERY_DICT)
+        self.assertEqual(query.title, TITLE)
+        self.assertEqual(query.description, DESCRIPTION)
+        self.assertEqual(question.title, TITLE)
+        self.assertEqual(question.description, DESCRIPTION)
+        self.assertEqual(query.question, question)
+        self.assertEqual(query.question.to_dict(), QUESTION_DICT)
+        self.assertEqual(query.to_dict(), QUERY_DICT)
 
 
 if __name__ == "__main__":
