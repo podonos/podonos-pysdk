@@ -184,6 +184,7 @@ class Evaluator(ABC):
         tags: List[str] = [],
         group: Optional[str] = None,
         script: Optional[str] = None,
+        order_in_group: int = 0,
     ) -> None:
         """
         Start uploading one file to server.
@@ -200,7 +201,8 @@ class Evaluator(ABC):
         """
         # Get the presigned URL for one file
         presigned_url = self._get_presigned_url_for_put_method(evaluation_id, path, remote_object_name,
-                                                               duration_in_ms, type, tags, group, script)
+                                                               duration_in_ms, type, tags, group, script,
+                                                               order_in_group)
         # Lazy initialization of upload manager.
         if self._upload_manager is None:
             self._upload_manager = UploadManager(api_client=self._api_client,

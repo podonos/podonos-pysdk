@@ -76,6 +76,7 @@ class DoubleStimuliEvaluator(Evaluator):
                 type=target_audio.type,
                 group=target_audio.group,
                 script=target_audio.script,
+                order_in_group=0
             )
 
             # Ref
@@ -88,6 +89,7 @@ class DoubleStimuliEvaluator(Evaluator):
                 type=ref_audio.type,
                 group=ref_audio.group,
                 script=ref_audio.script,
+                order_in_group=1
             )
 
     def add_file_set(self, file0: File, file1: File) -> None:
@@ -138,6 +140,7 @@ class DoubleStimuliEvaluator(Evaluator):
                 type=audio1.type,
                 group=audio1.group,
                 script=audio1.script,
+                order_in_group=0
             )
 
             # Audio 2
@@ -150,6 +153,7 @@ class DoubleStimuliEvaluator(Evaluator):
                 type=audio2.type,
                 group=audio2.group,
                 script=audio2.script,
+                order_in_group=1
             )
 
     def _generate_random_group_name(self) -> str:
