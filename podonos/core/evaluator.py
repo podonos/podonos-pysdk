@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Dict, List, Optional
 
 from podonos.common.constant import *
-from podonos.common.enum import EvalType, QuestionFileType
+from podonos.common.enum import EvalType, Language, QuestionFileType
 from podonos.common.exception import HTTPError
 from podonos.common.util import generate_random_name
 from podonos.core.api import APIClient
@@ -13,6 +13,7 @@ from podonos.core.audio import Audio
 from podonos.core.config import EvalConfig
 from podonos.core.evaluation import Evaluation
 from podonos.core.file import File
+from podonos.core.query import Query, Question
 from podonos.core.upload_manager import UploadManager
 
 
@@ -33,6 +34,9 @@ class Evaluator(ABC):
 
     # Upload manager. Lazy initialization when used for saving resources.
     _upload_manager: Optional[UploadManager] = None
+
+    # Custom Query.
+    _query: Optional[Query] = None
 
     # Contains the metadata for all the audio files for evaluation.
     _eval_audios: List[List[Audio]] = []
@@ -77,6 +81,9 @@ class Evaluator(ABC):
         assert self._evaluation
         return self._evaluation.id
 
+    def set_question(self, title: str, description: Optional[str] = None) -> None:
+        self._query = Query(question=Question(title, description))
+
     def close(self) -> Dict[str, str]:
         """Closes the file uploading and evaluation session.
         This function holds until the file uploading finishes.
@@ -99,6 +106,8 @@ class Evaluator(ABC):
         # Wait until file uploading finishes.
         assert self._upload_manager.wait_and_close()
 
+        self._create_template_with_question_and_evaluation()
+
         # Get the upload time & finish time.
         upload_start, upload_finish = self._upload_manager.get_upload_time()
         for audio_list in self._eval_audios:
@@ -113,6 +122,7 @@ class Evaluator(ABC):
 
         # Create a json.
         session_json = self._eval_config.to_dict()
+        session_json["query"] = self._query.to_dict() if self._query else None
         session_json["files"] = self._eval_audio_json
 
         # Get the presigned URL for filename
@@ -127,6 +137,7 @@ class Evaluator(ABC):
             0,
             QuestionFileType.META,
         )
+
         try:
             response = self._api_client.put_json_presigned_url(
                 url=presigned_url,
@@ -288,6 +299,28 @@ class Evaluator(ABC):
                 f"Failed to request evaluation: {e}",
                 status_code=e.response.status_code if e.response else None,
             )
+
+    def _create_template_with_question_and_evaluation(
+        self,
+    ) -> None:
+        eval_config = self._get_eval_config()
+        try:
+            if not self._query:
+                return None
+
+            response = self._api_client.post(
+                "templates",
+                {
+                    "evaluation_id": self.get_evaluation_id(),
+                    "title": self._query.title,
+                    "description": self._query.description,
+                    "language": eval_config.eval_language.value,
+                },
+            )
+            response.raise_for_status()
+        except Exception as e:
+            log.error(f"HTTP Error: {e}")
+            raise e
 
     def _set_audio(
         self,

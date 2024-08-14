@@ -77,6 +77,10 @@ class EvalConfig:
         return self._eval_id
 
     @property
+    def eval_language(self) -> Language:
+        return self._eval_language
+
+    @property
     def eval_type(self) -> EvalType:
         return self._eval_type
 

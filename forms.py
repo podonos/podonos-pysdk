@@ -1,21 +1,25 @@
 import podonos
 from podonos import File
 
-client = podonos.init("OW7TZDUKNEJWNC5LE3TA", api_url="https://dev.podonosapi.com")
+client = podonos.init("OW7TZDUKNEJWNC5LE3TA", api_url="http://localhost:8000")
 
 languages = [
     "en-us"
 ]  # , "en-gb", "en-au", "en-ca", "ko-kr", "zh-cn", "es-es", "es-mx", "fr-fr", "de-de", "it-it", "ja-jp", "pl-pl"]
 etor = client.create_evaluator(
-    name="Test: Speech Custom Query with Trapping Questions",
-    desc="Test: Speech Custom Query with Trapping Questions",
+    name="Test: Speech Custom Query from SDK",
+    desc="Test: Speech Custom Query from SDK",
     type="QMOS",
     lan="en-us",
     granularity=1,
 )
-for i in range(1, 10):
+
+etor.set_question("What do you think the quality of this speech")
+
+for i in range(1, 6):
     etor.add_file(File(path="./tests/speech_two_ch1.wav", tags=["0"], script="two"))
     etor.add_file(File(path="./tests/speech_two_ch2.wav", tags=["2"], script="two"))
+
 etor.close()
 
 # uuids = [
