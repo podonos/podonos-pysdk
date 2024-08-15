@@ -20,7 +20,7 @@ class EvalConfigDefault:
 
 
 class EvalConfig:
-    _eval_id: str 
+    _eval_id: str
     _eval_name: str
     _eval_expected_due: str  # Due string in ISO 8601.
     _eval_creation_timestamp: str  # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
@@ -30,7 +30,7 @@ class EvalConfig:
     _eval_granularity: float = EvalConfigDefault.GRANULARITY
     _eval_num: int = EvalConfigDefault.NUM_EVAL
     _eval_expected_due_tzname: Optional[str] = None
-    _eval_auto_start: bool = False,
+    _eval_auto_start: bool = False
     _max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
 
     def __init__(
@@ -43,7 +43,7 @@ class EvalConfig:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,  # TODO: allow floating point hours, e.g. 0.5.
         auto_start: bool = EvalConfigDefault.AUTO_START,
-        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
+        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> None:
         self._eval_name = self._set_eval_name(name)
         self._eval_description = desc
@@ -60,24 +60,30 @@ class EvalConfig:
         self.log_eval_config()
 
     def log_eval_config(self) -> None:
-        log.debug(f'Name: {self._eval_name}')
-        log.debug(f'Desc: {self._eval_description}')
-        log.debug(f'Eval type: {self._eval_type}')
-        log.debug(f'Language: {self._eval_language}')
-        log.debug(f'num_eval: {self._eval_num}')
-        log.debug(f'Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}')
-        log.debug(f'Evaluation ID: {self._eval_id}')
-        log.debug(f'Evaluation auto start: {self._eval_auto_start}')
-        log.debug(f'Max upload workers: {self._max_upload_workers}')
+        log.debug(f"Name: {self._eval_name}")
+        log.debug(f"Desc: {self._eval_description}")
+        log.debug(f"Eval type: {self._eval_type}")
+        log.debug(f"Language: {self._eval_language}")
+        log.debug(f"num_eval: {self._eval_num}")
+        log.debug(
+            f"Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}"
+        )
+        log.debug(f"Evaluation ID: {self._eval_id}")
+        log.debug(f"Evaluation auto start: {self._eval_auto_start}")
+        log.debug(f"Max upload workers: {self._max_upload_workers}")
 
     @property
     def eval_id(self) -> str:
         return self._eval_id
-    
+
+    @property
+    def eval_language(self) -> Language:
+        return self._eval_language
+
     @property
     def eval_type(self) -> EvalType:
         return self._eval_type
-    
+
     @property
     def eval_creation_timestamp(self) -> str:
         return self._eval_creation_timestamp
@@ -105,32 +111,39 @@ class EvalConfig:
 
     def _set_eval_type(self, eval_type: str) -> EvalType:
         if eval_type not in [
-            EvalType.NMOS.value, 
-            EvalType.QMOS.value, 
-            EvalType.SMOS.value, 
+            EvalType.NMOS.value,
+            EvalType.QMOS.value,
+            EvalType.SMOS.value,
             EvalType.P808.value,
             EvalType.PREF.value,
         ]:
             raise ValueError(
-                f'"type" must be one of {{NMOS, QMOS, SMOS, P808}}. \n' +
-                f'Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}'
+                f'"type" must be one of {{NMOS, QMOS, SMOS, P808}}. \n'
+                + f"Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}"
             )
         return EvalType(eval_type)
 
     def _set_eval_language(self, eval_language: str) -> Language:
         if eval_language not in [
-            Language.ENGLISH_AMERICAN.value, Language.ENGLISH_AUSTRALIAN.value,
-            Language.ENGLISH_BRITISH.value, Language.ENGLISH_CANADIAN.value,
-            Language.KOREAN.value, Language.MANDARIN.value, 
-            Language.SPANISH_SPAIN.value, Language.SPANISH_MEXICO.value,
-            Language.FRENCH.value, Language.GERMAN.value,
-            Language.JAPANESE.value, Language.ITALIAN.value,
-            Language.POLISH.value, Language.AUDIO.value
+            Language.ENGLISH_AMERICAN.value,
+            Language.ENGLISH_AUSTRALIAN.value,
+            Language.ENGLISH_BRITISH.value,
+            Language.ENGLISH_CANADIAN.value,
+            Language.KOREAN.value,
+            Language.MANDARIN.value,
+            Language.SPANISH_SPAIN.value,
+            Language.SPANISH_MEXICO.value,
+            Language.FRENCH.value,
+            Language.GERMAN.value,
+            Language.JAPANESE.value,
+            Language.ITALIAN.value,
+            Language.POLISH.value,
+            Language.AUDIO.value,
         ]:
             raise ValueError(
-                f'"lan" must be one of the supported language strings. ' +
-                f'See https://www.podonos.com/docs/reference#create-evaluator \n' +
-                f'Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}.'
+                f'"lan" must be one of the supported language strings. '
+                + f"See https://www.podonos.com/docs/reference#create-evaluator \n"
+                + f"Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}."
             )
         return Language(eval_language)
 
@@ -145,7 +158,7 @@ class EvalConfig:
             raise ValueError('"due_hours" must be >=12.')
 
         due = datetime.now() + timedelta(hours=due_hours)
-        return due.astimezone().isoformat(timespec='milliseconds')
+        return due.astimezone().isoformat(timespec="milliseconds")
 
     def _set_eval_expected_due_tzname(self) -> Optional[str]:
         return datetime.now().astimezone().tzname()
@@ -156,7 +169,7 @@ class EvalConfig:
         return granularity
 
     def _set_eval_creation_timestamp(self) -> str:
-        return datetime.now().isoformat(timespec='milliseconds')
+        return datetime.now().isoformat(timespec="milliseconds")
 
     def _set_eval_auto_start(self, eval_auto_start: bool) -> bool:
         return eval_auto_start
@@ -166,18 +179,18 @@ class EvalConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'eval_id': self._eval_id,
-            'eval_name': self._eval_name,
-            'eval_description': self._eval_description,
-            'eval_type': self._eval_type.value,
-            'eval_language': self._eval_language.value,
-            'eval_num': self._eval_num,
-            'eval_expected_due': self._eval_expected_due,
-            'eval_creation_timestamp': self._eval_creation_timestamp,
-            'eval_auto_start': self._eval_auto_start,
-            'max_upload_workers': self._max_upload_workers
+            "eval_id": self._eval_id,
+            "eval_name": self._eval_name,
+            "eval_description": self._eval_description,
+            "eval_type": self._eval_type.value,
+            "eval_language": self._eval_language.value,
+            "eval_num": self._eval_num,
+            "eval_expected_due": self._eval_expected_due,
+            "eval_creation_timestamp": self._eval_creation_timestamp,
+            "eval_auto_start": self._eval_auto_start,
+            "max_upload_workers": self._max_upload_workers,
         }
-    
+
     def to_create_request_dto(self) -> Dict[str, Any]:
         return {
             "title": self._eval_name,
@@ -186,5 +199,5 @@ class EvalConfig:
             "language": self._eval_language.value,
             "num_required_etors": self._eval_num,
             "granularity": self._eval_granularity,
-            "evaluation_type": self._eval_type.get_type()
+            "evaluation_type": self._eval_type.get_type(),
         }

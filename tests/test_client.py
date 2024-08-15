@@ -1,7 +1,10 @@
 import os
 import podonos
+from podonos.core.client import Client
+
 import unittest
 from unittest import mock
+from unittest.mock import patch
 
 
 # Mocks HTTP GET request.
@@ -89,6 +92,34 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue('ci_90' in json)
         self.assertTrue('ci_95' in json)
         self.assertTrue('ci_99' in json)
+
+
+class TestEvaluationClientApiKey(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        api_key_envs = {"PODONOS_API_KEY": "ABCD123ENV"}
+        cls.env = patch.dict(in_dict=os.environ, values=api_key_envs, clear=True)
+        cls.env.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls.env.stop()
+
+    @mock.patch('requests.get', side_effect=mocked_requests_get)
+    def test_env_api_key_only(self, mock_get):
+        api_key_env = os.getenv("PODONOS_API_KEY")
+        self.assertEqual(api_key_env, "ABCD123ENV")
+        mock_client = podonos.init()
+        self.assertTrue(isinstance(mock_client, Client))
+
+    @mock.patch('requests.get', side_effect=mocked_requests_get)
+    def test_both_keys(self, mock_get):
+        api_key_env = os.getenv("PODONOS_API_KEY")
+        self.assertEqual(api_key_env, "ABCD123ENV")
+        mock_client = podonos.init(api_key="ABCD123PARAM")
+        self.assertTrue(isinstance(mock_client, Client))
 
 
 if __name__ == '__main__':

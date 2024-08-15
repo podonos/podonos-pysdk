@@ -17,7 +17,7 @@ class Client:
 
     _api_client: APIClient
     _initialized: bool = False
-    
+
     def __init__(self, api_client: APIClient):
         self._api_client = api_client
         self._initialized = True
@@ -32,7 +32,7 @@ class Client:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,
         auto_start: bool = EvalConfigDefault.AUTO_START,
-        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
+        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://docs.dyspatch.io/localization/supported_languages/
@@ -58,29 +58,35 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         if not EvalType.is_eval_type(type):
-            raise ValueError("Not supported evaluation types. Use one of the "
-                             "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF'")
-        
+            raise ValueError(
+                "Not supported evaluation types. Use one of the "
+                "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF'"
+            )
+
         eval_config = EvalConfig(
-            name=name, desc=desc,
-            type=type, lan=lan,
-            granularity=granularity, num_eval=num_eval,
-            due_hours=due_hours, auto_start=auto_start,
-            max_upload_workers=max_upload_workers
+            name=name,
+            desc=desc,
+            type=type,
+            lan=lan,
+            granularity=granularity,
+            num_eval=num_eval,
+            due_hours=due_hours,
+            auto_start=auto_start,
+            max_upload_workers=max_upload_workers,
         )
         if type in [EvalType.SMOS.value, EvalType.PREF.value]:
             return DoubleStimuliEvaluator(
                 supported_evaluation_type=[EvalType.SMOS, EvalType.PREF],
                 api_client=self._api_client,
-                eval_config=eval_config
+                eval_config=eval_config,
             )
-        
+
         return SingleStimulusEvaluator(
             supported_evaluation_type=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
             api_client=self._api_client,
-            eval_config=eval_config
+            eval_config=eval_config,
         )
-    
+
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
 
@@ -92,11 +98,13 @@ class Client:
         try:
             response = self._api_client.get("evaluations")
             response.raise_for_status()
-            evaluations = [Evaluation.from_dict(evaluation) for evaluation in response.json()]
+            evaluations = [
+                Evaluation.from_dict(evaluation) for evaluation in response.json()
+            ]
             return [evaluation.to_dict() for evaluation in evaluations]
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
-    
+
     def get_stats_dict_by_id(self, evaluation_id: str) -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
@@ -113,7 +121,7 @@ class Client:
             return [stat.to_dict() for stat in stats]
         except Exception as e:
             raise HTTPError(f"Failed to get stimulus stats: {e}")
-    
+
     def download_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
         """Downloads the evaluation statistics into CSV referenced by id.
 
@@ -127,6 +135,8 @@ class Client:
         with open(output_path, "w") as f:
             f.write("name,tags,mean,median,std,ci_90,ci_95,ci_99\n")
             for stat in stats:
-                for file in stat['files']:
+                for file in stat["files"]:
                     tags = ";".join(file["tags"])
-                    f.write(f"{file['name']},{tags},{stat['mean']},{stat['median']},{stat['std']},{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n")
+                    f.write(
+                        f"{file['name']},{tags},{stat['mean']},{stat['median']},{stat['std']},{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n"
+                    )

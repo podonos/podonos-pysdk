@@ -16,14 +16,20 @@ log = logging.getLogger(__name__)
 
 
 class DoubleStimuliEvaluator(Evaluator):
-    def __init__(self, supported_evaluation_type: List[EvalType], api_client: APIClient,
-                 eval_config: Union[EvalConfig, None] = None):
+    def __init__(
+        self,
+        supported_evaluation_type: List[EvalType],
+        api_client: APIClient,
+        eval_config: Union[EvalConfig, None] = None,
+    ):
         super().__init__(api_client, eval_config)
         self._supported_evaluation_type = supported_evaluation_type
-    
+
     def add_file(self, file: File) -> None:
-        raise NotSupportedError("The 'add_file' is only supported in these evaluation types: {'NMOS', 'QMOS', 'P808'}")
-    
+        raise NotSupportedError(
+            "The 'add_file' is only supported in these evaluation types: {'NMOS', 'QMOS', 'P808'}"
+        )
+
     def add_file_pair(self, target: File, ref: File) -> None:
         """Adds new files for speech evaluation of CMOS and DMOS
         The files may be either in {wav, mp3} format. The files will be securely uploaded to
@@ -49,21 +55,33 @@ class DoubleStimuliEvaluator(Evaluator):
             ValueError: if this function is called before calling init().
             FileNotFoundError: if a given file is not found.
         """
-        
+
         if not self._initialized:
             raise ValueError("Try to add_file_pair once the evaluator is closed.")
-        
+
         eval_config = self._get_eval_config()
         if eval_config.eval_type not in [EvalType.CMOS, EvalType.DMOS]:
             raise ValueError("The add_file_pair function is used for 'CMOS', 'DMOS'")
-        
+
         if eval_config.eval_type in self._supported_evaluation_type:
             group = self._generate_random_group_name()
 
-            target_audio = self._set_audio(path=target.path, tags=target.tags, script=target.script,
-                                           group=group, type=QuestionFileType.STIMULUS, order_in_group=0)
-            ref_audio = self._set_audio(path=ref.path, tags=ref.tags, script=ref.script, group=group,
-                                        type=QuestionFileType.REF, order_in_group=1)
+            target_audio = self._set_audio(
+                path=target.path,
+                tags=target.tags,
+                script=target.script,
+                group=group,
+                type=QuestionFileType.STIMULUS,
+                order_in_group=0,
+            )
+            ref_audio = self._set_audio(
+                path=ref.path,
+                tags=ref.tags,
+                script=ref.script,
+                group=group,
+                type=QuestionFileType.REF,
+                order_in_group=1,
+            )
             self._eval_audios.append([target_audio, ref_audio])
 
             # Target
@@ -76,7 +94,7 @@ class DoubleStimuliEvaluator(Evaluator):
                 type=target_audio.type,
                 group=target_audio.group,
                 script=target_audio.script,
-                order_in_group=0
+                order_in_group=0,
             )
 
             # Ref
@@ -89,7 +107,7 @@ class DoubleStimuliEvaluator(Evaluator):
                 type=ref_audio.type,
                 group=ref_audio.group,
                 script=ref_audio.script,
-                order_in_group=1
+                order_in_group=1,
             )
 
     def add_file_set(self, file0: File, file1: File) -> None:
@@ -115,20 +133,32 @@ class DoubleStimuliEvaluator(Evaluator):
             ValueError: if this function is called before calling init().
             FileNotFoundError: if a given file is not found.
         """
-        
+
         if not self._initialized:
             raise ValueError("Try to add_file_set once the evaluator is closed.")
-        
+
         eval_config = self._get_eval_config()
         if eval_config.eval_type not in [EvalType.SMOS, EvalType.PREF]:
             raise ValueError("The add_file_set function is used for 'SMOS', 'PREF'")
-        
+
         if eval_config.eval_type in self._supported_evaluation_type:
             group = self._generate_random_group_name()
-            audio1 = self._set_audio(path=file0.path, tags=file0.tags, script=file0.script,
-                                     group=group, type=QuestionFileType.STIMULUS, order_in_group=0)
-            audio2 = self._set_audio(path=file1.path, tags=file1.tags, script=file1.script,
-                                     group=group, type=QuestionFileType.STIMULUS, order_in_group=1)
+            audio1 = self._set_audio(
+                path=file0.path,
+                tags=file0.tags,
+                script=file0.script,
+                group=group,
+                type=QuestionFileType.STIMULUS,
+                order_in_group=0,
+            )
+            audio2 = self._set_audio(
+                path=file1.path,
+                tags=file1.tags,
+                script=file1.script,
+                group=group,
+                type=QuestionFileType.STIMULUS,
+                order_in_group=1,
+            )
             self._eval_audios.append([audio1, audio2])
             # Audio 1
             self._upload_one_file(
@@ -140,7 +170,7 @@ class DoubleStimuliEvaluator(Evaluator):
                 type=audio1.type,
                 group=audio1.group,
                 script=audio1.script,
-                order_in_group=0
+                order_in_group=0,
             )
 
             # Audio 2
@@ -153,7 +183,7 @@ class DoubleStimuliEvaluator(Evaluator):
                 type=audio2.type,
                 group=audio2.group,
                 script=audio2.script,
-                order_in_group=1
+                order_in_group=1,
             )
 
     def _generate_random_group_name(self) -> str:
