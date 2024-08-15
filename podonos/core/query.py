@@ -1,10 +1,12 @@
 import logging
 from typing import Optional, Any
 
+# Configure basic logging settings
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 
+# Define a Question class to represent a question with a title and an optional description
 class Question:
     _title: str
     _description: Optional[str]
@@ -25,6 +27,7 @@ class Question:
         return {"title": self._title, "description": self._description}
 
 
+# Define a Query class that encapsulates a Question object and a Option object in the future
 class Query:
     _question: Question
 
