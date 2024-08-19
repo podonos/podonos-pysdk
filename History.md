@@ -1,3 +1,8 @@
+## 0.2.0
+
+- Add `set_question` for custom question and description
+- Increase the speed of uploading files
+
 ## 0.1.19
 
 - Add `script` into `File`
