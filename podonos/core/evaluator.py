@@ -106,7 +106,7 @@ class Evaluator(ABC):
         # Wait until file uploading finishes.
         assert self._upload_manager.wait_and_close()
 
-        # Create Template if custom query exists
+        # Create a template if custom query exists
         self._create_template_with_question_and_evaluation()
 
         # Insert File Data into Database
