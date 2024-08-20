@@ -128,8 +128,10 @@ class Client:
         """
         stats = self.get_stats_dict_by_id(evaluation_id)
         with open(output_path, "w") as f:
-            f.write("name,tags,mean,median,std,ci_90,ci_95,ci_99\n")
+            f.write("name,tags,type,mean,median,std,ci_90,ci_95,ci_99\n")
             for stat in stats:
                 for file in stat["files"]:
                     tags = ";".join(file["tags"])
-                    f.write(f"{file['name']},{tags},{stat['mean']},{stat['median']},{stat['std']},{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n")
+                    f.write(
+                        f"{file['name']},{tags},{file['type']},{stat['mean']},{stat['median']},{stat['std']},{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n"
+                    )

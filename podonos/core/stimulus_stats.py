@@ -1,22 +1,23 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Union, Literal
 
 
 @dataclass
 class StimulusStatsFile:
     name: str
     tags: List[str]
+    type: Union[Literal["A"], Literal["B"]]
 
     @staticmethod
     def from_dict(data: dict) -> "StimulusStatsFile":
-        required_keys = ["name", "tags"]
+        required_keys = ["name", "tags", "type"]
         for key in required_keys:
             if key not in data:
                 raise ValueError(f"Invalid data format for StimulusStatsFile: {data}")
-        return StimulusStatsFile(name=data["name"], tags=data["tags"])
+        return StimulusStatsFile(name=data["name"], tags=data["tags"], type=data["type"])
 
     def to_dict(self) -> dict:
-        return {"name": self.name, "tags": self.tags}
+        return {"name": self.name, "tags": self.tags, "type": self.type}
 
 
 @dataclass
