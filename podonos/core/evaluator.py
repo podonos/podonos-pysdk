@@ -190,12 +190,6 @@ class Evaluator(ABC):
         evaluation_id: str,
         remote_object_name: str,
         path: str,
-        duration_in_ms: int,
-        type: QuestionFileType,
-        tags: List[str] = [],
-        group: Optional[str] = None,
-        script: Optional[str] = None,
-        order_in_group: int = 0,
     ) -> None:
         """
         Start uploading one file to server.

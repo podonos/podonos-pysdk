@@ -60,11 +60,6 @@ class SingleStimulusEvaluator(Evaluator):
                 evaluation_id=self.get_evaluation_id(),
                 remote_object_name=audio.remote_object_name,
                 path=audio.path,
-                duration_in_ms=audio.metadata.duration_in_ms,
-                tags=audio.tags if audio.tags else [],
-                type=audio.type,
-                group=audio.group,
-                script=audio.script,
             )
 
     def add_file_pair(self, target: File, ref: File) -> None:
