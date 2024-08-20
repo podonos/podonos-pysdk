@@ -65,9 +65,7 @@ class EvalConfig:
         log.debug(f"Eval type: {self._eval_type}")
         log.debug(f"Language: {self._eval_language}")
         log.debug(f"num_eval: {self._eval_num}")
-        log.debug(
-            f"Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}"
-        )
+        log.debug(f"Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}")
         log.debug(f"Evaluation ID: {self._eval_id}")
         log.debug(f"Evaluation auto start: {self._eval_auto_start}")
         log.debug(f"Max upload workers: {self._max_upload_workers}")

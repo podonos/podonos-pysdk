@@ -5,20 +5,21 @@ Default constant values across whole SDK
 
 # Text colors on terminal
 class TerminalColor:
-    BOLD = ''
-    ENDC = ''
-    FAIL = ''
-    OK = ''
-    WARN = ''
+    BOLD = ""
+    ENDC = ""
+    FAIL = ""
+    OK = ""
+    WARN = ""
+
 
 # Podonos homepage
-PODONOS_HOME = 'https://www.podonos.com/'
+PODONOS_HOME = "https://www.podonos.com/"
 
 # Podonos docs API key
-PODONOS_DOCS_API_KEY = 'https://www.podonos.com/docs/apikey'
+PODONOS_DOCS_API_KEY = "https://www.podonos.com/docs/apikey"
 
 # API key environment variable
-PODONOS_API_KEY = 'PODONOS_API_KEY'
+PODONOS_API_KEY = "PODONOS_API_KEY"
 
 # Podonos Workspace
 PODONOS_WORKSPACE = "https://workspace.podonos.com"

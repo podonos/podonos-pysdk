@@ -58,10 +58,7 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         if not EvalType.is_eval_type(type):
-            raise ValueError(
-                "Not supported evaluation types. Use one of the "
-                "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF'"
-            )
+            raise ValueError("Not supported evaluation types. Use one of the " "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF'")
 
         eval_config = EvalConfig(
             name=name,
@@ -98,9 +95,7 @@ class Client:
         try:
             response = self._api_client.get("evaluations")
             response.raise_for_status()
-            evaluations = [
-                Evaluation.from_dict(evaluation) for evaluation in response.json()
-            ]
+            evaluations = [Evaluation.from_dict(evaluation) for evaluation in response.json()]
             return [evaluation.to_dict() for evaluation in evaluations]
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
@@ -137,6 +132,4 @@ class Client:
             for stat in stats:
                 for file in stat["files"]:
                     tags = ";".join(file["tags"])
-                    f.write(
-                        f"{file['name']},{tags},{stat['mean']},{stat['median']},{stat['std']},{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n"
-                    )
+                    f.write(f"{file['name']},{tags},{stat['mean']},{stat['median']},{stat['std']},{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n")
