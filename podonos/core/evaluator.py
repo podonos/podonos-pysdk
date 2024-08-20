@@ -106,7 +106,13 @@ class Evaluator(ABC):
         # Wait until file uploading finishes.
         assert self._upload_manager.wait_and_close()
 
+        # Create a template if custom query exists
         self._create_template_with_question_and_evaluation()
+
+        # Insert File Data into Database
+        self._create_files_of_evaluation(
+            [audio for audio_list in self._eval_audios for audio in audio_list]
+        )
 
         # Get the upload time & finish time.
         upload_start, upload_finish = self._upload_manager.get_upload_time()
@@ -133,9 +139,6 @@ class Evaluator(ABC):
         presigned_url = self._get_presigned_url_for_put_method(
             self.get_evaluation_id(),
             "session.json",
-            remote_object_name,
-            0,
-            QuestionFileType.META,
         )
 
         try:
@@ -221,14 +224,7 @@ class Evaluator(ABC):
         # Get the presigned URL for one file
         presigned_url = self._get_presigned_url_for_put_method(
             evaluation_id,
-            path,
             remote_object_name,
-            duration_in_ms,
-            type,
-            tags,
-            group,
-            script,
-            order_in_group,
         )
 
         if not self._eval_config:
@@ -250,27 +246,13 @@ class Evaluator(ABC):
     def _get_presigned_url_for_put_method(
         self,
         evaluation_id: str,
-        path: str,
         remote_object_name: str,
-        duration_in_ms: int,
-        type: QuestionFileType,
-        tags: List[str] = [],
-        group: Optional[str] = None,
-        script: Optional[str] = None,
-        order_in_group: int = 0,
     ) -> str:
         try:
             response = self._api_client.put(
                 f"evaluations/{evaluation_id}/uploading-presigned-url",
                 {
-                    "original_uri": path,
                     "processed_uri": remote_object_name,
-                    "duration": duration_in_ms,
-                    "tags": tags,
-                    "type": type,
-                    "group": group,
-                    "script": script,
-                    "order_in_group": order_in_group,
                 },
             )
             response.raise_for_status()
@@ -279,6 +261,20 @@ class Evaluator(ABC):
             log.error(f"HTTP Error: {e}")
             raise HTTPError(
                 f"Failed to get presigned URL for {remote_object_name}: {e}",
+                status_code=e.response.status_code if e.response else None,
+            )
+
+    def _create_files_of_evaluation(self, audios: List[Audio]):
+        try:
+            response = self._api_client.put(
+                f"evaluations/{self.get_evaluation_id()}/files",
+                {"files": [audio.to_create_file_dict() for audio in audios]},
+            )
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            log.error(f"HTTP Error: {e}")
+            raise HTTPError(
+                f"Failed to create evaluation files: {e}",
                 status_code=e.response.status_code if e.response else None,
             )
 

@@ -183,6 +183,20 @@ class Audio:
             "upload_start_at": self._upload_start_at,
             "upload_finish_at": self._upload_finish_at,
             "tag": self._tags,
+            "type": self._type,
+            "script": self._script,
+            "group": self._group,
+            "order_in_group": self._order_in_group,
+        }
+
+    def to_create_file_dict(self) -> Dict[str, Any]:
+        return {
+            "original_uri": self._path,
+            "processed_uri": self._remote_object_name,
+            "duration": self._metadata.duration_in_ms,
+            "tags": self._tags,
+            "type": self._type,
+            "script": self._script,
             "group": self._group,
             "order_in_group": self._order_in_group,
         }
