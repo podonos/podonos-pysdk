@@ -1,23 +1,24 @@
 """
 Default enum values across whole SDK
 """
+
 from enum import Enum
 
 
 class EvalType(Enum):
-    NMOS = 'NMOS'
+    NMOS = "NMOS"
     QMOS = "QMOS"
-    P808 = 'P808'
-    SMOS = 'SMOS'
-    PREF = 'PREF'
-    CMOS = 'CMOS'
-    DMOS = 'DMOS'
-    
+    P808 = "P808"
+    SMOS = "SMOS"
+    PREF = "PREF"
+    CMOS = "CMOS"
+    DMOS = "DMOS"
+
     def get_type(self) -> str:
         if self.value == "PREF":
             return "SPEECH_PREFERENCE"
         return f"SPEECH_{self.value}"
-    
+
     @staticmethod
     def is_eval_type(eval_type: str) -> bool:
         return any([item for item in EvalType if item.value == eval_type])
@@ -37,7 +38,7 @@ class Language(Enum):
     JAPANESE = "ja-jp"
     ITALIAN = "it-it"
     POLISH = "pl-pl"
-    AUDIO = 'audio'
+    AUDIO = "audio"
 
 
 class QuestionFileType(str, Enum):

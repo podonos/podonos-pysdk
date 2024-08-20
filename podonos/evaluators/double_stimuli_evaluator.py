@@ -26,9 +26,7 @@ class DoubleStimuliEvaluator(Evaluator):
         self._supported_evaluation_type = supported_evaluation_type
 
     def add_file(self, file: File) -> None:
-        raise NotSupportedError(
-            "The 'add_file' is only supported in these evaluation types: {'NMOS', 'QMOS', 'P808'}"
-        )
+        raise NotSupportedError("The 'add_file' is only supported in these evaluation types: {'NMOS', 'QMOS', 'P808'}")
 
     def add_file_pair(self, target: File, ref: File) -> None:
         """Adds new files for speech evaluation of CMOS and DMOS

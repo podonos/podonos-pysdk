@@ -26,12 +26,8 @@ class Evaluation:
             internal_name=data["internal_name"],
             description=data["description"],
             status=data["status"],
-            created_time=datetime.fromisoformat(
-                data["created_time"].replace("Z", "+00:00")
-            ),
-            updated_time=datetime.fromisoformat(
-                data["updated_time"].replace("Z", "+00:00")
-            ),
+            created_time=datetime.fromisoformat(data["created_time"].replace("Z", "+00:00")),
+            updated_time=datetime.fromisoformat(data["updated_time"].replace("Z", "+00:00")),
         )
 
     def to_dict(self) -> dict:

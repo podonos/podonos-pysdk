@@ -6,9 +6,7 @@ class File:
     _tags: List[str]
     _script: Optional[str]
 
-    def __init__(
-        self, path: str, tags: List[str] = [], script: Optional[str] = None
-    ) -> None:
+    def __init__(self, path: str, tags: List[str] = [], script: Optional[str] = None) -> None:
         """
         Args:
             path: Path to the file to evaluate.

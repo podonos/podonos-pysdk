@@ -18,15 +18,15 @@ from tests.test_audio import TESTDATA_SPEECH_CH1_MP3
 
 
 class MockEvaluator(Evaluator):
-    def __init__(self, api_client = Mock(spec=APIClient), eval_config: Optional[EvalConfig] = None):
+    def __init__(self, api_client=Mock(spec=APIClient), eval_config: Optional[EvalConfig] = None):
         super().__init__(api_client, eval_config)
 
     def add_file(self, file: File) -> None:
         pass
-    
+
     def add_file_pair(self, target: File, ref: File) -> None:
         pass
-    
+
     def add_file_set(self, file0: File, file1: File) -> None:
         pass
 
@@ -38,7 +38,7 @@ class MockEvaluator(Evaluator):
             "description": "mock_desc",
             "status": "mock_status",
             "created_time": "2024-05-21T06:18:09.659270Z",
-            "updated_time": "2024-05-22T06:18:09.659270Z"
+            "updated_time": "2024-05-22T06:18:09.659270Z",
         }
         evaluation = Evaluation.from_dict(evaluation_config)
         return evaluation
@@ -47,13 +47,13 @@ class MockEvaluator(Evaluator):
 class TestEvaluator(unittest.TestCase):
 
     def setUp(self):
-        self.eval_config = EvalConfig(type='NMOS')
+        self.eval_config = EvalConfig(type="NMOS")
         self.evaluator = MockEvaluator(eval_config=self.eval_config)
 
     def test_get_eval_config_success(self):
-        eval_config = EvalConfig(type='NMOS')
+        eval_config = EvalConfig(type="NMOS")
         evaluator = MockEvaluator(eval_config=eval_config)
-        
+
         result = evaluator._get_eval_config()
         self.assertEqual(result, eval_config)
 
@@ -80,7 +80,7 @@ class TestEvaluator(unittest.TestCase):
 
         eval_config = EvalConfig("NMOS")
         evaluator = MockEvaluator(api_client=MagicMock(), eval_config=eval_config)
-        evaluator._api_client.post.return_value = mock_response # type: ignore
+        evaluator._api_client.post.return_value = mock_response  # type: ignore
 
         evaluation = evaluator._create_evaluation()
 
@@ -92,28 +92,27 @@ class TestEvaluator(unittest.TestCase):
 
         eval_config = EvalConfig("NMOS")
         evaluator = MockEvaluator(eval_config=eval_config)
-        evaluator._api_client.post.return_value = mock_response # type: ignore
+        evaluator._api_client.post.return_value = mock_response  # type: ignore
 
         evaluator._post_request_evaluation()
-        evaluator._api_client.post.assert_called_once_with("request-evaluation", { # type: ignore
-            'eval_id': eval_config.eval_id,
-            'eval_type': 'SPEECH_NMOS'
-        })
+        evaluator._api_client.post.assert_called_once_with(  # type: ignore
+            "request-evaluation", {"eval_id": eval_config.eval_id, "eval_type": "SPEECH_NMOS"}
+        )
 
     def test_post_request_evaluation_http_error(self):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=MagicMock(status_code=400))
 
         evaluator = MockEvaluator(api_client=MagicMock(), eval_config=EvalConfig("NMOS"))
-        evaluator._api_client.post.return_value = mock_response # type: ignore
+        evaluator._api_client.post.return_value = mock_response  # type: ignore
 
         with self.assertRaises(HTTPError) as context:
             evaluator._post_request_evaluation()
 
         self.assertIn("Failed to request", str(context.exception))
 
-    @patch('os.path.isfile', return_value=True)
-    @patch('os.access', return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.access", return_value=True)
     def test_set_audio(self, mock_access, mock_isfile):
         path = TESTDATA_SPEECH_CH1_MP3
         tags = ["tag1", "tag2"]
@@ -131,28 +130,28 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(audio.type, type)
         self.assertEqual(audio.order_in_group, order_in_group)
 
-    @patch('os.path.isfile')
-    @patch('os.access')
+    @patch("os.path.isfile")
+    @patch("os.access")
     def test_validate_path_success(self, mock_access, mock_isfile):
         mock_isfile.return_value = True
         mock_access.return_value = True
 
-        evaluator = MockEvaluator(eval_config=EvalConfig(type='NMOS'))
+        evaluator = MockEvaluator(eval_config=EvalConfig(type="NMOS"))
 
-        valid_path = '/valid/path/to/file.txt'
+        valid_path = "/valid/path/to/file.txt"
         result = evaluator._validate_path(valid_path)
         self.assertEqual(result, valid_path)
 
         mock_isfile.assert_called_once_with(valid_path)
         mock_access.assert_called_once_with(valid_path, os.R_OK)
 
-    @patch('os.path.isfile')
-    @patch('os.access')
+    @patch("os.path.isfile")
+    @patch("os.access")
     def test_validate_path_file_not_exist(self, mock_access, mock_isfile):
         mock_isfile.return_value = False
-        evaluator = MockEvaluator(api_client=MagicMock(), eval_config=EvalConfig(type='NMOS'))
+        evaluator = MockEvaluator(api_client=MagicMock(), eval_config=EvalConfig(type="NMOS"))
 
-        invalid_path = '/invalid/path/to/file.txt'
+        invalid_path = "/invalid/path/to/file.txt"
         with self.assertRaises(FileNotFoundError) as context:
             evaluator._validate_path(invalid_path)
 
@@ -161,15 +160,15 @@ class TestEvaluator(unittest.TestCase):
         mock_isfile.assert_called_once_with(invalid_path)
         mock_access.assert_not_called()
 
-    @patch('os.path.isfile')
-    @patch('os.access')
+    @patch("os.path.isfile")
+    @patch("os.access")
     def test_validate_path_not_readable(self, mock_access, mock_isfile):
         mock_isfile.return_value = True
         mock_access.return_value = False
 
-        evaluator = MockEvaluator(eval_config=EvalConfig(type='NMOS'))
+        evaluator = MockEvaluator(eval_config=EvalConfig(type="NMOS"))
 
-        unreadable_path = '/unreadable/path/to/file.txt'
+        unreadable_path = "/unreadable/path/to/file.txt"
         with self.assertRaises(FileNotFoundError) as context:
             evaluator._validate_path(unreadable_path)
 
@@ -186,5 +185,6 @@ class TestEvaluator(unittest.TestCase):
 
         self.assertEqual(name, expected_name)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

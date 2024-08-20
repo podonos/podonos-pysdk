@@ -68,11 +68,7 @@ class SingleStimulusEvaluator(Evaluator):
             )
 
     def add_file_pair(self, target: File, ref: File) -> None:
-        raise NotSupportedError(
-            "The 'add_file_pair' is only supported in these evaluation types: {'CMOS', 'DMOS'}"
-        )
+        raise NotSupportedError("The 'add_file_pair' is only supported in these evaluation types: {'CMOS', 'DMOS'}")
 
     def add_file_set(self, file0: File, file1: File) -> None:
-        raise NotSupportedError(
-            "The 'add_file_set' is only supported in these evaluation types: {'SMOS', 'PREF'}"
-        )
+        raise NotSupportedError("The 'add_file_set' is only supported in these evaluation types: {'SMOS', 'PREF'}")

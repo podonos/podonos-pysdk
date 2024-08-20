@@ -33,5 +33,5 @@ class TestUploadManager(unittest.TestCase):
         self.assertTrue(upload_manager.wait_and_close())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

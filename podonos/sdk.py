@@ -23,9 +23,7 @@ class Podonos:
     _initialized: bool = False
 
     @staticmethod
-    def init(
-        api_key: Optional[str] = None, api_url: str = PODONOS_API_BASE_URL
-    ) -> Client:
+    def init(api_key: Optional[str] = None, api_url: str = PODONOS_API_BASE_URL) -> Client:
         """Initializes the SDK. This function must be called before calling other functions.
         Raises error on invalid or missing API key. Also, raises exception on other failures.
         api_key: API Key. If not set, try to read PODONOS_API_KEY. If both are not set, raises an error. Optional.
@@ -45,26 +43,19 @@ class Podonos:
         final_api_key = api_key or api_key_env
         if not final_api_key:
             raise ValueError(
-                TerminalColor.FAIL
-                + f"Podonos API key is missing. Please set api_key or "
+                TerminalColor.FAIL + f"Podonos API key is missing. Please set api_key or "
                 f"{PODONOS_API_KEY} environment variable.\n"
-                f"For details, please visit {PODONOS_DOCS_API_KEY}."
-                + TerminalColor.ENDC
+                f"For details, please visit {PODONOS_DOCS_API_KEY}." + TerminalColor.ENDC
             )
 
         if api_key and api_key_env:
-            print(
-                TerminalColor.WARN
-                + f"Both api_key and {PODONOS_API_KEY} environment variable are set. "
-                f"Uses api_key." + TerminalColor.FAIL
-            )
+            print(TerminalColor.WARN + f"Both api_key and {PODONOS_API_KEY} environment variable are set. " f"Uses api_key." + TerminalColor.FAIL)
 
         # API key verification.
         if len(final_api_key) <= 3:
             raise ValueError(
                 TerminalColor.FAIL + f"The API key {final_api_key} is not valid. \n"
-                f"Please use a valid API key or visit {PODONOS_HOME}."
-                + TerminalColor.ENDC
+                f"Please use a valid API key or visit {PODONOS_HOME}." + TerminalColor.ENDC
             )
 
         api_client = APIClient(final_api_key, api_url)

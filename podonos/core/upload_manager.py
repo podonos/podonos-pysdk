@@ -51,9 +51,7 @@ class UploadManager:
         self._api_client = api_client
         self._queue = queue.Queue()
         self._worker_event = Event()
-        self._daemon_thread = threading.Thread(
-            target=self._uploader_daemon, daemon=True
-        )
+        self._daemon_thread = threading.Thread(target=self._uploader_daemon, daemon=True)
         self._daemon_thread.start()
         self._status = True
         atexit.register(self.wait_and_close)
@@ -87,17 +85,9 @@ class UploadManager:
 
                 log.debug(f"Worker {index} uploading {path}")
                 # Timestamp in ISO 8601.
-                upload_start_at = (
-                    datetime.datetime.now()
-                    .astimezone()
-                    .isoformat(timespec="milliseconds")
-                )
+                upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec="milliseconds")
                 self._api_client.put_file_presigned_url(presigned_url, path)
-                upload_finish_at = (
-                    datetime.datetime.now()
-                    .astimezone()
-                    .isoformat(timespec="milliseconds")
-                )
+                upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec="milliseconds")
                 log.debug(f"Worker {index} finished uploading {item}")
 
                 self._upload_start[remote_object_name] = upload_start_at
@@ -108,9 +98,7 @@ class UploadManager:
                 log.debug(f"Worker {index} is done")
                 return
 
-    def add_file_to_queue(
-        self, presigned_url: str, remote_object_name: str, path: str
-    ) -> None:
+    def add_file_to_queue(self, presigned_url: str, remote_object_name: str, path: str) -> None:
         if not (
             self._queue is not None
             and self._worker_event is not None
@@ -128,11 +116,7 @@ class UploadManager:
         if not self._status:
             return False
 
-        if not (
-            self._queue is not None
-            and self._worker_event is not None
-            and self._daemon_thread is not None
-        ):
+        if not (self._queue is not None and self._worker_event is not None and self._daemon_thread is not None):
             raise ValueError("Upload Manager is not initialized")
 
         # Block until all tasks are done.

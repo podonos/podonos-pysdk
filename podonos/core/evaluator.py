@@ -110,9 +110,7 @@ class Evaluator(ABC):
         self._create_template_with_question_and_evaluation()
 
         # Insert File Data into Database
-        self._create_files_of_evaluation(
-            [audio for audio_list in self._eval_audios for audio in audio_list]
-        )
+        self._create_files_of_evaluation([audio for audio_list in self._eval_audios for audio in audio_list])
 
         # Get the upload time & finish time.
         upload_start, upload_finish = self._upload_manager.get_upload_time()
@@ -132,9 +130,7 @@ class Evaluator(ABC):
         session_json["files"] = self._eval_audio_json
 
         # Get the presigned URL for filename
-        remote_object_name = os.path.join(
-            self._eval_config.eval_creation_timestamp, "session.json"
-        )
+        remote_object_name = os.path.join(self._eval_config.eval_creation_timestamp, "session.json")
 
         presigned_url = self._get_presigned_url_for_put_method(
             self.get_evaluation_id(),
@@ -156,14 +152,9 @@ class Evaluator(ABC):
             )
 
         if self._eval_config.eval_auto_start:
-            print(
-                f"{TerminalColor.OK}Upload finished. The evaluation will start immediately.{TerminalColor.ENDC}"
-            )
+            print(f"{TerminalColor.OK}Upload finished. The evaluation will start immediately.{TerminalColor.ENDC}")
         else:
-            print(
-                f"{TerminalColor.OK}Upload finished. Please start the evaluation at {PODONOS_WORKSPACE}."
-                f"{TerminalColor.ENDC}"
-            )
+            print(f"{TerminalColor.OK}Upload finished. Please start the evaluation at {PODONOS_WORKSPACE}." f"{TerminalColor.ENDC}")
 
         # Initialize variables.
         self._init_eval_variables()
@@ -187,9 +178,7 @@ class Evaluator(ABC):
 
         eval_config = self._get_eval_config()
         try:
-            response = self._api_client.post(
-                "evaluations", data=eval_config.to_create_request_dto()
-            )
+            response = self._api_client.post("evaluations", data=eval_config.to_create_request_dto())
             response.raise_for_status()
             evaluation = Evaluation.from_dict(response.json())
             return evaluation
@@ -238,9 +227,7 @@ class Evaluator(ABC):
             )
 
         if self._upload_manager:
-            self._upload_manager.add_file_to_queue(
-                presigned_url, remote_object_name, path
-            )
+            self._upload_manager.add_file_to_queue(presigned_url, remote_object_name, path)
         return
 
     def _get_presigned_url_for_put_method(
@@ -352,7 +339,5 @@ class Evaluator(ABC):
 
     def _get_name_and_remote_object_name(self, valid_path: str) -> Tuple[str, str]:
         eval_config = self._get_eval_config()
-        remote_object_name = os.path.join(
-            eval_config.eval_creation_timestamp, generate_random_name()
-        )
+        remote_object_name = os.path.join(eval_config.eval_creation_timestamp, generate_random_name())
         return valid_path, remote_object_name

@@ -62,11 +62,7 @@ class APIClient:
 
         response = self.get("customers/verify/api-key")
         if response.text != "true":
-            raise ValueError(
-                TerminalColor.FAIL
-                + f"Invalid API key: {self._api_key}"
-                + TerminalColor.ENDC
-            )
+            raise ValueError(TerminalColor.FAIL + f"Invalid API key: {self._api_key}" + TerminalColor.ENDC)
         return True
 
     def add_headers(self, key: str, value: str) -> None:
@@ -79,9 +75,7 @@ class APIClient:
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
         request_header = self._headers if headers is None else headers
-        response = requests.get(
-            f"{self._api_url}/{endpoint}", headers=request_header, params=params
-        )
+        response = requests.get(f"{self._api_url}/{endpoint}", headers=request_header, params=params)
         return response
 
     def post(
@@ -91,9 +85,7 @@ class APIClient:
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
         request_header = self._headers if headers is None else headers
-        response = requests.post(
-            f"{self._api_url}/{endpoint}", headers=request_header, json=data
-        )
+        response = requests.post(f"{self._api_url}/{endpoint}", headers=request_header, json=data)
         return response
 
     def put(
@@ -103,9 +95,7 @@ class APIClient:
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
         request_header = self._headers if headers is None else headers
-        response = requests.put(
-            f"{self._api_url}/{endpoint}", headers=request_header, json=data
-        )
+        response = requests.put(f"{self._api_url}/{endpoint}", headers=request_header, json=data)
         return response
 
     def put_file_presigned_url(self, url: str, path: str) -> Response:
@@ -123,9 +113,7 @@ class APIClient:
                 status_code=e.response.status_code if e.response else None,
             )
 
-    def put_json_presigned_url(
-        self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None
-    ) -> Response:
+    def put_json_presigned_url(self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Response:
         try:
             response = requests.put(url, json=data, headers=headers)
             return response
@@ -166,8 +154,7 @@ class APIClient:
 
         # This version is lower than the minimum required version. Cannot proceed.
         print(
-            TerminalColor.FAIL
-            + f"The current podonos package version is {current_version} "
+            TerminalColor.FAIL + f"The current podonos package version is {current_version} "
             f"while the minimum supported version is {api_version.minimum}"
             + TerminalColor.ENDC
             + "\n"
