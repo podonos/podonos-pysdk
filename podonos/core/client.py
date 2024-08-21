@@ -117,7 +117,7 @@ class Client:
         try:
             response = self._api_client.get(f"evaluations/{evaluation_id}/stats")
             if response.status_code == 400:
-                logging.info(f"Bad Request: The {evaluation_id} is invalid evaluation id")
+                log.info(f"Bad Request: The {evaluation_id} is invalid evaluation id")
                 return []
 
             response.raise_for_status()

@@ -106,6 +106,8 @@ class Evaluator(ABC):
         # Wait until file uploading finishes.
         assert self._upload_manager.wait_and_close()
 
+        log.info("The evaluator's configuration process has started to record data.")
+
         # Create a template if custom query exists
         self._create_template_with_question_and_evaluation()
 
@@ -152,9 +154,9 @@ class Evaluator(ABC):
             )
 
         if self._eval_config.eval_auto_start:
-            print(f"{TerminalColor.OK}Upload finished. The evaluation will start immediately.{TerminalColor.ENDC}")
+            log.info(f"{TerminalColor.OK}Upload finished. The evaluation will start immediately.{TerminalColor.ENDC}")
         else:
-            print(f"{TerminalColor.OK}Upload finished. Please start the evaluation at {PODONOS_WORKSPACE}." f"{TerminalColor.ENDC}")
+            log.info(f"{TerminalColor.OK}Upload finished. Please start the evaluation at {PODONOS_WORKSPACE}." f"{TerminalColor.ENDC}")
 
         # Initialize variables.
         self._init_eval_variables()
@@ -181,6 +183,7 @@ class Evaluator(ABC):
             response = self._api_client.post("evaluations", data=eval_config.to_create_request_dto())
             response.raise_for_status()
             evaluation = Evaluation.from_dict(response.json())
+            log.info(f"Evaluation is generated: {evaluation.id}")
             return evaluation
         except Exception as e:
             raise HTTPError(f"Failed to create the evaluation: {e}")

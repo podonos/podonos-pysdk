@@ -130,7 +130,7 @@ class UploadManager:
         log.debug("Shutdown uploader daemon")
         self._daemon_thread.join()
 
-        log.info("All upload work complete but the file is not recorded yet.")
+        log.info("All upload work complete.")
         self._status = False
         return True
 
