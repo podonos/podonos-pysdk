@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, Optional, List
 
 from requests import HTTPError
@@ -10,6 +11,10 @@ from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
 from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
 from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
+
+# For logging
+logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger(__name__)
 
 
 class Client:
@@ -111,6 +116,10 @@ class Client:
         """
         try:
             response = self._api_client.get(f"evaluations/{evaluation_id}/stats")
+            if response.status_code == 400:
+                log.info(f"Bad Request: The {evaluation_id} is invalid evaluation id")
+                return []
+
             response.raise_for_status()
             stats = [StimulusStats.from_dict(stats) for stats in response.json()]
             return [stat.to_dict() for stat in stats]
