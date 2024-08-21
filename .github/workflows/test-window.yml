@@ -1,4 +1,4 @@
-name: Podonos package testing for Development
+name: Podonos package testing for Development on Windows
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     strategy:
       matrix:
@@ -28,7 +28,8 @@ jobs:
       - name: Set up virtual environment
         run: |
           python -m venv venv
-          source venv/bin/activate
+          .\venv\Scripts\Activate.ps1
+        shell: pwsh
 
       - name: Install dependencies
         run: |
@@ -38,3 +39,4 @@ jobs:
       - name: Run tests
         run: |
           pytest
+        shell: pwsh
