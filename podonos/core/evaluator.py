@@ -309,13 +309,14 @@ class Evaluator(ABC):
         order_in_group: int,
     ) -> Audio:
         valid_path = self._validate_path(path)
-        name, remote_object_name = self._get_name_and_remote_object_name(valid_path)
+        remote_object_name = self._get_remote_object_name()
+        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(valid_path, remote_object_name)
 
         log.debug(f"remote_object_name: {remote_object_name}\n")
         return Audio(
             path=valid_path,
-            name=name,
-            remote_object_name=remote_object_name,
+            name=original_path,
+            remote_object_name=remote_path,
             script=script,
             tags=tags,
             group=group,
@@ -331,7 +332,12 @@ class Evaluator(ABC):
             raise FileNotFoundError(f"File {path} isn't readable")
         return path
 
-    def _get_name_and_remote_object_name(self, valid_path: str) -> Tuple[str, str]:
+    def _get_remote_object_name(self) -> str:
         eval_config = self._get_eval_config()
         remote_object_name = os.path.join(eval_config.eval_creation_timestamp, generate_random_name())
-        return valid_path, remote_object_name
+        return remote_object_name
+
+    def _process_original_path_and_remote_object_path_into_posix_style(self, original_path: str, remote_object_path: str) -> Tuple[str, str]:
+        posix_original_path = original_path.replace("\\", "/")
+        posix_remote_object_path = remote_object_path.replace("\\", "/")
+        return posix_original_path, posix_remote_object_path

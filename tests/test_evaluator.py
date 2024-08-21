@@ -4,7 +4,6 @@ import requests
 
 from datetime import datetime
 from typing import Optional
-from unittest import mock
 from unittest.mock import Mock, patch, MagicMock
 
 from podonos.common.enum import QuestionFileType
@@ -177,13 +176,38 @@ class TestEvaluator(unittest.TestCase):
         mock_isfile.assert_called_once_with(unreadable_path)
         mock_access.assert_called_once_with(unreadable_path, os.R_OK)
 
-    def test_get_name_and_remote_object_name(self):
-        valid_path = "/path/to/file.txt"
-        expected_name = "/path/to/file.txt"
+    def test_paths(self):
+        test_cases = [
+            # Test case: paths with backslashes
+            {
+                "original_path": r"C:\Users\Example\Documents\file.txt",
+                "remote_object_path": r"C:\Files\Other\file.txt",
+                "expected_original_path": "C:/Users/Example/Documents/file.txt",
+                "expected_remote_object_path": "C:/Files/Other/file.txt",
+            },
+            # Test case: paths with forward slashes
+            {
+                "original_path": "C:/Users/Example/Documents/file.txt",
+                "remote_object_path": "C:/Files/Other/file.txt",
+                "expected_original_path": "C:/Users/Example/Documents/file.txt",
+                "expected_remote_object_path": "C:/Files/Other/file.txt",
+            },
+            # Test case: paths with mixed slashes
+            {
+                "original_path": r"C:\Users/Example\Documents/file.txt",
+                "remote_object_path": r"C:/Files\Other\file.txt",
+                "expected_original_path": "C:/Users/Example/Documents/file.txt",
+                "expected_remote_object_path": "C:/Files/Other/file.txt",
+            },
+        ]
 
-        name, _ = self.evaluator._get_name_and_remote_object_name(valid_path)
+        for case in test_cases:
+            posix_original_path, posix_remote_object_path = self.evaluator._process_original_path_and_remote_object_path_into_posix_style(
+                case["original_path"], case["remote_object_path"]
+            )
 
-        self.assertEqual(name, expected_name)
+            self.assertEqual(posix_original_path, case["expected_original_path"])
+            self.assertEqual(posix_remote_object_path, case["expected_remote_object_path"])
 
 
 if __name__ == "__main__":
