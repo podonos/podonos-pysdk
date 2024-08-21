@@ -122,8 +122,8 @@ class TestEvaluator(unittest.TestCase):
         audio = self.evaluator._set_audio(path, tags, script, group, type, order_in_group)
         posix_style_path = TESTDATA_SPEECH_CH1_MP3.replace("\\", "/")
 
-        self.assertEqual(audio.path, posix_style_path)
-        self.assertEqual(audio.name, path)
+        self.assertEqual(audio.path, path)
+        self.assertEqual(audio.name, posix_style_path)
         self.assertEqual(audio.tags, tags)
         self.assertEqual(audio.script, script)
         self.assertEqual(audio.group, group)
