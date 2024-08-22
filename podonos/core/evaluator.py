@@ -147,9 +147,9 @@ class Evaluator(ABC):
             )
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            log.error(f"HTTP Error: {e}")
+            log.error(f"HTTP error in uploading a json: {e}")
             raise HTTPError(
-                f"Failed to upload session.json: {e}",
+                f"Failed to upload session info json: {e}",
                 status_code=e.response.status_code if e.response else None,
             )
 
@@ -242,7 +242,7 @@ class Evaluator(ABC):
             response.raise_for_status()
             return response.text.replace('"', "")
         except requests.exceptions.HTTPError as e:
-            log.error(f"HTTP Error: {e}")
+            log.error(f"HTTP error in getting a presigned url: {e}")
             raise HTTPError(
                 f"Failed to get presigned URL for {remote_object_name}: {e}",
                 status_code=e.response.status_code if e.response else None,
@@ -256,7 +256,7 @@ class Evaluator(ABC):
             )
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            log.error(f"HTTP Error: {e}")
+            log.error(f"HTTP error in adding file meta: {e}")
             raise HTTPError(
                 f"Failed to create evaluation files: {e}",
                 status_code=e.response.status_code if e.response else None,
@@ -281,7 +281,7 @@ class Evaluator(ABC):
             )
             response.raise_for_status()
         except Exception as e:
-            log.error(f"HTTP Error: {e}")
+            log.error(f"HTTP error in evaluation template generation: {e}")
             raise e
 
     def _set_audio(

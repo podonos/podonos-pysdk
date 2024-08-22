@@ -103,11 +103,11 @@ class APIClient:
             response = requests.put(
                 url,
                 data=open(path, "rb"),
-                headers={"Content-Type": self._set_content_type_by_filename(path)},
+                headers={"Content-Type": self._get_content_type_by_filename(path)},
             )
             return response
         except requests.exceptions.RequestException as e:
-            log.error(f"HTTP Error: {e}")
+            log.error(f"HTTP error in uploading a file to presigned URL: {e}")
             raise HTTPError(
                 f"Failed to Upload File {path}: {e}",
                 status_code=e.response.status_code if e.response else None,
@@ -118,13 +118,14 @@ class APIClient:
             response = requests.put(url, json=data, headers=headers)
             return response
         except requests.exceptions.RequestException as e:
-            log.error(f"HTTP Error: {e}")
+            log.error(f"HTTP error in uploading a json to presigned url: {e}")
             raise HTTPError(
                 f"Failed to Upload JSON {data}: {e}",
                 status_code=e.response.status_code if e.response else None,
             )
 
-    def _set_content_type_by_filename(self, path: str) -> str:
+    @staticmethod
+    def _get_content_type_by_filename(path: str) -> str:
         _, ext = os.path.splitext(path)
         if ext == ".wav":
             return "audio/wav"
@@ -156,16 +157,13 @@ class APIClient:
         print(
             TerminalColor.FAIL + f"The current podonos package version is {current_version} "
             f"while the minimum supported version is {api_version.minimum}"
-            + TerminalColor.ENDC
-            + "\n"
-            + TerminalColor.BOLD
-            + "Please upgrade"
-            + TerminalColor.ENDC
-            + f" by 'pip install podonos --upgrade'"
+            + TerminalColor.ENDC + "\n" + TerminalColor.BOLD
+            + "Please upgrade" + TerminalColor.ENDC + f" by 'pip install podonos --upgrade'"
         )
         raise ValueError(f"Minimum supported version is {api_version.minimum}")
 
-    def _get_podonos_version(self):
+    @staticmethod
+    def _get_podonos_version():
         try:
             # Try to get the version using importlib.metadata
             return importlib.metadata.version("podonos")
