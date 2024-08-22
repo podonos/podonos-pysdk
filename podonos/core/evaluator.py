@@ -262,24 +262,6 @@ class Evaluator(ABC):
                 status_code=e.response.status_code if e.response else None,
             )
 
-    def _post_request_evaluation(self) -> None:
-        eval_config = self._get_eval_config()
-        try:
-            response = self._api_client.post(
-                "request-evaluation",
-                {
-                    "eval_id": eval_config.eval_id,
-                    "eval_type": eval_config.eval_type.get_type(),
-                },
-            )
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            log.error(f"HTTP Error: {e}")
-            raise HTTPError(
-                f"Failed to request evaluation: {e}",
-                status_code=e.response.status_code if e.response else None,
-            )
-
     def _create_template_with_question_and_evaluation(
         self,
     ) -> None:
