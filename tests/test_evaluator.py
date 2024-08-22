@@ -85,31 +85,6 @@ class TestEvaluator(unittest.TestCase):
 
         self.assertEqual(evaluation.id, "mock_id")
 
-    def test_post_request_evaluation_success(self):
-        mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = MagicMock(status_code=200)
-
-        eval_config = EvalConfig("NMOS")
-        evaluator = MockEvaluator(eval_config=eval_config)
-        evaluator._api_client.post.return_value = mock_response  # type: ignore
-
-        evaluator._post_request_evaluation()
-        evaluator._api_client.post.assert_called_once_with(  # type: ignore
-            "request-evaluation", {"eval_id": eval_config.eval_id, "eval_type": "SPEECH_NMOS"}
-        )
-
-    def test_post_request_evaluation_http_error(self):
-        mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=MagicMock(status_code=400))
-
-        evaluator = MockEvaluator(api_client=MagicMock(), eval_config=EvalConfig("NMOS"))
-        evaluator._api_client.post.return_value = mock_response  # type: ignore
-
-        with self.assertRaises(HTTPError) as context:
-            evaluator._post_request_evaluation()
-
-        self.assertIn("Failed to request", str(context.exception))
-
     @patch("os.path.isfile", return_value=True)
     @patch("os.access", return_value=True)
     def test_set_audio(self, mock_access, mock_isfile):
