@@ -36,6 +36,7 @@ class Client:
         granularity: float = EvalConfigDefault.GRANULARITY,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,
+        use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
@@ -73,6 +74,7 @@ class Client:
             granularity=granularity,
             num_eval=num_eval,
             due_hours=due_hours,
+            use_annotation=use_annotation,
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )

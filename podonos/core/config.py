@@ -14,6 +14,7 @@ class EvalConfigDefault:
     LAN = Language.ENGLISH_AMERICAN
     NUM_EVAL = 10
     DUE_HOURS = 12
+    USE_ANNOTATION = False
     AUTO_START = False
     GRANULARITY = 1.0
     MAX_UPLOAD_WORKERS = 10
@@ -30,6 +31,7 @@ class EvalConfig:
     _eval_granularity: float = EvalConfigDefault.GRANULARITY
     _eval_num: int = EvalConfigDefault.NUM_EVAL
     _eval_expected_due_tzname: Optional[str] = None
+    _eval_use_annotation: bool = False
     _eval_auto_start: bool = False
     _max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
 
@@ -42,6 +44,7 @@ class EvalConfig:
         granularity: float = EvalConfigDefault.GRANULARITY,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,  # TODO: allow floating point hours, e.g. 0.5.
+        use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> None:
@@ -55,6 +58,7 @@ class EvalConfig:
         self._eval_expected_due_tzname = self._set_eval_expected_due_tzname()
         self._eval_creation_timestamp = self._set_eval_creation_timestamp()
         self._eval_id = self._eval_creation_timestamp
+        self._eval_use_annotation = self._set_eval_use_annotation(use_annotation, type)
         self._eval_auto_start = self._set_eval_auto_start(auto_start)
         self._max_upload_workers = self._set_max_upload_workers(max_upload_workers)
         self.log_eval_config()
@@ -67,6 +71,7 @@ class EvalConfig:
         log.debug(f"num_eval: {self._eval_num}")
         log.debug(f"Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}")
         log.debug(f"Evaluation ID: {self._eval_id}")
+        log.debug(f"Evaluation use annotation: {self._eval_use_annotation}")
         log.debug(f"Evaluation auto start: {self._eval_auto_start}")
         log.debug(f"Max upload workers: {self._max_upload_workers}")
 
@@ -85,6 +90,10 @@ class EvalConfig:
     @property
     def eval_creation_timestamp(self) -> str:
         return self._eval_creation_timestamp
+
+    @property
+    def eval_use_annotation(self) -> bool:
+        return self._eval_use_annotation
 
     @property
     def eval_auto_start(self) -> bool:
@@ -169,6 +178,15 @@ class EvalConfig:
     def _set_eval_creation_timestamp(self) -> str:
         return datetime.now().isoformat(timespec="milliseconds")
 
+    def _set_eval_use_annotation(self, eval_use_annotation: bool, eval_type: str) -> bool:
+        if eval_use_annotation and eval_type not in [
+            EvalType.NMOS.value,
+            EvalType.QMOS.value,
+            EvalType.P808.value,
+        ]:
+            raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808}} when using "use_annotation"')
+        return eval_use_annotation
+
     def _set_eval_auto_start(self, eval_auto_start: bool) -> bool:
         return eval_auto_start
 
@@ -185,6 +203,7 @@ class EvalConfig:
             "eval_num": self._eval_num,
             "eval_expected_due": self._eval_expected_due,
             "eval_creation_timestamp": self._eval_creation_timestamp,
+            "eval_use_annotation": self._eval_use_annotation,
             "eval_auto_start": self._eval_auto_start,
             "max_upload_workers": self._max_upload_workers,
         }
@@ -198,4 +217,5 @@ class EvalConfig:
             "num_required_etors": self._eval_num,
             "granularity": self._eval_granularity,
             "evaluation_type": self._eval_type.get_type(),
+            "use_annotation": self._eval_use_annotation,
         }
