@@ -107,7 +107,7 @@ class APIClient:
             )
             return response
         except requests.exceptions.RequestException as e:
-            log.error(f"HTTP Error: {e}")
+            log.error(f"HTTP error in uploading a file to presigned URL: {e}")
             raise HTTPError(
                 f"Failed to Upload File {path}: {e}",
                 status_code=e.response.status_code if e.response else None,
@@ -118,7 +118,7 @@ class APIClient:
             response = requests.put(url, json=data, headers=headers)
             return response
         except requests.exceptions.RequestException as e:
-            log.error(f"HTTP Error: {e}")
+            log.error(f"HTTP error in uploading a json to presigned url: {e}")
             raise HTTPError(
                 f"Failed to Upload JSON {data}: {e}",
                 status_code=e.response.status_code if e.response else None,
