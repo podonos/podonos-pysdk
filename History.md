@@ -1,3 +1,9 @@
+## 0.2.0
+
+- Add `set_question` for custom question and description
+- Increase the speed of uploading files
+- Add `type` (A, B) field into `get_stats_dict_by_id` 
+
 ## 0.1.19
 
 - Add `script` into `File`
