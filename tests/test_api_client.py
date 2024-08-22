@@ -1,6 +1,18 @@
+import re
 import unittest
 from unittest.mock import patch, MagicMock
-from podonos.core.api import APIClient
+from podonos.core.api import APIClient, APIVersion
+
+
+class TestAPIVersion(unittest.TestCase):
+    def teatVersions(self):
+        minimum = "0.1.0"
+        recommended = "0.1.5"
+        latest = "0.2.0"
+        ver = APIVersion(minimum, recommended, latest)
+        self.assertEqual(minimum, ver.minimum)
+        self.assertEqual(recommended, ver.recommended)
+        self.assertEqual(latest, ver.latest)
 
 
 class TestAPIClient(unittest.TestCase):
@@ -8,6 +20,10 @@ class TestAPIClient(unittest.TestCase):
         self.api_key = "test_api_key"
         self.api_url = "http://testapi.com"
         self.client = APIClient(self.api_key, self.api_url)
+
+    def test_params(self):
+        self.assertEqual(self.api_key, self.client.api_key)
+        self.assertEqual(self.api_url, self.client.api_url)
 
     @patch("requests.get")
     def test_get_success(self, mock_get):
@@ -79,6 +95,24 @@ class TestAPIClient(unittest.TestCase):
         result = self.client._get_podonos_version()
         self.assertEqual(result, "1.2.3")
         mock_version.assert_called_once_with("podonos")
+
+    def test_get_content_type(self):
+        path_wav = '/a/b/123.wav'
+        self.assertEqual("audio/wav", self.client._get_content_type_by_filename(path_wav))
+
+        path_wav = '/a/b/456.mp3'
+        self.assertEqual("audio/mpeg", self.client._get_content_type_by_filename(path_wav))
+
+        path_wav = '/a/b/789.json'
+        self.assertEqual("application/json", self.client._get_content_type_by_filename(path_wav))
+
+        path_wav = '/a/b/abc.obj'
+        self.assertEqual("application/octet-stream", self.client._get_content_type_by_filename(path_wav))
+
+    def test_package_version(self):
+        version_str = self.client._get_podonos_version()
+        # Test the version string is in the format of "<decimal_version>.<decimal_subversion>"
+        self.assertTrue(re.search(r'\d+\.\d+', version_str))
 
 
 if __name__ == "__main__":

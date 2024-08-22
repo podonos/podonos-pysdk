@@ -1,10 +1,39 @@
 import os
 import podonos
-from podonos.core.client import Client
+from podonos.core.client import Client, Evaluator, SingleStimulusEvaluator, DoubleStimuliEvaluator
 
 import unittest
 from unittest import mock
 from unittest.mock import patch
+
+
+def mocked_requests_post(*args, **kwargs):
+    class MockResponse:
+        def __init__(self, response_text, response_json, status_code):
+            self.text = response_text
+            self.json_response = response_json
+            self.status_code = status_code
+
+        def json(self):
+            return self.json_response
+
+        def raise_for_status(self):
+            return
+
+    if "/evaluations" in args[0]:
+        # Evaluation list
+        evaluation_list = dict(
+                id="mock_id",
+                title="mock_title",
+                internal_name="mock_internal_name",
+                description="mock_desc",
+                status="mock_status",
+                created_time="2024-05-21T06:18:09.659270Z",
+                updated_time="2024-05-21T06:18:09.659270Z",
+            )
+        return MockResponse(None, evaluation_list, 200)
+
+    return MockResponse(None, None, 404)
 
 
 # Mocks HTTP GET request.
@@ -56,6 +85,44 @@ def mocked_requests_get(*args, **kwargs):
 
 
 class TestEvaluationClient(unittest.TestCase):
+
+    @mock.patch("requests.get", side_effect=mocked_requests_get)
+    @mock.patch("requests.post", side_effect=mocked_requests_post)
+    def test_single_stimulus_evaluator_creation(self, mock_get, mock_post):
+        valid_api_key = "1234567890"
+        self._mock_client = podonos.init(api_key=valid_api_key)
+        name = "good_test"
+        desc = "detailed description"
+        type = "NMOS"
+        lan = "it-it"
+        granularity = 1.0
+        num_eval = 8
+        due_hours = 12
+        auto_start = False
+        max_upload_workers = 10
+        etor = self._mock_client.create_evaluator(
+            name=name, desc=desc, type=type, lan=lan, granularity=granularity, num_eval=num_eval,
+            due_hours=due_hours, auto_start=auto_start, max_upload_workers=max_upload_workers)
+        self.assertTrue(isinstance(etor, SingleStimulusEvaluator))
+
+    @mock.patch("requests.get", side_effect=mocked_requests_get)
+    @mock.patch("requests.post", side_effect=mocked_requests_post)
+    def test_double_stimuli_evaluator_creation(self, mock_get, mock_post):
+        valid_api_key = "1234567890"
+        self._mock_client = podonos.init(api_key=valid_api_key)
+        name = "good_test"
+        desc = "detailed description"
+        type = "PREF"
+        lan = "ko-kr"
+        granularity = 1.0
+        num_eval = 5
+        due_hours = 12
+        auto_start = False
+        max_upload_workers = 10
+        etor = self._mock_client.create_evaluator(
+            name=name, desc=desc, type=type, lan=lan, granularity=granularity, num_eval=num_eval,
+            due_hours=due_hours, auto_start=auto_start, max_upload_workers=max_upload_workers)
+        self.assertTrue(isinstance(etor, DoubleStimuliEvaluator))
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     def test_evaluation_list(self, mock_get):
