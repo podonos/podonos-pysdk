@@ -1,12 +1,9 @@
-import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
+from podonos.core.base import *
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
 from podonos.common.enum import EvalType, Language
-
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
 
 
 class EvalConfigDefault:
@@ -48,19 +45,19 @@ class EvalConfig:
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> None:
-        self._eval_name = self._set_eval_name(name)
+        self._eval_name = self._valudate_eval_name(name)
         self._eval_description = desc
-        self._eval_type = self._set_eval_type(type)
-        self._eval_language = self._set_eval_language(lan)
-        self._eval_num = self._set_eval_num(num_eval)
-        self._eval_granularity = self._set_eval_granularity(granularity)
-        self._eval_expected_due = self._set_eval_expected_due(due_hours)
-        self._eval_expected_due_tzname = self._set_eval_expected_due_tzname()
-        self._eval_creation_timestamp = self._set_eval_creation_timestamp()
+        self._eval_type = self._validate_eval_type(type)
+        self._eval_language = self._validate_eval_language(lan)
+        self._eval_num = self._validate_eval_num(num_eval)
+        self._eval_granularity = self._validate_eval_granularity(granularity)
+        self._eval_expected_due = self._validate_eval_expected_due(due_hours)
+        self._eval_expected_due_tzname = self._validate_eval_expected_due_tzname()
+        self._eval_creation_timestamp = self._validate_eval_creation_timestamp()
         self._eval_id = self._eval_creation_timestamp
-        self._eval_use_annotation = self._set_eval_use_annotation(use_annotation, type)
-        self._eval_auto_start = self._set_eval_auto_start(auto_start)
-        self._max_upload_workers = self._set_max_upload_workers(max_upload_workers)
+        self._eval_use_annotation = self._validate_eval_use_annotation(use_annotation, type)
+        self._eval_auto_start = auto_start
+        self._max_upload_workers = max_upload_workers
         self.log_eval_config()
 
     def log_eval_config(self) -> None:
@@ -107,7 +104,7 @@ class EvalConfig:
     def eval_id(self, eval_id: str) -> None:
         self._eval_id = eval_id
 
-    def _set_eval_name(self, eval_name: Optional[str]) -> str:
+    def _valudate_eval_name(self, eval_name: Optional[str]) -> str:
         if not eval_name:
             current = datetime.now()
             return f"{current.year}{current.month}{current.day}{current.hour}{current.minute}{current.second}"
@@ -116,7 +113,7 @@ class EvalConfig:
         else:
             raise ValueError('"name" must be longer than 1.')
 
-    def _set_eval_type(self, eval_type: str) -> EvalType:
+    def _validate_eval_type(self, eval_type: str) -> EvalType:
         if eval_type not in [
             EvalType.NMOS.value,
             EvalType.QMOS.value,
@@ -130,7 +127,7 @@ class EvalConfig:
             )
         return EvalType(eval_type)
 
-    def _set_eval_language(self, eval_language: str) -> Language:
+    def _validate_eval_language(self, eval_language: str) -> Language:
         if eval_language not in [
             Language.ENGLISH_AMERICAN.value,
             Language.ENGLISH_AUSTRALIAN.value,
@@ -154,31 +151,31 @@ class EvalConfig:
             )
         return Language(eval_language)
 
-    def _set_eval_num(self, num_eval: int) -> int:
+    def _validate_eval_num(self, num_eval: int) -> int:
         if num_eval < 1:
             raise ValueError(f'"num_eval" must be >= 1.')
         return num_eval
 
+    def _validate_eval_granularity(self, granularity: float) -> float:
+        if granularity not in [0.5, 1.0]:
+            raise ValueError(f'"granularity" must be one of 0.5 and 1.9')
+        return granularity
+
     # TODO: allow floating point hours, e.g. 0.5.
-    def _set_eval_expected_due(self, due_hours: int) -> str:
+    def _validate_eval_expected_due(self, due_hours: int) -> str:
         if due_hours < 12:
             raise ValueError('"due_hours" must be >=12.')
 
         due = datetime.now() + timedelta(hours=due_hours)
         return due.astimezone().isoformat(timespec="milliseconds")
 
-    def _set_eval_expected_due_tzname(self) -> Optional[str]:
+    def _validate_eval_expected_due_tzname(self) -> Optional[str]:
         return datetime.now().astimezone().tzname()
 
-    def _set_eval_granularity(self, granularity: float) -> float:
-        if granularity not in [0.5, 1.0]:
-            raise ValueError(f'"granularity" must be one of 0.5 and 1.9')
-        return granularity
-
-    def _set_eval_creation_timestamp(self) -> str:
+    def _validate_eval_creation_timestamp(self) -> str:
         return datetime.now().isoformat(timespec="milliseconds")
 
-    def _set_eval_use_annotation(self, eval_use_annotation: bool, eval_type: str) -> bool:
+    def _validate_eval_use_annotation(self, eval_use_annotation: bool, eval_type: str) -> bool:
         if eval_use_annotation and eval_type not in [
             EvalType.NMOS.value,
             EvalType.QMOS.value,
@@ -186,12 +183,6 @@ class EvalConfig:
         ]:
             raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808}} when using "use_annotation"')
         return eval_use_annotation
-
-    def _set_eval_auto_start(self, eval_auto_start: bool) -> bool:
-        return eval_auto_start
-
-    def _set_max_upload_workers(self, max_upload_workers: int) -> int:
-        return max_upload_workers
 
     def to_dict(self) -> Dict[str, Any]:
         return {
