@@ -1,16 +1,12 @@
-import logging
 from typing import Union, List
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.core.api import APIClient
+from podonos.core.base import *
 from podonos.core.config import EvalConfig
 from podonos.core.evaluator import Evaluator
 from podonos.core.file import File
 from podonos.errors.error import NotSupportedError
-
-# For logging
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
 
 
 class SingleStimulusEvaluator(Evaluator):
@@ -20,6 +16,7 @@ class SingleStimulusEvaluator(Evaluator):
         api_client: APIClient,
         eval_config: Union[EvalConfig, None] = None,
     ):
+        log.check(api_client, "api_client is not initialized")
         super().__init__(api_client, eval_config)
         self._supported_evaluation_type = supported_evaluation_type
 
@@ -41,6 +38,7 @@ class SingleStimulusEvaluator(Evaluator):
             ValueError: if this function is called before calling init().
             FileNotFoundError: if a given file is not found.
         """
+        log.check(file, "file is not set")
 
         if not self._initialized:
             raise ValueError("Try to add file once the evaluator is closed.")

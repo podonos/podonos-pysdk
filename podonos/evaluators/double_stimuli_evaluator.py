@@ -1,18 +1,14 @@
-import logging
 import time
 import uuid
 from typing import Union, List
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.core.api import APIClient
+from podonos.core.base import *
 from podonos.core.config import EvalConfig
 from podonos.core.evaluator import Evaluator
 from podonos.core.file import File
 from podonos.errors.error import NotSupportedError
-
-# For logging
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
 
 
 class DoubleStimuliEvaluator(Evaluator):
@@ -22,6 +18,7 @@ class DoubleStimuliEvaluator(Evaluator):
         api_client: APIClient,
         eval_config: Union[EvalConfig, None] = None,
     ):
+        log.check(api_client, "api_client is not initialized")
         super().__init__(api_client, eval_config)
         self._supported_evaluation_type = supported_evaluation_type
 
@@ -29,16 +26,15 @@ class DoubleStimuliEvaluator(Evaluator):
         raise NotSupportedError("The 'add_file' is only supported in these evaluation types: {'NMOS', 'QMOS', 'P808'}")
 
     def add_file_pair(self, target: File, ref: File) -> None:
-        """Adds new files for speech evaluation of CMOS and DMOS
-        The files may be either in {wav, mp3} format. The files will be securely uploaded to
-        Podonos service system.
+        """Adds a file pair for speech evaluation in an ordered way. So, the order of the two files is kept strictly.
+        The files will be securely uploaded to Podonos service system.
 
         Args:
             target: The target audio file configuration. This is the audio file
                     that is being evaluated to determine if it is better or worse
-                    than the reference file.
+                    with respect to the reference file.
             ref:    The reference audio file configuration. This is the audio file
-                    that serves as the standard or baseline for comparison with the
+                    that serves as the standard or baseline for comparison with respect to the
                     target audio file.
 
         Example:
@@ -53,6 +49,8 @@ class DoubleStimuliEvaluator(Evaluator):
             ValueError: if this function is called before calling init().
             FileNotFoundError: if a given file is not found.
         """
+        log.check(target, "target is not set")
+        log.check(ref, "ref is not set")
 
         if not self._initialized:
             raise ValueError("Try to add_file_pair once the evaluator is closed.")
@@ -97,7 +95,7 @@ class DoubleStimuliEvaluator(Evaluator):
             )
 
     def add_file_set(self, file0: File, file1: File) -> None:
-        """Adds a new set of files for evaluation.
+        """Adds a set of unordered two files for evaluation.
         This function adds a set of files for evaluation purposes. The files may be either in {wav, mp3} format.
         The files will be securely uploaded to the Podonos service system.
 
@@ -119,6 +117,8 @@ class DoubleStimuliEvaluator(Evaluator):
             ValueError: if this function is called before calling init().
             FileNotFoundError: if a given file is not found.
         """
+        log.check(file0, "file0 is not set")
+        log.check(file1, "file1 is not set")
 
         if not self._initialized:
             raise ValueError("Try to add_file_set once the evaluator is closed.")
@@ -160,7 +160,11 @@ class DoubleStimuliEvaluator(Evaluator):
                 path=audio2.path,
             )
 
-    def _generate_random_group_name(self) -> str:
+    @staticmethod
+    def _generate_random_group_name() -> str:
         current_time_milliseconds = int(time.time() * 1000)
         random_uuid = uuid.uuid4()
-        return f"{current_time_milliseconds}_{random_uuid}"
+        name = f"{current_time_milliseconds}_{random_uuid}"
+        log.check_gt(len(name), 5)
+        log.check_lt(len(name), 100)
+        return name
