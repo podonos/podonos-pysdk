@@ -16,6 +16,7 @@ authors = [
 ]
 requires-python = ">=3.8"
 dependencies = [
+    "glog",
     "packaging",
     "requests",
     "soundfile==0.12.1"
