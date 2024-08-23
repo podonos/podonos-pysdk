@@ -1,6 +1,5 @@
 import atexit
 import datetime
-import logging
 import queue
 import threading
 import time
@@ -9,10 +8,7 @@ from threading import Event
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 from podonos.core.api import APIClient
-
-# For logging
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger(__name__)
+from podonos.core.base import *
 
 
 class UploadManager:
@@ -20,8 +16,6 @@ class UploadManager:
     Internally creates multiple threads, and manages the uploading status.
     """
 
-    # Maximum number of uploader worker threads
-    _max_workers: int
     # File path queue
     # TODO: use a file queue.
     _queue: Optional[queue.Queue] = None
@@ -33,6 +27,8 @@ class UploadManager:
     _api_client: Optional[APIClient] = None
     # Manager status. True if the manager is ready.
     _status: bool = False
+    # Maximum number of uploader worker threads
+    _max_workers: int = 1
 
     _upload_start: Optional[dict] = None
     _upload_finish: Optional[dict] = None
@@ -44,7 +40,7 @@ class UploadManager:
         return self._upload_start, self._upload_finish
 
     def __init__(self, api_client: APIClient, max_workers: int) -> None:
-        self._max_workers = max_workers
+        log.check(api_client, "api_client is not initialized")
 
         self._upload_start = dict()
         self._upload_finish = dict()
@@ -54,6 +50,8 @@ class UploadManager:
         self._daemon_thread = threading.Thread(target=self._uploader_daemon, daemon=True)
         self._daemon_thread.start()
         self._status = True
+        self._max_workers = max_workers
+
         atexit.register(self.wait_and_close)
 
     def _uploader_daemon(self) -> None:

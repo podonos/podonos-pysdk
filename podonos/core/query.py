@@ -1,17 +1,16 @@
-import logging
 from typing import Optional, Any
 
-# Configure basic logging settings
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+from podonos.core.base import *
 
 
-# Define a Question class to represent a question with a title and an optional description
+# Class to represent a question with a title and an optional description
 class Question:
     _title: str
     _description: Optional[str]
 
     def __init__(self, title: str, description: Optional[str]):
+        log.check_notnone(title)
+        log.check_ne(title, "")
         self._title = title
         self._description = description
 

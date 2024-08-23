@@ -305,6 +305,8 @@ class Evaluator(ABC):
         type: QuestionFileType,
         order_in_group: int,
     ) -> Audio:
+        log.check_ne(path, "")
+
         valid_path = self._validate_path(path)
         remote_object_name = self._get_remote_object_name()
         original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(valid_path, remote_object_name)
