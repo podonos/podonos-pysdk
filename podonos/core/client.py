@@ -1,20 +1,16 @@
-import logging
 from typing import Any, Dict, Optional, List
 
 from requests import HTTPError
 
 from podonos.common.enum import EvalType
 from podonos.core.api import APIClient
+from podonos.core.base import *
 from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
 from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
 from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
-
-# For logging
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger(__name__)
 
 
 class Client:
@@ -81,18 +77,21 @@ class Client:
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
+        evaluator = None
         if type in [EvalType.SMOS.value, EvalType.PREF.value]:
-            return DoubleStimuliEvaluator(
+            evaluator = DoubleStimuliEvaluator(
                 supported_evaluation_type=[EvalType.SMOS, EvalType.PREF],
                 api_client=self._api_client,
                 eval_config=eval_config,
             )
-
-        return SingleStimulusEvaluator(
-            supported_evaluation_type=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
-            api_client=self._api_client,
-            eval_config=eval_config,
-        )
+        else:
+            evaluator = SingleStimulusEvaluator(
+                supported_evaluation_type=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
+                api_client=self._api_client,
+                eval_config=eval_config,
+            )
+        log.check(isinstance(evaluator, Evaluator))
+        return evaluator
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
@@ -102,6 +101,7 @@ class Client:
         Returns:
             Evaluation containing all the evaluation info
         """
+        log.check(self._api_client)
         try:
             response = self._api_client.get("evaluations")
             response.raise_for_status()
@@ -119,17 +119,18 @@ class Client:
         Returns:
             List of statistics for the evaluation.
         """
+        log.check(self._api_client)
         try:
             response = self._api_client.get(f"evaluations/{evaluation_id}/stats")
             if response.status_code == 400:
-                log.info(f"Bad Request: The {evaluation_id} is invalid evaluation id")
+                log.info(f"Bad Request: The {evaluation_id} is an invalid evaluation id")
                 return []
 
             response.raise_for_status()
             stats = [StimulusStats.from_dict(stats) for stats in response.json()]
             return [stat.to_dict() for stat in stats]
         except Exception as e:
-            raise HTTPError(f"Failed to get stimulus stats: {e}")
+            raise HTTPError(f"Failed to get evaluation stats: {e}")
 
     def download_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
         """Downloads the evaluation statistics into CSV referenced by id.
@@ -140,6 +141,8 @@ class Client:
 
         Returns: None
         """
+        log.check_ne(evaluation_id, "")
+        log.check_ne(output_path, "")
         stats = self.get_stats_dict_by_id(evaluation_id)
         with open(output_path, "w") as f:
             f.write("name,tags,type,mean,median,std,ci_90,ci_95,ci_99\n")
@@ -147,5 +150,6 @@ class Client:
                 for file in stat["files"]:
                     tags = ";".join(file["tags"])
                     f.write(
-                        f"{file['name']},{tags},{file['type']},{stat['mean']},{stat['median']},{stat['std']},{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n"
+                        f"{file['name']},{tags},{file['type']},{stat['mean']},{stat['median']},{stat['std']},"
+                        f"{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n"
                     )

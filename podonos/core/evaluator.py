@@ -1,9 +1,9 @@
-import logging
 import os
 import requests
 from abc import ABC, abstractmethod
 from typing import Tuple, Dict, List, Optional
 
+from podonos.core.base import *
 from podonos.common.constant import *
 from podonos.common.enum import EvalType, Language, QuestionFileType
 from podonos.common.exception import HTTPError
@@ -15,11 +15,6 @@ from podonos.core.evaluation import Evaluation
 from podonos.core.file import File
 from podonos.core.query import Query, Question
 from podonos.core.upload_manager import UploadManager
-
-
-# For logging
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
 
 
 class Evaluator(ABC):
@@ -43,6 +38,7 @@ class Evaluator(ABC):
     _eval_audio_json = []
 
     def __init__(self, api_client: APIClient, eval_config: Optional[EvalConfig] = None):
+        log.check(api_client, "api_client is not initialized.")
         self._api_client = api_client
         self._api_key = api_client.api_key
         self._eval_config = eval_config
@@ -82,6 +78,9 @@ class Evaluator(ABC):
         return self._evaluation.id
 
     def set_question(self, title: str, description: Optional[str] = None) -> None:
+        log.check_notnone(title)
+        if len(title) < 5:
+            log.warning(f"Are you sure with such a short title {title}?")
         self._query = Query(question=Question(title, description))
 
     def close(self) -> Dict[str, str]:
@@ -94,6 +93,7 @@ class Evaluator(ABC):
         Raises:
             ValueError: if this function is called before calling init().
         """
+        log.debug("Closing the evaluator")
         if not self._initialized or self._eval_config is None:
             raise ValueError("No evaluation session is open.")
 
@@ -104,9 +104,10 @@ class Evaluator(ABC):
             raise ValueError("Upload Manager is not defined")
 
         # Wait until file uploading finishes.
+        log.debug("Wait until the upload manager shuts down all the upload workers")
         assert self._upload_manager.wait_and_close()
 
-        log.info("The evaluator's configuration process has started to record data.")
+        log.info("Uploading the final pieces...")
 
         # Create a template if custom query exists
         self._create_template_with_question_and_evaluation()
@@ -177,7 +178,7 @@ class Evaluator(ABC):
         Returns:
             Evaluation: Get new evaluation information
         """
-
+        log.debug("Creates evaluation")
         eval_config = self._get_eval_config()
         try:
             response = self._api_client.post("evaluations", data=eval_config.to_create_request_dto())
@@ -207,7 +208,15 @@ class Evaluator(ABC):
         Returns:
             None
         """
+        log.check_notnone(evaluation_id)
+        log.check_notnone(remote_object_name)
+        log.check_notnone(path)
+        log.check_ne(evaluation_id, "")
+        log.check_ne(remote_object_name, "")
+        log.check_ne(path, "")
+
         # Get the presigned URL for one file
+        log.debug(f"Adding to queue: {path}")
         presigned_url = self._get_presigned_url_for_put_method(
             evaluation_id,
             remote_object_name,
@@ -232,6 +241,9 @@ class Evaluator(ABC):
         evaluation_id: str,
         remote_object_name: str,
     ) -> str:
+        log.check_ne(evaluation_id, "")
+        log.check_ne(remote_object_name, "")
+
         try:
             response = self._api_client.put(
                 f"evaluations/{evaluation_id}/uploading-presigned-url",
@@ -293,11 +305,13 @@ class Evaluator(ABC):
         type: QuestionFileType,
         order_in_group: int,
     ) -> Audio:
+        log.check_ne(path, "")
+
         valid_path = self._validate_path(path)
         remote_object_name = self._get_remote_object_name()
         original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(valid_path, remote_object_name)
 
-        log.debug(f"remote_object_name: {remote_object_name}\n")
+        log.debug(f"remote_object_name: {remote_object_name}")
         return Audio(
             path=valid_path,
             name=original_path,

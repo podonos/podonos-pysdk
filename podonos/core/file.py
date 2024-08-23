@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+from podonos.core.base import *
+
 
 class File:
     _path: str
@@ -12,6 +14,7 @@ class File:
             path: Path to the file to evaluate.
             tags: A list of string for file. Optional.
         """
+        log.check_ne(path, "")
         self._path = path
         self._tags = tags
         self._script = script

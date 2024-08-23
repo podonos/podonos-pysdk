@@ -12,17 +12,13 @@ Example:
 
 import argparse
 from datetime import datetime
-import logging
 import podonos
 from podonos import *
+from podonos.core.base import *
 import random
 import sys
 
 _PODONOS_API_BASE_URL = "https://dev.podonosapi.com"
-
-# For logging
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
 
 
 def main():

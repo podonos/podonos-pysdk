@@ -1,8 +1,10 @@
+import os
 import soundfile as sf
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List
 
 from podonos.common.enum import QuestionFileType
+from podonos.core.base import *
 from podonos.errors.error import InvalidFileError
 
 
@@ -12,7 +14,11 @@ class AudioMeta:
     _duration_in_ms: int
 
     def __init__(self, path: str) -> None:
+        log.check_notnone(path)
         self._nchannels, self._framerate, self._duration_in_ms = self._set_audio_meta(path)
+        log.check_gt(self._nchannels, 0)
+        log.check_gt(self._framerate, 0)
+        log.check_gt(self._duration_in_ms, 0)
 
     @property
     def nchannels(self) -> int:
@@ -39,6 +45,10 @@ class AudioMeta:
             wave.Error: if the file doesn't read properly.
             AssertionError: if the file format is not wav.
         """
+        log.check_notnone(path)
+        log.check_ne(path, "")
+        log.check(os.path.isfile(path), f"{path} doesn't exist")
+        log.check(os.access(path, os.R_OK), f"{path} isn't readable")
 
         # Check if this is wav or mp3.
         suffix = Path(path).suffix
@@ -64,15 +74,19 @@ class AudioMeta:
             FileNotFoundError: if the file is not found.
             wave.Error: if the file doesn't read properly.
         """
+        log.check_notnone(filepath)
+        log.check_ne(filepath, "")
 
         f = sf.SoundFile(filepath)
         nframes = f.frames
         nchannels = f.channels
         framerate = f.samplerate
-        if framerate == 0:
-            raise InvalidFileError()
+        log.check_gt(nframes, 0)
+        log.check_gt(nchannels, 0)
+        log.check_gt(framerate, 0)
 
         duration_in_ms = int(nframes * 1000.0 / float(framerate))
+        log.check_gt(duration_in_ms, 0)
         return nchannels, framerate, duration_in_ms
 
     def _get_mp3_info(self, filepath: str) -> Tuple[int, int, int]:
@@ -86,14 +100,20 @@ class AudioMeta:
         Raises:
             FileNotFoundError: if the file is not found.
         """
+
+        log.check_notnone(filepath)
+        log.check_ne(filepath, "")
+
         f = sf.SoundFile(filepath)
         nframes = f.frames
         nchannels = f.channels
         framerate = f.samplerate
-        if framerate == 0:
-            raise InvalidFileError()
+        log.check_gt(nframes, 0)
+        log.check_gt(nchannels, 0)
+        log.check_gt(framerate, 0)
 
         duration_in_ms = int(nframes * 1000.0 / float(framerate))
+        log.check_gt(duration_in_ms, 0)
         return nchannels, framerate, duration_in_ms
 
 
@@ -121,6 +141,14 @@ class Audio:
         type: QuestionFileType,
         order_in_group: int,
     ) -> None:
+        log.check_notnone(path)
+        log.check_ne(path, "")
+        log.check(os.path.isfile(path), f"{path} doesn't exist")
+        log.check(os.access(path, os.R_OK), f"{path} isn't readable")
+        log.check_notnone(name)
+        log.check_notnone(remote_object_name)
+        log.check_ge(order_in_group, 0)
+
         self._path = path
         self._name = name
         self._remote_object_name = remote_object_name
@@ -168,6 +196,11 @@ class Audio:
         return self._order_in_group
 
     def set_upload_at(self, start_at: str, finish_at: str) -> None:
+        log.check_notnone(start_at)
+        log.check_notnone(finish_at)
+        log.check_ne(start_at, "")
+        log.check_ne(finish_at, "")
+        
         self._upload_start_at = start_at
         self._upload_finish_at = finish_at
 
