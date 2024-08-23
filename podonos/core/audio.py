@@ -1,8 +1,10 @@
+import os
 import soundfile as sf
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List
 
 from podonos.common.enum import QuestionFileType
+from podonos.core.base import *
 from podonos.errors.error import InvalidFileError
 
 
@@ -12,7 +14,11 @@ class AudioMeta:
     _duration_in_ms: int
 
     def __init__(self, path: str) -> None:
+        log.check_notnone(path)
         self._nchannels, self._framerate, self._duration_in_ms = self._set_audio_meta(path)
+        log.check_gt(self._nchannels, 0)
+        log.check_gt(self._framerate, 0)
+        log.check_gt(self._duration_in_ms, 0)
 
     @property
     def nchannels(self) -> int:
@@ -39,6 +45,10 @@ class AudioMeta:
             wave.Error: if the file doesn't read properly.
             AssertionError: if the file format is not wav.
         """
+        log.check_notnone(path)
+        log.check_ne(path, "")
+        log.check(os.path.isfile(path), f"{path} doesn't exist")
+        log.check(os.access(path, os.R_OK), f"{path} isn't readable")
 
         # Check if this is wav or mp3.
         suffix = Path(path).suffix
