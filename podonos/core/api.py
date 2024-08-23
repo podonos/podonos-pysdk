@@ -1,7 +1,6 @@
 import os
 import podonos
 import requests
-import logging
 import importlib.metadata
 
 from requests import Response
@@ -10,11 +9,7 @@ from packaging.version import Version
 
 from podonos.common.constant import *
 from podonos.common.exception import HTTPError
-
-
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
-
+from podonos.core.base import *
 
 class APIVersion:
     _minimum: Version
@@ -66,6 +61,9 @@ class APIClient:
         return True
 
     def add_headers(self, key: str, value: str) -> None:
+        log.check_notnone(key)
+        log.check_ne(key, "")
+        log.check_notnone(value)
         self._headers[key] = value
 
     def get(
@@ -74,6 +72,8 @@ class APIClient:
         params: Optional[Dict[str, str]] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
+        log.check_notnone(endpoint)
+        log.check_ne(endpoint, "")
         request_header = self._headers if headers is None else headers
         response = requests.get(f"{self._api_url}/{endpoint}", headers=request_header, params=params)
         return response
@@ -84,6 +84,8 @@ class APIClient:
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
+        log.check_notnone(endpoint)
+        log.check_ne(endpoint, "")
         request_header = self._headers if headers is None else headers
         response = requests.post(f"{self._api_url}/{endpoint}", headers=request_header, json=data)
         return response
@@ -94,11 +96,20 @@ class APIClient:
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
+        log.check_notnone(endpoint)
+        log.check_ne(endpoint, "")
         request_header = self._headers if headers is None else headers
         response = requests.put(f"{self._api_url}/{endpoint}", headers=request_header, json=data)
         return response
 
     def put_file_presigned_url(self, url: str, path: str) -> Response:
+        log.check_notnone(url)
+        log.check_notnone(path)
+        log.check_ne(url, "")
+        log.check_ne(path, "")
+        log.check(os.path.isfile(path), f"{path} doesn't exist")
+        log.check(os.access(path, os.R_OK), f"{path} isn't readable")
+
         try:
             response = requests.put(
                 url,
@@ -113,7 +124,19 @@ class APIClient:
                 status_code=e.response.status_code if e.response else None,
             )
 
-    def put_json_presigned_url(self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Response:
+    def put_json_presigned_url(self, url: str, data: Dict[str, Any],
+                               headers: Optional[Dict[str, str]] = None) -> Response:
+        log.check_notnone(url)
+        log.check_ne(url, "")
+
+        log.debug("JSON data")
+        for key, value in data.items():
+            log.debug(f"{key}: {value}")
+        if headers:
+            log.debug("Headers")
+            for key, value in data.items():
+                log.debug(f"{key}: {value}")
+
         try:
             response = requests.put(url, json=data, headers=headers)
             return response
@@ -126,6 +149,8 @@ class APIClient:
 
     @staticmethod
     def _get_content_type_by_filename(path: str) -> str:
+        log.check_notnone(path)
+        log.check_ne(path, "")
         _, ext = os.path.splitext(path)
         if ext == ".wav":
             return "audio/wav"
