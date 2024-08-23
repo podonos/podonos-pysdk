@@ -9,17 +9,13 @@ Example:
 """
 
 import argparse
-import logging
 import podonos
 from podonos import *
+from podonos.core.base import *
 import sys
 import time
 
 _PODONOS_API_BASE_URL = "https://dev.podonosapi.com"
-
-# For logging
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger(__name__)
 
 
 def main():
