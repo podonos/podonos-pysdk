@@ -14,7 +14,7 @@ class EvalConfigDefault:
     USE_ANNOTATION = False
     AUTO_START = False
     GRANULARITY = 1.0
-    MAX_UPLOAD_WORKERS = 10
+    MAX_UPLOAD_WORKERS = 20
 
 
 class EvalConfig:
