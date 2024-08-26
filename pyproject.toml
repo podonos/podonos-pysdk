@@ -19,7 +19,8 @@ dependencies = [
     "glog",
     "packaging",
     "requests",
-    "soundfile==0.12.1"
+    "soundfile==0.12.1",
+    "tqdm"
 ]
 keywords = ["ai", "speech", "synthesis"]
 classifiers = [
