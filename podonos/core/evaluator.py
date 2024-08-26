@@ -217,10 +217,6 @@ class Evaluator(ABC):
 
         # Get the presigned URL for one file
         log.debug(f"Adding to queue: {path}")
-        presigned_url = self._get_presigned_url_for_put_method(
-            evaluation_id,
-            remote_object_name,
-        )
 
         if not self._eval_config:
             raise ValueError("No evaluation session is open.")
@@ -233,7 +229,7 @@ class Evaluator(ABC):
             )
 
         if self._upload_manager:
-            self._upload_manager.add_file_to_queue(presigned_url, remote_object_name, path)
+            self._upload_manager.add_file_to_queue(evaluation_id, remote_object_name, path)
         return
 
     def _get_presigned_url_for_put_method(

@@ -1,5 +1,6 @@
 import atexit
 import datetime
+import requests
 import queue
 import threading
 import time
@@ -62,7 +63,32 @@ class UploadManager:
         log.debug(f"Uploader daemon is shutting down")
         executor.shutdown(wait=True)
 
+    def _get_presigned_url_for_put_method(
+        self,
+        evaluation_id: str,
+        remote_object_name: str,
+    ) -> str:
+        log.check_ne(evaluation_id, "")
+        log.check_ne(remote_object_name, "")
+
+        try:
+            response = self._api_client.put(
+                f"evaluations/{evaluation_id}/uploading-presigned-url",
+                {
+                    "processed_uri": remote_object_name,
+                },
+            )
+            response.raise_for_status()
+            return response.text.replace('"', "")
+        except requests.exceptions.HTTPError as e:
+            log.error(f"HTTP error in getting a presigned url: {e}")
+            raise HTTPError(
+                f"Failed to get presigned URL for {remote_object_name}: {e}",
+                status_code=e.response.status_code if e.response else None,
+            )
+
     def _upload_worker(self, index, worker_event) -> None:
+        # Individual worker for uploading files. The upload manager creates multiple threads for each of this worker.
         if not (
             self._queue is not None
             and self._worker_event is not None
@@ -77,9 +103,16 @@ class UploadManager:
         while True:
             if not self._queue.empty():
                 item = self._queue.get()
-                presigned_url = item[0]
+                evaluation_id = item[0]
                 remote_object_name = item[1]
                 path = item[2]
+
+                log.debug(f"Worker {index} presigned url request")
+                presigned_url = self._get_presigned_url_for_put_method(
+                    evaluation_id,
+                    remote_object_name,
+                )
+                log.debug(f"Worker {index} presigned url obtained")
 
                 log.debug(f"Worker {index} uploading {path}")
                 # Timestamp in ISO 8601.
