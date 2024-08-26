@@ -37,6 +37,7 @@ s3transfer==0.10.1
 six==1.10.0
 soundfile==0.12.1
 tomli==2.0.1
+tqdm
 twine==5.1.0
 typing-extensions==4.12.1
 zipp==3.19.2
