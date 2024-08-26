@@ -30,29 +30,17 @@ def main():
     log.debug(f"Base URL: {args.base_url}")
     client = podonos.init(api_key=args.api_key, api_url=args.base_url)
 
-    # 1 upload worker
-    etor = client.create_evaluator(name="upload test with 1 upload worker", max_upload_workers=1)
+    num_workers = 10
+    etor = client.create_evaluator(name=f"upload test with {num_workers} upload workers")
     evaluation_id = etor.get_evaluation_id()
     log.info(f"Evaluation id: {evaluation_id}")
     start_upload = time.time()
-    for i in range(30):
+    for i in range(100):
         etor.add_file(File(path=f"tests/speech_two_ch1.wav"))
         etor.add_file(File(path=f"tests/speech_two_ch2.wav"))
     etor.close()
     end_upload = time.time()
-    log.info(f"Time elapsed with 1 worker: {end_upload - start_upload:.2f} seconds")
-
-    # 10 upload worker
-    etor = client.create_evaluator(name="upload test with 10 upload workers", max_upload_workers=10)
-    evaluation_id = etor.get_evaluation_id()
-    log.info(f"Evaluation id: {evaluation_id}")
-    start_upload = time.time()
-    for i in range(30):
-        etor.add_file(File(path=f"tests/speech_two_ch1.wav"))
-        etor.add_file(File(path=f"tests/speech_two_ch2.wav"))
-    etor.close()
-    end_upload = time.time()
-    log.info(f"Time elapsed with 10 workers: {end_upload - start_upload:.2f} seconds")
+    log.info(f"Time elapsed with {num_workers} workers: {end_upload - start_upload:.2f} seconds")
 
 
 if __name__ == "__main__":
