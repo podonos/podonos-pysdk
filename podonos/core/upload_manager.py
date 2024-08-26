@@ -27,7 +27,7 @@ class UploadManager:
     _total_files: int = 0
     _total_uploaded: int = 0
 
-    _tqdm: Optional[tqdm] = None
+    _pbar: Optional[tqdm] = None
     # Event to all the uploader threads
     _worker_event: Optional[Event] = None
     # Master daemon thread. Alive until the manager closes.
@@ -134,9 +134,9 @@ class UploadManager:
                 self._upload_finish[remote_object_name] = upload_finish_at
                 self._queue.task_done()
                 self._total_uploaded += 1
-                log.info(f'Worker {index} total_uploaded: {self._total_uploaded}')
-                if self._tqdm:
-                    self._tqdm.update(1)
+                log.debug(f'Worker {index} total_uploaded: {self._total_uploaded}')
+                if self._pbar:
+                    self._pbar.update(1)
 
             time.sleep(0.1)
             if worker_event.is_set():
@@ -164,9 +164,9 @@ class UploadManager:
 
         if not (self._queue is not None and self._worker_event is not None and self._daemon_thread is not None):
             raise ValueError("Upload Manager is not initialized")
-        log.info(f'total_files: {self._total_files}')
-        self._tqdm = tqdm(total=self._total_files)
-        self._tqdm.reset(self._total_uploaded)
+        log.debug(f'total_files: {self._total_files}')
+        self._pbar = tqdm(total=self._total_files, dynamic_ncols=True)
+        self._pbar.update(self._total_uploaded)
 
         # Block until all tasks are done.
         log.debug("Queue join")
@@ -179,6 +179,7 @@ class UploadManager:
         log.debug("Shutdown uploader daemon")
         self._daemon_thread.join()
 
+        self._pbar.close()
         log.info("All upload work complete.")
         self._status = False
         return True
