@@ -112,7 +112,7 @@ class Evaluator(ABC):
         # Create a template if custom query exists
         self._create_template_with_question_and_evaluation()
 
-        # Insert File Data into Database
+        # Insert File data into database
         self._create_files_of_evaluation([audio for audio_list in self._eval_audios for audio in audio_list])
 
         # Get the upload time & finish time.
@@ -170,7 +170,7 @@ class Evaluator(ABC):
 
     def _create_evaluation(self) -> Evaluation:
         """
-        Create a new evaluation based on evaluation configuration
+        Create a new evaluation based on the evaluation configuration
 
         Raises:
             HTTPError: If the value is invalid
@@ -202,9 +202,6 @@ class Evaluator(ABC):
             evaluation_id: New evaluation's id.
             remote_object_name: Path to the remote file name.
             path: Path to the local file.
-            tags: List of tags on the file.
-            type: Type used in QuestionFile.
-            group: Group's name for combining with other files.
         Returns:
             None
         """
@@ -223,6 +220,7 @@ class Evaluator(ABC):
 
         # Lazy initialization of upload manager.
         if self._upload_manager is None:
+            log.debug(f"max_upload_workers: {self._eval_config.max_upload_workers}")
             self._upload_manager = UploadManager(
                 api_client=self._api_client,
                 max_workers=self._eval_config.max_upload_workers,

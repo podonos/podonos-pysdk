@@ -5,10 +5,13 @@ import queue
 import threading
 import time
 
-from threading import Event
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
+from tqdm import tqdm
 from typing import Optional
+
 from podonos.core.api import APIClient
+from podonos.common.exception import HTTPError
 from podonos.core.base import *
 
 
@@ -20,6 +23,11 @@ class UploadManager:
     # File path queue
     # TODO: use a file queue.
     _queue: Optional[queue.Queue] = None
+    # Total number of files added to the uploading queue.
+    _total_files: int = 0
+    _total_uploaded: int = 0
+
+    _tqdm: Optional[tqdm] = None
     # Event to all the uploader threads
     _worker_event: Optional[Event] = None
     # Master daemon thread. Alive until the manager closes.
@@ -30,7 +38,7 @@ class UploadManager:
     _status: bool = False
     # Maximum number of uploader worker threads
     _max_workers: int = 1
-
+    #
     _upload_start: Optional[dict] = None
     _upload_finish: Optional[dict] = None
 
@@ -47,16 +55,17 @@ class UploadManager:
         self._upload_finish = dict()
         self._api_client = api_client
         self._queue = queue.Queue()
+        self._total_files = 0
+        self._max_workers = max_workers
         self._worker_event = Event()
         self._daemon_thread = threading.Thread(target=self._uploader_daemon, daemon=True)
         self._daemon_thread.start()
         self._status = True
-        self._max_workers = max_workers
 
         atexit.register(self.wait_and_close)
 
     def _uploader_daemon(self) -> None:
-        log.debug(f"Uploader daemon is running")
+        log.debug(f"Uploader daemon is running with {self._max_workers} workers")
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
             for index in range(self._max_workers):
                 future = executor.submit(self._upload_worker, index, self._worker_event)
@@ -124,12 +133,17 @@ class UploadManager:
                 self._upload_start[remote_object_name] = upload_start_at
                 self._upload_finish[remote_object_name] = upload_finish_at
                 self._queue.task_done()
+                self._total_uploaded += 1
+                log.info(f'Worker {index} total_uploaded: {self._total_uploaded}')
+                if self._tqdm:
+                    self._tqdm.update(1)
+
             time.sleep(0.1)
             if worker_event.is_set():
                 log.debug(f"Worker {index} is done")
                 return
 
-    def add_file_to_queue(self, presigned_url: str, remote_object_name: str, path: str) -> None:
+    def add_file_to_queue(self, evaluation_id: str, remote_object_name: str, path: str) -> None:
         if not (
             self._queue is not None
             and self._worker_event is not None
@@ -141,7 +155,8 @@ class UploadManager:
             raise ValueError("Upload Manager is not initialized")
 
         log.debug(f"Added: {path}")
-        self._queue.put((presigned_url, remote_object_name, path))
+        self._queue.put((evaluation_id, remote_object_name, path))
+        self._total_files += 1
 
     def wait_and_close(self) -> bool:
         if not self._status:
@@ -149,6 +164,9 @@ class UploadManager:
 
         if not (self._queue is not None and self._worker_event is not None and self._daemon_thread is not None):
             raise ValueError("Upload Manager is not initialized")
+        log.info(f'total_files: {self._total_files}')
+        self._tqdm = tqdm(total=self._total_files)
+        self._tqdm.reset(self._total_uploaded)
 
         # Block until all tasks are done.
         log.debug("Queue join")
