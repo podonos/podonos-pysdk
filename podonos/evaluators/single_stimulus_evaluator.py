@@ -45,6 +45,10 @@ class SingleStimulusEvaluator(Evaluator):
 
         eval_config = self._get_eval_config()
         if eval_config.eval_type in self._supported_evaluation_type:
+            if eval_config.eval_use_annotation and file.script is None:
+                raise ValueError(
+                    "Annotation evaluation is enabled (eval_use_annotation=True), but no script file is provided (file.script is None). Please provide a valid script file."
+                )
             audio = self._set_audio(
                 path=file.path,
                 tags=file.tags,
