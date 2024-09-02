@@ -13,6 +13,7 @@ class File:
         Args:
             path: Path to the file to evaluate.
             tags: A list of string for file. Optional.
+            script: Script of the input audio in text. Optional.
         """
         log.check_ne(path, "")
         self._path = path
