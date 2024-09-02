@@ -35,7 +35,7 @@ class SingleStimulusEvaluator(Evaluator):
         Returns: None
 
         Raises:
-            ValueError: if this function is called before calling init().
+            ValueError: if this function is called before calling init()
             FileNotFoundError: if a given file is not found.
         """
         log.check(file, "file is not set")
@@ -47,8 +47,9 @@ class SingleStimulusEvaluator(Evaluator):
         if eval_config.eval_type in self._supported_evaluation_type:
             if eval_config.eval_use_annotation and file.script is None:
                 raise ValueError(
-                    "Annotation evaluation is enabled (eval_use_annotation=True), but no script file is provided (file.script is None). Please provide a valid script file."
+                    "Annotation-based evaluation requires a script per each file, but none was provided (file.script is None). Please ensure a script per each file is specified."
                 )
+
             audio = self._set_audio(
                 path=file.path,
                 tags=file.tags,
