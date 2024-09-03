@@ -202,9 +202,6 @@ class Evaluator(ABC):
             evaluation_id: New evaluation's id.
             remote_object_name: Path to the remote file name.
             path: Path to the local file.
-            tags: List of tags on the file.
-            type: Type used in QuestionFile.
-            group: Group's name for combining with other files.
         Returns:
             None
         """
@@ -298,32 +295,33 @@ class Evaluator(ABC):
 
     def _set_audio(
         self,
-        path: str,
-        tags: Optional[List[str]],
-        script: Optional[str],
+        file: File,
         group: Optional[str],
         type: QuestionFileType,
         order_in_group: int,
     ) -> Audio:
-        log.check_ne(path, "")
+        log.check_ne(file.path, "")
 
-        valid_path = self._validate_path(path)
+        valid_path = self._validate_path(file.path)
         remote_object_name = self._get_remote_object_name()
-        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(valid_path, remote_object_name)
+        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(
+            valid_path, remote_object_name)
 
         log.debug(f"remote_object_name: {remote_object_name}")
         return Audio(
             path=valid_path,
             name=original_path,
             remote_object_name=remote_path,
-            script=script,
-            tags=tags,
+            script=file.script,
+            tags=file.tags,
+            model_tag=file.model_tag,
             group=group,
             type=type,
             order_in_group=order_in_group,
         )
 
-    def _validate_path(self, path: str) -> str:
+    @staticmethod
+    def _validate_path(path: str) -> str:
         if not os.path.isfile(path):
             raise FileNotFoundError(f"File {path} doesn't exist")
 
@@ -336,7 +334,9 @@ class Evaluator(ABC):
         remote_object_name = os.path.join(eval_config.eval_creation_timestamp, generate_random_name())
         return remote_object_name
 
-    def _process_original_path_and_remote_object_path_into_posix_style(self, original_path: str, remote_object_path: str) -> Tuple[str, str]:
+    @staticmethod
+    def _process_original_path_and_remote_object_path_into_posix_style(
+            original_path: str, remote_object_path: str) -> Tuple[str, str]:
         posix_original_path = original_path.replace("\\", "/")
         posix_remote_object_path = remote_object_path.replace("\\", "/")
         return posix_original_path, posix_remote_object_path
