@@ -125,6 +125,7 @@ class Audio:
     _script: Optional[str] = None
     _upload_start_at: Optional[str] = None
     _upload_finish_at: Optional[str] = None
+    _model_tag: str
     _tags: Optional[List[str]] = None
     _group: Optional[str] = None
     _type: QuestionFileType = QuestionFileType.STIMULUS
@@ -136,6 +137,7 @@ class Audio:
         name: str,
         remote_object_name: str,
         script: Optional[str],
+        model_tag: str,
         tags: Optional[List[str]],
         group: Optional[str],
         type: QuestionFileType,
@@ -145,6 +147,8 @@ class Audio:
         log.check_ne(path, "")
         log.check(os.path.isfile(path), f"{path} doesn't exist")
         log.check(os.access(path, os.R_OK), f"{path} isn't readable")
+        log.check_notnone(model_tag)
+        log.check(model_tag, "")
         log.check_notnone(name)
         log.check_notnone(remote_object_name)
         log.check_ge(order_in_group, 0)
@@ -154,6 +158,7 @@ class Audio:
         self._remote_object_name = remote_object_name
         self._script = script
         self._metadata = AudioMeta(path)
+        self._model_tag = model_tag
         self._tags = tags
         self._group = group
         self._type = type
@@ -174,6 +179,10 @@ class Audio:
     @property
     def script(self) -> Optional[str]:
         return self._script
+
+    @property
+    def model_tag(self) -> str:
+        return self._model_tag
 
     @property
     def tags(self) -> Optional[List[str]]:
@@ -213,6 +222,7 @@ class Audio:
             "duration_in_ms": self._metadata.duration_in_ms,
             "upload_start_at": self._upload_start_at,
             "upload_finish_at": self._upload_finish_at,
+            "model_tag": self._model_tag,
             "tag": self._tags,
             "type": self._type,
             "script": self._script,
@@ -225,6 +235,7 @@ class Audio:
             "original_uri": self._path,
             "processed_uri": self._remote_object_name,
             "duration": self._metadata.duration_in_ms,
+            "model_tag": self._model_tag,
             "tags": self._tags,
             "type": self._type,
             "script": self._script,
