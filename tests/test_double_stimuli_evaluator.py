@@ -40,8 +40,9 @@ class TestDoubleStimuliEvaluator:
 
     def test_add_file_pair_without_init(self):
         self.evaluator._initialized = False
-        target_audio_config = File(path="generated.wav", tags=["target"], script="This is target audio file")
-        ref_audio_config = File(path="original.wav", tags=["reference"], script=None)
+        target_audio_config = File(path="generated.wav", model_tag="model_target", tags=["target"],
+                                   script="This is the target audio file")
+        ref_audio_config = File(path="original.wav", model_tag="model_ref", tags=["reference"], script=None)
 
         with pytest.raises(ValueError) as excinfo:
             self.evaluator.add_file_pair(target=target_audio_config, ref=ref_audio_config)
@@ -50,14 +51,14 @@ class TestDoubleStimuliEvaluator:
 
     def test_add_file_not_supported(self):
         with pytest.raises(NotSupportedError) as excinfo:
-            self.evaluator.add_file(File(path="1.wav", tags=["test"]))
+            self.evaluator.add_file(File(path="1.wav", model_tag="model1", tags=["test"]))
         assert "The 'add_file' is only supported in these evaluation types: {'NMOS', 'QMOS', 'P808'}" in str(excinfo.value)
 
     def test_add_file_pair_unsupported_eval_type(self):
         self.evaluator._initialized = True
 
-        target = File(path="target.wav", tags=["generated"])
-        ref = File(path="ref.wav", tags=["human"])
+        target = File(path="target.wav", model_tag="model_target", tags=["generated"])
+        ref = File(path="ref.wav", model_tag="model_ref", tags=["human"])
 
         with pytest.raises(ValueError) as excinfo:
             self.evaluator.add_file_pair(target=target, ref=ref)
@@ -68,8 +69,8 @@ class TestDoubleStimuliEvaluator:
         self.evaluator._initialized = True
         self.eval_config._eval_type = EvalType.CMOS
 
-        file0 = File(path="file1.wav", tags=["file1"], script="We are the world")
-        file1 = File(path="file2.wav", tags=["file2"])
+        file0 = File(path="file1.wav", model_tag="model0", tags=["file1"], script="We are the world")
+        file1 = File(path="file2.wav", model_tag="model1", tags=["file2"])
 
         with pytest.raises(ValueError) as excinfo:
             self.evaluator.add_file_set(file0=file0, file1=file1)
@@ -80,8 +81,8 @@ class TestDoubleStimuliEvaluator:
         self.evaluator._initialized = True
         self.eval_config._eval_type = EvalType.PREF
 
-        file0 = File(path="file1.wav", tags=["file1"])
-        file1 = File(path="file2.wav", tags=["file2"])
+        file0 = File(path="file1.wav", model_tag="model0", tags=["file1"])
+        file1 = File(path="file2.wav", model_tag="model1", tags=["file2"])
         self.evaluator.add_file_set(file0=file0, file1=file1)
 
         with pytest.raises(ValueError) as excinfo:
