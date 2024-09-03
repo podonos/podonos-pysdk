@@ -52,9 +52,7 @@ class SingleStimulusEvaluator(Evaluator):
                 )
 
             audio = self._set_audio(
-                path=file.path,
-                tags=file.tags,
-                script=file.script,
+                file=file,
                 group=None,
                 type=QuestionFileType.STIMULUS,
                 order_in_group=0,
