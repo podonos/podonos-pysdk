@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from abc import ABC, abstractmethod
 from typing import Tuple, Dict, List, Optional
@@ -132,19 +133,19 @@ class Evaluator(ABC):
         session_json["query"] = self._query.to_dict() if self._query else None
         session_json["files"] = self._eval_audio_json
 
-        # Get the presigned URL for filename
-        remote_object_name = os.path.join(self._eval_config.eval_creation_timestamp, "session.json")
-
-        presigned_url = self._get_presigned_url_for_put_method(
+        json_data = json.dumps(session_json)
+        presigned_url, fields = self._get_presigned_url_and_fields_for_post_method(
             self.get_evaluation_id(),
             "session.json",
         )
 
         try:
-            response = self._api_client.put_json_presigned_url(
-                url=presigned_url,
-                data=session_json,
-                headers={"Content-type": "application/json"},
+            response = requests.post(
+                presigned_url,
+                data=fields,
+                files={
+                    "file": ("session.json", json_data, "application/json"),
+                },
             )
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
@@ -214,7 +215,7 @@ class Evaluator(ABC):
 
         # Get the presigned URL for one file
         log.debug(f"Adding to queue: {path}")
-        presigned_url = self._get_presigned_url_for_put_method(
+        presigned_url, fields = self._get_presigned_url_and_fields_for_post_method(
             evaluation_id,
             remote_object_name,
         )
@@ -230,26 +231,29 @@ class Evaluator(ABC):
             )
 
         if self._upload_manager:
-            self._upload_manager.add_file_to_queue(presigned_url, remote_object_name, path)
+            self._upload_manager.add_file_to_queue(presigned_url, fields, remote_object_name, path)
         return
 
-    def _get_presigned_url_for_put_method(
+    def _get_presigned_url_and_fields_for_post_method(
         self,
         evaluation_id: str,
         remote_object_name: str,
-    ) -> str:
+    ) -> Tuple[str, dict]:
         log.check_ne(evaluation_id, "")
         log.check_ne(remote_object_name, "")
 
         try:
-            response = self._api_client.put(
+            response = self._api_client.post(
                 f"evaluations/{evaluation_id}/uploading-presigned-url",
                 {
                     "processed_uri": remote_object_name,
                 },
             )
             response.raise_for_status()
-            return response.text.replace('"', "")
+
+            data = response.json()
+            url, fields = data["url"], data["fields"]
+            return url, fields
         except requests.exceptions.HTTPError as e:
             log.error(f"HTTP error in getting a presigned url: {e}")
             raise HTTPError(
@@ -304,8 +308,7 @@ class Evaluator(ABC):
 
         valid_path = self._validate_path(file.path)
         remote_object_name = self._get_remote_object_name()
-        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(
-            valid_path, remote_object_name)
+        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(valid_path, remote_object_name)
 
         log.debug(f"remote_object_name: {remote_object_name}")
         return Audio(
@@ -335,8 +338,7 @@ class Evaluator(ABC):
         return remote_object_name
 
     @staticmethod
-    def _process_original_path_and_remote_object_path_into_posix_style(
-            original_path: str, remote_object_path: str) -> Tuple[str, str]:
+    def _process_original_path_and_remote_object_path_into_posix_style(original_path: str, remote_object_path: str) -> Tuple[str, str]:
         posix_original_path = original_path.replace("\\", "/")
         posix_remote_object_path = remote_object_path.replace("\\", "/")
         return posix_original_path, posix_remote_object_path
