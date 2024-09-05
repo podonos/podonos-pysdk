@@ -26,16 +26,16 @@ class SingleStimulusEvaluator(Evaluator):
         Podonos service system.
 
         Args:
-            file: Object including path and tags
+            file: File object including path, tags, and script.
 
         Example:
         If you want to evaluate each audio file separately (e.g., Naturalness MOS):
-            add_file(file=File(path='./test.wav', tags=['male', 'generated']))
+            add_file(file=File(path='./test.wav', tags=['male', 'generated'], script='hello there'))
 
         Returns: None
 
         Raises:
-            ValueError: if this function is called before calling init().
+            ValueError: if this function is called before calling init()
             FileNotFoundError: if a given file is not found.
         """
         log.check(file, "file is not set")
@@ -45,10 +45,14 @@ class SingleStimulusEvaluator(Evaluator):
 
         eval_config = self._get_eval_config()
         if eval_config.eval_type in self._supported_evaluation_type:
+            if eval_config.eval_use_annotation and file.script is None:
+                raise ValueError(
+                    "Annotation evaluation is enabled (eval_use_annotation=True), "
+                    "but no script is provided in File. Please provide a corresponding script."
+                )
+
             audio = self._set_audio(
-                path=file.path,
-                tags=file.tags,
-                script=file.script,
+                file=file,
                 group=None,
                 type=QuestionFileType.STIMULUS,
                 order_in_group=0,

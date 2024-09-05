@@ -8,20 +8,27 @@ class File:
     _tags: List[str]
     _script: Optional[str]
 
-    def __init__(self, path: str, tags: List[str] = [], script: Optional[str] = None) -> None:
+    def __init__(self, path: str, model_tag: str, tags: List[str] = [], script: Optional[str] = None) -> None:
         """
         Args:
-            path: Path to the file to evaluate.
+            path: Path to the file to evaluate. Required.
+            model_tag: String that represents the model or group. Required.
             tags: A list of string for file. Optional.
+            script: Script of the input audio in text. Optional.
         """
         log.check_ne(path, "")
         self._path = path
+        self._model_tag = model_tag
         self._tags = tags
         self._script = script
 
     @property
     def path(self) -> str:
         return self._path
+
+    @property
+    def model_tag(self) -> str:
+        return self._model_tag
 
     @property
     def tags(self) -> List[str]:

@@ -63,17 +63,13 @@ class DoubleStimuliEvaluator(Evaluator):
             group = self._generate_random_group_name()
 
             target_audio = self._set_audio(
-                path=target.path,
-                tags=target.tags,
-                script=target.script,
+                file=target,
                 group=group,
                 type=QuestionFileType.STIMULUS,
                 order_in_group=0,
             )
             ref_audio = self._set_audio(
-                path=ref.path,
-                tags=ref.tags,
-                script=ref.script,
+                file=ref,
                 group=group,
                 type=QuestionFileType.REF,
                 order_in_group=1,
@@ -130,17 +126,13 @@ class DoubleStimuliEvaluator(Evaluator):
         if eval_config.eval_type in self._supported_evaluation_type:
             group = self._generate_random_group_name()
             audio1 = self._set_audio(
-                path=file0.path,
-                tags=file0.tags,
-                script=file0.script,
+                file=file0,
                 group=group,
                 type=QuestionFileType.STIMULUS,
                 order_in_group=0,
             )
             audio2 = self._set_audio(
-                path=file1.path,
-                tags=file1.tags,
-                script=file1.script,
+                file=file1,
                 group=group,
                 type=QuestionFileType.STIMULUS,
                 order_in_group=1,

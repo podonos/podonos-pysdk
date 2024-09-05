@@ -88,19 +88,18 @@ class TestEvaluator(unittest.TestCase):
     @patch("os.path.isfile", return_value=True)
     @patch("os.access", return_value=True)
     def test_set_audio(self, mock_access, mock_isfile):
-        path = TESTDATA_SPEECH_CH1_MP3
-        tags = ["tag1", "tag2"]
-        script = "Hello World"
+        audio_file = File(path=TESTDATA_SPEECH_CH1_MP3, model_tag="model1", tags=["tag1", "tag2"], script="Hello World")
         group = "group1"
         type = QuestionFileType.STIMULUS
         order_in_group = 0
-        audio = self.evaluator._set_audio(path, tags, script, group, type, order_in_group)
+        audio = self.evaluator._set_audio(audio_file, group, type, order_in_group)
         posix_style_path = TESTDATA_SPEECH_CH1_MP3.replace("\\", "/")
 
-        self.assertEqual(audio.path, path)
+        self.assertEqual(audio.path, audio_file.path)
         self.assertEqual(audio.name, posix_style_path)
-        self.assertEqual(audio.tags, tags)
-        self.assertEqual(audio.script, script)
+        self.assertEqual(audio.model_tag, audio_file.model_tag)
+        self.assertEqual(audio.tags, audio_file.tags)
+        self.assertEqual(audio.script, audio_file.script)
         self.assertEqual(audio.group, group)
         self.assertEqual(audio.type, type)
         self.assertEqual(audio.order_in_group, order_in_group)

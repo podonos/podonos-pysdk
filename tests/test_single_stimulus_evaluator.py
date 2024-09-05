@@ -41,19 +41,19 @@ class TestSingleStimulusEvaluator:
     def test_add_file_before_initialized(self):
         self.evaluator._initialized = False
         with pytest.raises(ValueError) as excinfo:
-            self.evaluator.add_file(file=File(path="./male.wav", tags=["male"]))
+            self.evaluator.add_file(file=File(path="./male.wav", model_tag="model1", tags=["male"]))
         assert "Try to add file once the evaluator is closed." in str(excinfo.value)
 
     def test_add_file_pair_not_supported(self):
-        target_audio_config = File(path="target.wav", tags=["target"])
-        ref_audio_config = File(path="ref.wav", tags=["ref"])
+        target_audio_config = File(path="target.wav", model_tag="model2", tags=["target"])
+        ref_audio_config = File(path="ref.wav", model_tag="model1", tags=["ref"])
         with pytest.raises(NotSupportedError) as excinfo:
             self.evaluator.add_file_pair(target=target_audio_config, ref=ref_audio_config)
         assert "The 'add_file_pair' is only supported in these evaluation types: {'CMOS', 'DMOS'}" in str(excinfo.value)
 
     def test_add_file_set_not_supported(self):
-        file0 = File(path="original.wav", tags=["original"], script="Dog is very cute")
-        file1 = File(path="generated.wav", tags=["generated"], script="Dog is very cute")
+        file0 = File(path="original.wav", model_tag="original", tags=["human"], script="Dog is very cute")
+        file1 = File(path="generated.wav", model_tag="model1", tags=["generated"], script="Dog is very cute")
         with pytest.raises(NotSupportedError) as excinfo:
             self.evaluator.add_file_set(file0=file0, file1=file1)
         assert "The 'add_file_set' is only supported in these evaluation types: {'SMOS', 'PREF'}" in str(excinfo.value)
