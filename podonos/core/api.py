@@ -126,28 +126,6 @@ class APIClient:
                 status_code=e.response.status_code if e.response else None,
             )
 
-    def post_file_presigned_url(self, url: str, fields: dict, path: str, remote_object_name: str) -> Response:
-        log.check_notnone(url)
-        log.check_notnone(path)
-        log.check_notnone(fields)
-        log.check_ne(url, "")
-        log.check_ne(path, "")
-        log.check(os.path.isfile(path), f"{path} doesn't exist")
-        log.check(os.access(path, os.R_OK), f"{path} isn't readable")
-
-        try:
-            files = {"file": (remote_object_name, open(path, "rb"))}
-            print(url, fields, files)
-            response = requests.post(url, data=fields, files=files)
-            response.raise_for_status()
-            return response
-        except requests.exceptions.RequestException as e:
-            log.error(f"HTTP error in uploading a file to presigned URL: {e}")
-            raise HTTPError(
-                f"Failed to Upload File {path}: {e}",
-                status_code=e.response.status_code if e.response else None,
-            )
-
     def put_json_presigned_url(self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Response:
         log.check_notnone(url)
         log.check_ne(url, "")
