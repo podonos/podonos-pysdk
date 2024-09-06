@@ -113,7 +113,7 @@ class Evaluator(ABC):
         # Create a template if custom query exists
         self._create_template_with_question_and_evaluation()
 
-        # Insert File Data into Database
+        # Insert File data into database
         self._create_files_of_evaluation([audio for audio_list in self._eval_audios for audio in audio_list])
 
         # Get the upload time & finish time.
@@ -139,7 +139,8 @@ class Evaluator(ABC):
         )
 
         try:
-            response = self._api_client.put_json_presigned_url(url=presigned_url, data=session_json, headers={"Content-type": "application/json"})
+            response = self._api_client.put_json_presigned_url(
+                url=presigned_url, data=session_json, headers={"Content-type": "application/json"})
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             log.error(f"HTTP error in uploading a json: {e}")
@@ -164,7 +165,7 @@ class Evaluator(ABC):
 
     def _create_evaluation(self) -> Evaluation:
         """
-        Create a new evaluation based on evaluation configuration
+        Create a new evaluation based on the evaluation configuration
 
         Raises:
             HTTPError: If the value is invalid
@@ -208,23 +209,19 @@ class Evaluator(ABC):
 
         # Get the presigned URL for one file
         log.debug(f"Adding to queue: {path}")
-        presigned_url = self._get_presigned_url_for_put_method(
-            evaluation_id,
-            remote_object_name,
-        )
-
         if not self._eval_config:
             raise ValueError("No evaluation session is open.")
 
         # Lazy initialization of upload manager.
         if self._upload_manager is None:
+            log.debug(f"max_upload_workers: {self._eval_config.max_upload_workers}")
             self._upload_manager = UploadManager(
                 api_client=self._api_client,
                 max_workers=self._eval_config.max_upload_workers,
             )
 
         if self._upload_manager:
-            self._upload_manager.add_file_to_queue(presigned_url, remote_object_name, path)
+            self._upload_manager.add_file_to_queue(evaluation_id, remote_object_name, path)
         return
 
     def _get_presigned_url_for_put_method(

@@ -25,10 +25,10 @@ class TestUploadManager(unittest.TestCase):
         upload_manager = UploadManager(api_client=MagicMock(), max_workers=1)
         upload_manager._api_client.post.return_value = mock_response  # type: ignore
 
-        presigned_url = "https://fake.podonos.com/upload"
+        evaluation_id = "AAAA1234"
         remote_object_name = "ABCD1234"
         path = TESTDATA_SPEECH_CH1_MP3
-        upload_manager.add_file_to_queue(presigned_url, remote_object_name, path)
+        upload_manager.add_file_to_queue(evaluation_id, remote_object_name, path)
 
         self.assertTrue(upload_manager.wait_and_close())
 
