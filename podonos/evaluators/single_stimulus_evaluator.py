@@ -30,7 +30,8 @@ class SingleStimulusEvaluator(Evaluator):
 
         Example:
         If you want to evaluate each audio file separately (e.g., Naturalness MOS):
-            add_file(file=File(path='./test.wav', tags=['male', 'generated'], script='hello there'))
+            add_file(file=File(path='./test.wav', model_tag='my_new_model1', tags=['male', 'generated'],
+                               script='hello there'))
 
         Returns: None
 
