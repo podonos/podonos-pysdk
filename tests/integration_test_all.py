@@ -38,8 +38,8 @@ def main():
     etor = client.create_evaluator()
     evaluation_id = etor.get_evaluation_id()
     log.info(f"Evaluation id: {evaluation_id}")
-    etor.add_file(File(path=f"tests/speech_two_ch1.wav"))
-    etor.add_file(File(path=f"tests/speech_two_ch2.wav"))
+    etor.add_file(File(path=f"tests/speech_two_ch1.wav", model_tag='my_new_model1'))
+    etor.add_file(File(path=f"tests/speech_two_ch2.wav", model_tag='my_new_model2'))
     etor.close()
 
     #
@@ -69,8 +69,8 @@ def main():
     )
     evaluation_id = etor.get_evaluation_id()
     log.info(f"Evaluation id: {evaluation_id}")
-    etor.add_file(File(path=f"tests/speech_two_ch1.wav"))
-    etor.add_file(File(path=f"tests/speech_two_ch2.wav"))
+    etor.add_file(File(path=f"tests/speech_two_ch1.wav", model_tag='my_new_model1'))
+    etor.add_file(File(path=f"tests/speech_two_ch2.wav", model_tag='my_new_model2'))
     etor.close()
 
     stats = client.get_stats_dict_by_id(evaluation_id)

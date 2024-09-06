@@ -39,8 +39,8 @@ class DoubleStimuliEvaluator(Evaluator):
 
         Example:
         If you want to evaluate audio files together (e.g., Comparative MOS):
-            target_file, ref_file = File(path="/path/to/generated.wav", tags=['target']),
-                                    File(path="/path/to/original.wav", tags=['reference'])
+            target_file, ref_file = File(path="/path/to/generated.wav", model_tag='my_new_model1', tags=['target']),
+                                    File(path="/path/to/original.wav", model_tag='my_new_model2', tags=['reference'])
             add_file_pair(target=target_file, ref=ref_file)
 
         Returns: None
@@ -103,8 +103,8 @@ class DoubleStimuliEvaluator(Evaluator):
 
         Example:
         If you want to evaluate audio files together (e.g., Similarity MOS):
-            file0, file1 = File(path="/path/to/file0.wav", tags=['file0']),
-                           File(path="/path/to/file1.wav", tags=['file1'])
+            file0, file1 = File(path="/path/to/file0.wav", model_tag='my_new_model1', tags=['file0']),
+                           File(path="/path/to/file1.wav", model_tag='my_new_model2', tags=['file1'])
             add_file_set(file0=file0, file1=file1)
 
         Returns: None

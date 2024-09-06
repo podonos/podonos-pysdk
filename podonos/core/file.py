@@ -17,6 +17,7 @@ class File:
             script: Script of the input audio in text. Optional.
         """
         log.check_ne(path, "")
+        log.check_ne(model_tag, "")
         self._path = path
         self._model_tag = model_tag
         self._tags = tags
