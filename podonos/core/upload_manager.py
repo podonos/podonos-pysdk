@@ -78,14 +78,13 @@ class UploadManager:
             if not self._queue.empty():
                 item = self._queue.get()
                 presigned_url = item[0]
-                fields = item[1]
-                remote_object_name = item[2]
-                path = item[3]
+                remote_object_name = item[1]
+                path = item[2]
 
                 log.debug(f"Worker {index} uploading {path}")
                 # Timestamp in ISO 8601.
                 upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec="milliseconds")
-                self._api_client.post_file_presigned_url(presigned_url, fields, path, remote_object_name)
+                self._api_client.put_file_presigned_url(presigned_url, path)
                 upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec="milliseconds")
                 log.debug(f"Worker {index} finished uploading {item}")
 
@@ -97,7 +96,7 @@ class UploadManager:
                 log.debug(f"Worker {index} is done")
                 return
 
-    def add_file_to_queue(self, presigned_url: str, fields: dict, remote_object_name: str, path: str) -> None:
+    def add_file_to_queue(self, presigned_url: str, remote_object_name: str, path: str) -> None:
         if not (
             self._queue is not None
             and self._worker_event is not None
@@ -109,7 +108,7 @@ class UploadManager:
             raise ValueError("Upload Manager is not initialized")
 
         log.debug(f"Added: {path}")
-        self._queue.put((presigned_url, fields, remote_object_name, path))
+        self._queue.put((presigned_url, remote_object_name, path))
 
     def wait_and_close(self) -> bool:
         if not self._status:
