@@ -25,7 +25,7 @@ class Evaluator(ABC):
     _api_client: APIClient
     _api_key: Optional[str] = None
     _eval_config: Optional[EvalConfig] = None
-    _supported_evaluation_type: List[EvalType]
+    _supported_evaluation_types: List[EvalType]
     _evaluation: Optional[Evaluation] = None
 
     # Upload manager. Lazy initialization when used for saving resources.
@@ -94,7 +94,7 @@ class Evaluator(ABC):
         if not self._initialized or self._eval_config is None:
             raise ValueError("No evaluation session is open.")
 
-        if self._eval_config.eval_type not in self._supported_evaluation_type:
+        if self._eval_config.eval_type not in self._supported_evaluation_types:
             raise ValueError("Not supported evaluation type")
 
         if self._upload_manager is None:
@@ -291,7 +291,8 @@ class Evaluator(ABC):
 
         valid_path = self._validate_path(file.path)
         remote_object_name = self._get_remote_object_name()
-        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(valid_path, remote_object_name)
+        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(
+            valid_path, remote_object_name)
 
         log.debug(f"remote_object_name: {remote_object_name}")
         return Audio(

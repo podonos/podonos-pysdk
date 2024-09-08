@@ -13,8 +13,9 @@ from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 
 
 class MockDoubleStimuliEvaluator(SingleStimulusEvaluator):
-    def __init__(self, supported_evaluation_type: List[EvalType], api_client=Mock(spec=APIClient), eval_config: Optional[EvalConfig] = None):
-        super().__init__(supported_evaluation_type, api_client, eval_config)
+    def __init__(self, supported_evaluation_types: List[EvalType], api_client=Mock(spec=APIClient),
+                 eval_config: Optional[EvalConfig] = None):
+        super().__init__(supported_evaluation_types, api_client, eval_config)
 
     def _create_evaluation(self) -> Evaluation:
         evaluation_config = {
@@ -35,7 +36,8 @@ class TestSingleStimulusEvaluator:
         self.api_client = Mock(spec=APIClient)
         self.eval_config = EvalConfig(type="NMOS")
         self.evaluator = MockDoubleStimuliEvaluator(
-            supported_evaluation_type=[EvalType.NMOS, EvalType.QMOS, EvalType.P808], api_client=self.api_client, eval_config=self.eval_config
+            supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
+            api_client=self.api_client, eval_config=self.eval_config
         )
 
     def test_add_file_before_initialized(self):

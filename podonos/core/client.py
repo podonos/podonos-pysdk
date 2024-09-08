@@ -81,13 +81,13 @@ class Client:
         evaluator = None
         if type in [EvalType.SMOS.value, EvalType.PREF.value]:
             evaluator = DoubleStimuliEvaluator(
-                supported_evaluation_type=[EvalType.SMOS, EvalType.PREF],
+                supported_evaluation_types=[EvalType.SMOS, EvalType.PREF],
                 api_client=self._api_client,
                 eval_config=eval_config,
             )
         else:
             evaluator = SingleStimulusEvaluator(
-                supported_evaluation_type=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
+                supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
                 api_client=self._api_client,
                 eval_config=eval_config,
             )
