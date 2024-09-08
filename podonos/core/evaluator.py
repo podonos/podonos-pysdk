@@ -305,6 +305,7 @@ class Evaluator(ABC):
             script=file.script,
             tags=file.tags,
             model_tag=file.model_tag,
+            is_ref=file.is_ref,
             group=group,
             type=type,
             order_in_group=order_in_group,

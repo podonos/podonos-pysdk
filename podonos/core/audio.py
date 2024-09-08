@@ -123,6 +123,7 @@ class Audio:
     _remote_object_name: str
     _metadata: AudioMeta
     _script: Optional[str] = None
+    _is_ref: bool = False
     _upload_start_at: Optional[str] = None
     _upload_finish_at: Optional[str] = None
     _model_tag: str
@@ -137,6 +138,7 @@ class Audio:
         name: str,
         remote_object_name: str,
         script: Optional[str],
+        is_ref: bool,
         model_tag: str,
         tags: Optional[List[str]],
         group: Optional[str],
@@ -159,6 +161,7 @@ class Audio:
         self._script = script
         self._metadata = AudioMeta(path)
         self._model_tag = model_tag
+        self._is_ref = is_ref
         self._tags = tags
         self._group = group
         self._type = type
@@ -187,6 +190,10 @@ class Audio:
     @property
     def tags(self) -> Optional[List[str]]:
         return self._tags
+
+    @property
+    def is_ref(self) -> bool:
+        return self._is_ref
 
     @property
     def group(self) -> Optional[str]:
@@ -223,6 +230,7 @@ class Audio:
             "upload_start_at": self._upload_start_at,
             "upload_finish_at": self._upload_finish_at,
             "model_tag": self._model_tag,
+            "is_ref": self._is_ref,
             "tag": self._tags,
             "type": self._type,
             "script": self._script,
@@ -236,6 +244,7 @@ class Audio:
             "processed_uri": self._remote_object_name,
             "duration": self._metadata.duration_in_ms,
             "model_tag": self._model_tag,
+            "is_ref": self._is_ref,
             "tags": self._tags,
             "type": self._type,
             "script": self._script,
