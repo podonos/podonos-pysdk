@@ -61,11 +61,7 @@ class Evaluator(ABC):
         pass
 
     @abstractmethod
-    def add_file_pair(self, target: File, ref: File) -> None:
-        pass
-
-    @abstractmethod
-    def add_file_set(self, file0: File, file1: File) -> None:
+    def add_files(self, file0: File, file1: File) -> None:
         pass
 
     def get_evaluation_id(self) -> str:

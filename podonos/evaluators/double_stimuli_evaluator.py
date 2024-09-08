@@ -14,98 +14,31 @@ from podonos.errors.error import NotSupportedError
 class DoubleStimuliEvaluator(Evaluator):
     def __init__(
         self,
-        supported_evaluation_type: List[EvalType],
+        supported_evaluation_types: List[EvalType],
         api_client: APIClient,
         eval_config: Union[EvalConfig, None] = None,
     ):
         log.check(api_client, "api_client is not initialized")
         super().__init__(api_client, eval_config)
-        self._supported_evaluation_type = supported_evaluation_type
+        self._supported_evaluation_types = supported_evaluation_types
 
     def add_file(self, file: File) -> None:
-        raise NotSupportedError("The 'add_file' is only supported in these evaluation types: {'NMOS', 'QMOS', 'P808'}")
+        raise NotSupportedError("The 'add_file' is only supported in single file evaluation types: "
+                                "{'NMOS', 'QMOS', 'P808'}")
 
-    def add_file_pair(self, target: File, ref: File) -> None:
-        """Adds a file pair for speech evaluation in an ordered way. So, the order of the two files is kept strictly.
-        The files will be securely uploaded to Podonos service system.
+    def add_files(self, file0: File, file1: File) -> None:
+        """Adds files for speech evaluation in an ordered or unordered way. If the evaluation requires an order of
+        the input files, the order is kept strictly. The files will be securely uploaded to Podonos service system.
 
         Args:
-            target: The target audio file configuration. This is the audio file
-                    that is being evaluated to determine if it is better or worse
-                    with respect to the reference file.
-            ref:    The reference audio file configuration. This is the audio file
-                    that serves as the standard or baseline for comparison with respect to the
-                    target audio file.
+            file0: The first audio file configuration.
+            file1: The second audio file configuration.
 
         Example:
         If you want to evaluate audio files together (e.g., Comparative MOS):
-            target_file, ref_file = File(path="/path/to/generated.wav", model_tag='my_new_model1', tags=['target']),
-                                    File(path="/path/to/original.wav", model_tag='my_new_model2', tags=['reference'])
-            add_file_pair(target=target_file, ref=ref_file)
-
-        Returns: None
-
-        Raises:
-            ValueError: if this function is called before calling init().
-            FileNotFoundError: if a given file is not found.
-        """
-        log.check(target, "target is not set")
-        log.check(ref, "ref is not set")
-
-        if not self._initialized:
-            raise ValueError("Try to add_file_pair once the evaluator is closed.")
-
-        eval_config = self._get_eval_config()
-        if eval_config.eval_type not in [EvalType.CMOS, EvalType.DMOS]:
-            raise ValueError("The add_file_pair function is used for 'CMOS', 'DMOS'")
-
-        if eval_config.eval_type in self._supported_evaluation_type:
-            group = self._generate_random_group_name()
-
-            target_audio = self._set_audio(
-                file=target,
-                group=group,
-                type=QuestionFileType.STIMULUS,
-                order_in_group=0,
-            )
-            ref_audio = self._set_audio(
-                file=ref,
-                group=group,
-                type=QuestionFileType.REF,
-                order_in_group=1,
-            )
-            self._eval_audios.append([target_audio, ref_audio])
-
-            # Target
-            self._upload_one_file(
-                evaluation_id=self.get_evaluation_id(),
-                remote_object_name=target_audio.remote_object_name,
-                path=target_audio.path,
-            )
-
-            # Ref
-            self._upload_one_file(
-                evaluation_id=self.get_evaluation_id(),
-                remote_object_name=ref_audio.remote_object_name,
-                path=ref_audio.path,
-            )
-
-    def add_file_set(self, file0: File, file1: File) -> None:
-        """Adds a set of unordered two files for evaluation.
-        This function adds a set of files for evaluation purposes. The files may be either in {wav, mp3} format.
-        The files will be securely uploaded to the Podonos service system.
-
-        Args:
-            file0: The first audio file configuration. This can be either a target or a reference file
-                depending on the evaluation configuration.
-            file1: The second audio file configuration. This can be either a target or a reference file
-                depending on the evaluation configuration.
-
-        Example:
-        If you want to evaluate audio files together (e.g., Similarity MOS):
-            file0, file1 = File(path="/path/to/file0.wav", model_tag='my_new_model1', tags=['file0']),
-                           File(path="/path/to/file1.wav", model_tag='my_new_model2', tags=['file1'])
-            add_file_set(file0=file0, file1=file1)
+            f0 = File(path="/path/to/generated.wav", model_tag='my_new_model1', tags=['male', 'english'], is_ref=True)
+            f1 = File(path="/path/to/original.wav", model_tag='my_new_model2', tags=['male', 'english', 'param1'])
+            add_files(file0=f0, file1=f1)
 
         Returns: None
 
@@ -117,40 +50,38 @@ class DoubleStimuliEvaluator(Evaluator):
         log.check(file1, "file1 is not set")
 
         if not self._initialized:
-            raise ValueError("Try to add_file_set once the evaluator is closed.")
+            raise ValueError("Try to add_files once the evaluator is not initialized.")
 
         eval_config = self._get_eval_config()
-        if eval_config.eval_type not in [EvalType.SMOS, EvalType.PREF]:
-            raise ValueError("The add_file_set function is used for 'SMOS', 'PREF'")
+        if eval_config.eval_type in self._supported_evaluation_types:
+            raise ValueError(f"Unsupported evaluation type: {eval_config.eval_type}")
+        if eval_config.eval_type not in [EvalType.SMOS, EvalType.PREF, EvalType.CMOS, EvalType.DMOS]:
+            raise ValueError("The add_files is used for such evaluations that require multiple files.")
 
-        if eval_config.eval_type in self._supported_evaluation_type:
-            group = self._generate_random_group_name()
-            audio1 = self._set_audio(
-                file=file0,
-                group=group,
-                type=QuestionFileType.STIMULUS,
-                order_in_group=0,
-            )
-            audio2 = self._set_audio(
-                file=file1,
-                group=group,
-                type=QuestionFileType.STIMULUS,
-                order_in_group=1,
-            )
-            self._eval_audios.append([audio1, audio2])
-            # Audio 1
-            self._upload_one_file(
-                evaluation_id=self.get_evaluation_id(),
-                remote_object_name=audio1.remote_object_name,
-                path=audio1.path,
-            )
+        group = self._generate_random_group_name()
+        print(eval_config.eval_type.value)
+        if eval_config.eval_type == EvalType.PREF:
+            # Files are ordered stimulus.
+            audio0 = self._set_audio(file=file0, group=group, type=QuestionFileType.STIMULUS, order_in_group=0)
+            audio1 = self._set_audio(file=file1, group=group, type=QuestionFileType.STIMULUS, order_in_group=1)
+        elif eval_config.eval_type == EvalType.SMOS:
+            # Files are unordered stimulus.
+            audio0 = self._set_audio(file=file0, group=group, type=QuestionFileType.STIMULUS, order_in_group=0)
+            audio1 = self._set_audio(file=file1, group=group, type=QuestionFileType.STIMULUS, order_in_group=1)
+        else:  # CMOS, DMOS
+            # Files are ordered stimulus, one of them must be a reference.
+            if file0.is_ref == file1.is_ref:
+                raise ValueError("One of the input files must be set as a reference.")
+            audio0_type = QuestionFileType.REF if file0.is_ref else QuestionFileType.STIMULUS
+            audio1_type = QuestionFileType.REF if file1.is_ref else QuestionFileType.STIMULUS
+            audio0 = self._set_audio(file=file0, group=group, type=audio0_type, order_in_group=0)
+            audio1 = self._set_audio(file=file1, group=group, type=audio1_type, order_in_group=1)
+        self._eval_audios.append([audio0, audio1])
 
-            # Audio 2
-            self._upload_one_file(
-                evaluation_id=self.get_evaluation_id(),
-                remote_object_name=audio2.remote_object_name,
-                path=audio2.path,
-            )
+        self._upload_one_file(
+            evaluation_id=self.get_evaluation_id(), remote_object_name=audio0.remote_object_name, path=audio0.path)
+        self._upload_one_file(
+            evaluation_id=self.get_evaluation_id(), remote_object_name=audio1.remote_object_name, path=audio1.path)
 
     @staticmethod
     def _generate_random_group_name() -> str:
