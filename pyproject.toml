@@ -38,4 +38,4 @@ classifiers = [
 
 [project.urls]
 Homepage="https://www.podonos.com"
-Repository="https://github.com/podonos/pysdk"
+Repository="https://github.com/podonos/podonos-pysdk"

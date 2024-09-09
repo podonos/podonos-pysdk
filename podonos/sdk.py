@@ -1,5 +1,5 @@
 """Podonos SDK for speech/audio evaluation.
-For details, please refer to https://github.com/podonos/pysdk/
+For details, please refer to https://github.com/podonos/podonos-pysdk/
 """
 
 import os
