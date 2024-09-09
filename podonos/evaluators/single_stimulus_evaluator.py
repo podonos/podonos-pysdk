@@ -12,13 +12,13 @@ from podonos.errors.error import NotSupportedError
 class SingleStimulusEvaluator(Evaluator):
     def __init__(
         self,
-        supported_evaluation_type: List[EvalType],
+        supported_evaluation_types: List[EvalType],
         api_client: APIClient,
         eval_config: Union[EvalConfig, None] = None,
     ):
         log.check(api_client, "api_client is not initialized")
         super().__init__(api_client, eval_config)
-        self._supported_evaluation_type = supported_evaluation_type
+        self._supported_evaluation_types = supported_evaluation_types
 
     def add_file(self, file: File) -> None:
         """Add new file for speech evaluation.
@@ -26,7 +26,7 @@ class SingleStimulusEvaluator(Evaluator):
         Podonos service system.
 
         Args:
-            file: File object including path, tags, and script.
+            file: File object including the path, the model tag, the other tags, and the script.
 
         Example:
         If you want to evaluate each audio file separately (e.g., Naturalness MOS):
@@ -45,7 +45,7 @@ class SingleStimulusEvaluator(Evaluator):
             raise ValueError("Try to add file once the evaluator is closed.")
 
         eval_config = self._get_eval_config()
-        if eval_config.eval_type in self._supported_evaluation_type:
+        if eval_config.eval_type in self._supported_evaluation_types:
             if eval_config.eval_use_annotation and file.script is None:
                 raise ValueError(
                     "Annotation evaluation is enabled (eval_use_annotation=True), "
@@ -65,8 +65,6 @@ class SingleStimulusEvaluator(Evaluator):
                 path=audio.path,
             )
 
-    def add_file_pair(self, target: File, ref: File) -> None:
-        raise NotSupportedError("The 'add_file_pair' is only supported in these evaluation types: {'CMOS', 'DMOS'}")
-
-    def add_file_set(self, file0: File, file1: File) -> None:
-        raise NotSupportedError("The 'add_file_set' is only supported in these evaluation types: {'SMOS', 'PREF'}")
+    def add_files(self, target: File, ref: File) -> None:
+        raise NotSupportedError("The 'add_files' is only supported for group evaluations like "
+                                "{'CMOS', 'DMOS', 'PREF'}")

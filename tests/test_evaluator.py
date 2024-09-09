@@ -23,10 +23,7 @@ class MockEvaluator(Evaluator):
     def add_file(self, file: File) -> None:
         pass
 
-    def add_file_pair(self, target: File, ref: File) -> None:
-        pass
-
-    def add_file_set(self, file0: File, file1: File) -> None:
+    def add_files(self, target: File, ref: File) -> None:
         pass
 
     def _create_evaluation(self) -> Evaluation:

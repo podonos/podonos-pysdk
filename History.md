@@ -1,3 +1,8 @@
+## 0.2.1
+
+- Removed `add_file_pair` and `add_file_set`. Added `add_files` instead.
+- Made the file upload 6x faster by putting an API call into threads.
+
 ## 0.2.0
 
 - Add `set_question` for custom question and description
