@@ -42,15 +42,15 @@ class Client:
         Args:
             name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
             desc: Description of this session. Optional.
-            type: Evaluation type. One of {'NMOS', 'SMOS', 'P808'}. Default: NMOS
+            type: Evaluation type. Default: NMOS
             lan: Human language for this audio. One of those in Language. Default: en-us
             granularity: Granularity of the evaluation scales. Either {1, 0.5}
             num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 10.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
                         Must be >= 12. Default: 12.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
-            auto_start: The evaluation start automatically if True. Manually start in the workspace otherwise.
-            max_upload_workers: The maximum number of upload workers. Must be a positive integer.
+            auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
+            max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
             Evaluator instance.
