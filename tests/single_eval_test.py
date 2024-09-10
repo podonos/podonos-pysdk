@@ -11,14 +11,11 @@ from podonos import *
 from podonos.core.base import *
 import sys
 
-_PODONOS_API_BASE_URL = "https://prod.podonosapi.com"
-
 
 def main():
     parser = argparse.ArgumentParser(description="Run a single evaluation test.")
     parser.add_argument("--api_key", required=True, help="API Key")
-    parser.add_argument("--base_url", required=False, default=_PODONOS_API_BASE_URL,
-                        help="Base URL for the backend APIs.")
+    parser.add_argument("--base_url", required=False, help="Base URL for the backend APIs.")
     args = parser.parse_args()
 
     log.info(f"Python version: {sys.version}")
