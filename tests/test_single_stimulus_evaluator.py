@@ -13,8 +13,7 @@ from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 
 
 class MockDoubleStimuliEvaluator(SingleStimulusEvaluator):
-    def __init__(self, supported_evaluation_types: List[EvalType], api_client=Mock(spec=APIClient),
-                 eval_config: Optional[EvalConfig] = None):
+    def __init__(self, supported_evaluation_types: List[EvalType], api_client=Mock(spec=APIClient), eval_config: Optional[EvalConfig] = None):
         super().__init__(supported_evaluation_types, api_client, eval_config)
 
     def _create_evaluation(self) -> Evaluation:
@@ -36,8 +35,7 @@ class TestSingleStimulusEvaluator:
         self.api_client = Mock(spec=APIClient)
         self.eval_config = EvalConfig(type="NMOS")
         self.evaluator = MockDoubleStimuliEvaluator(
-            supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
-            api_client=self.api_client, eval_config=self.eval_config
+            supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808], api_client=self.api_client, eval_config=self.eval_config
         )
 
     def test_add_file_before_initialized(self):
@@ -50,5 +48,5 @@ class TestSingleStimulusEvaluator:
         target_audio_config = File(path="target.wav", model_tag="model2", tags=["target"])
         ref_audio_config = File(path="ref.wav", model_tag="model1", tags=["ref"])
         with pytest.raises(NotSupportedError) as excinfo:
-            self.evaluator.add_files(target=target_audio_config, ref=ref_audio_config)
+            self.evaluator.add_files(file0=target_audio_config, file1=ref_audio_config)
         assert "only supported" in str(excinfo.value)
