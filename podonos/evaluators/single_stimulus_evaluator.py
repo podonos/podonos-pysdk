@@ -65,6 +65,6 @@ class SingleStimulusEvaluator(Evaluator):
                 path=audio.path,
             )
 
-    def add_files(self, target: File, ref: File) -> None:
+    def add_files(self, file0: File, file1: File) -> None:
         raise NotSupportedError("The 'add_files' is only supported for group evaluations like "
                                 "{'CMOS', 'DMOS', 'PREF'}")

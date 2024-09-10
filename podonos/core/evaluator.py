@@ -135,8 +135,7 @@ class Evaluator(ABC):
         )
 
         try:
-            response = self._api_client.put_json_presigned_url(
-                url=presigned_url, data=session_json, headers={"Content-type": "application/json"})
+            response = self._api_client.put_json_presigned_url(url=presigned_url, data=session_json, headers={"Content-type": "application/json"})
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             log.error(f"HTTP error in uploading a json: {e}")
@@ -291,8 +290,7 @@ class Evaluator(ABC):
 
         valid_path = self._validate_path(file.path)
         remote_object_name = self._get_remote_object_name()
-        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(
-            valid_path, remote_object_name)
+        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(valid_path, remote_object_name)
 
         log.debug(f"remote_object_name: {remote_object_name}")
         return Audio(
@@ -302,7 +300,7 @@ class Evaluator(ABC):
             script=file.script,
             tags=file.tags,
             model_tag=file.model_tag,
-            is_ref=file.is_ref,
+            is_ref=file.is_ref if file.is_ref else False,
             group=group,
             type=type,
             order_in_group=order_in_group,

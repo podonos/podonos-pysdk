@@ -23,8 +23,7 @@ class DoubleStimuliEvaluator(Evaluator):
         self._supported_evaluation_types = supported_evaluation_types
 
     def add_file(self, file: File) -> None:
-        raise NotSupportedError("The 'add_file' is only supported in single file evaluation types: "
-                                "{'NMOS', 'QMOS', 'P808'}")
+        raise NotSupportedError("The 'add_file' is only supported in single file evaluation types: " "{'NMOS', 'QMOS', 'P808'}")
 
     def add_files(self, file0: File, file1: File) -> None:
         """Adds files for speech evaluation in an ordered or unordered way. If the evaluation requires an order of
@@ -53,13 +52,12 @@ class DoubleStimuliEvaluator(Evaluator):
             raise ValueError("Try to add_files once the evaluator is not initialized.")
 
         eval_config = self._get_eval_config()
-        if eval_config.eval_type in self._supported_evaluation_types:
+        if eval_config.eval_type not in self._supported_evaluation_types:
             raise ValueError(f"Unsupported evaluation type: {eval_config.eval_type}")
         if eval_config.eval_type not in [EvalType.SMOS, EvalType.PREF, EvalType.CMOS, EvalType.DMOS]:
             raise ValueError("The add_files is used for such evaluations that require multiple files.")
 
         group = self._generate_random_group_name()
-        print(eval_config.eval_type.value)
         if eval_config.eval_type == EvalType.PREF:
             # Files are ordered stimulus.
             audio0 = self._set_audio(file=file0, group=group, type=QuestionFileType.STIMULUS, order_in_group=0)
@@ -78,10 +76,8 @@ class DoubleStimuliEvaluator(Evaluator):
             audio1 = self._set_audio(file=file1, group=group, type=audio1_type, order_in_group=1)
         self._eval_audios.append([audio0, audio1])
 
-        self._upload_one_file(
-            evaluation_id=self.get_evaluation_id(), remote_object_name=audio0.remote_object_name, path=audio0.path)
-        self._upload_one_file(
-            evaluation_id=self.get_evaluation_id(), remote_object_name=audio1.remote_object_name, path=audio1.path)
+        self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio0.remote_object_name, path=audio0.path)
+        self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio1.remote_object_name, path=audio1.path)
 
     @staticmethod
     def _generate_random_group_name() -> str:
