@@ -1,4 +1,4 @@
-## 0.2.1
+## 0.2.2
 
 - Removed `add_file_pair` and `add_file_set`. Added `add_files` instead.
 - Made the file upload 6x faster by putting an API call into threads.
