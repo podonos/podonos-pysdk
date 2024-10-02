@@ -52,17 +52,13 @@ class AudioMeta:
 
         # Check if this is wav or mp3.
         suffix = Path(path).suffix
-        assert suffix in [
-            ".wav",
-            ".mp3",
-        ], f"Unsupported file format: {path}. It must be wav or mp3."
-        if suffix == ".wav":
-            return self._get_wave_info(path)
-        elif suffix == ".mp3":
-            return self._get_mp3_info(path)
+        support_file_type = [".wav", ".mp3", ".flac"]
+        assert suffix in support_file_type, f"Unsupported file format: {path}. It must be wav or mp3."
+        if suffix in support_file_type:
+            return self._get_audio_info(path)
         return 0, 0, 0
 
-    def _get_wave_info(self, filepath: str) -> Tuple[int, int, int]:
+    def _get_audio_info(self, filepath: str) -> Tuple[int, int, int]:
         """Gets info from a wave file.
 
         Returns:
@@ -74,33 +70,6 @@ class AudioMeta:
             FileNotFoundError: if the file is not found.
             wave.Error: if the file doesn't read properly.
         """
-        log.check_notnone(filepath)
-        log.check_ne(filepath, "")
-
-        f = sf.SoundFile(filepath)
-        nframes = f.frames
-        nchannels = f.channels
-        framerate = f.samplerate
-        log.check_gt(nframes, 0)
-        log.check_gt(nchannels, 0)
-        log.check_gt(framerate, 0)
-
-        duration_in_ms = int(nframes * 1000.0 / float(framerate))
-        log.check_gt(duration_in_ms, 0)
-        return nchannels, framerate, duration_in_ms
-
-    def _get_mp3_info(self, filepath: str) -> Tuple[int, int, int]:
-        """Gets info from a mp3 file.
-
-        Returns:
-            nchannels: Number of channels
-            framerate: Number of frames per second. Same as the sampling rate.
-            duration_in_ms: Total length of the audio in milliseconds
-
-        Raises:
-            FileNotFoundError: if the file is not found.
-        """
-
         log.check_notnone(filepath)
         log.check_ne(filepath, "")
 
@@ -216,7 +185,7 @@ class Audio:
         log.check_notnone(finish_at)
         log.check_ne(start_at, "")
         log.check_ne(finish_at, "")
-        
+
         self._upload_start_at = start_at
         self._upload_finish_at = finish_at
 

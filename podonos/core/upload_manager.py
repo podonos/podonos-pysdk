@@ -81,6 +81,10 @@ class UploadManager:
         log.check_ne(remote_object_name, "")
 
         try:
+            if not self._api_client:
+                log.error("API Client is not initialized")
+                raise ValueError("API Client is not initialized")
+
             response = self._api_client.put(
                 f"evaluations/{evaluation_id}/uploading-presigned-url",
                 {
@@ -134,7 +138,7 @@ class UploadManager:
                 self._upload_finish[remote_object_name] = upload_finish_at
                 self._queue.task_done()
                 self._total_uploaded += 1
-                log.debug(f'Worker {index} total_uploaded: {self._total_uploaded}')
+                log.debug(f"Worker {index} total_uploaded: {self._total_uploaded}")
                 if self._pbar:
                     self._pbar.update(1)
 
@@ -164,7 +168,7 @@ class UploadManager:
 
         if not (self._queue is not None and self._worker_event is not None and self._daemon_thread is not None):
             raise ValueError("Upload Manager is not initialized")
-        log.debug(f'total_files: {self._total_files}')
+        log.debug(f"total_files: {self._total_files}")
         self._pbar = tqdm(total=self._total_files, dynamic_ncols=True)
         self._pbar.update(self._total_uploaded)
 
