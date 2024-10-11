@@ -1,12 +1,11 @@
 import os
-import json
 import requests
 from abc import ABC, abstractmethod
 from typing import Tuple, Dict, List, Optional
 
 from podonos.core.base import *
 from podonos.common.constant import *
-from podonos.common.enum import EvalType, Language, QuestionFileType
+from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.exception import HTTPError
 from podonos.common.util import generate_random_name
 from podonos.core.api import APIClient
@@ -14,7 +13,7 @@ from podonos.core.audio import Audio
 from podonos.core.config import EvalConfig
 from podonos.core.evaluation import Evaluation
 from podonos.core.file import File
-from podonos.core.query import Query, Question
+from podonos.core.query import Query
 from podonos.core.upload_manager import UploadManager
 
 
@@ -73,12 +72,6 @@ class Evaluator(ABC):
         """
         assert self._evaluation
         return self._evaluation.id
-
-    def set_question(self, title: str, description: Optional[str] = None) -> None:
-        log.check_notnone(title)
-        if len(title) < 5:
-            log.warning(f"Are you sure with such a short title {title}?")
-        self._query = Query(question=Question(title, description))
 
     def close(self) -> Dict[str, str]:
         """Closes the file uploading and evaluation session.
