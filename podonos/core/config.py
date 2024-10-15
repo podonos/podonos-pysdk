@@ -209,4 +209,5 @@ class EvalConfig:
             "granularity": self._eval_granularity,
             "evaluation_type": self._eval_type.get_type(),
             "use_annotation": self._eval_use_annotation,
+            "auto_start": self._eval_auto_start,
         }
