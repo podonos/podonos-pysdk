@@ -1,3 +1,8 @@
+## 0.3.0
+
+- Remove `set_question` because the custom query is done in web
+- Fix the auto_start option in evaluation
+
 ## 0.2.2
 
 - Removed `add_file_pair` and `add_file_set`. Added `add_files` instead.
