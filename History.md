@@ -1,3 +1,7 @@
+## 0.4.0
+
+- Split the audio's list into several chunk per 500
+
 ## 0.3.0
 
 - Remove `set_question` because the custom query is done in web
