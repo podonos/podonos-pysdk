@@ -103,7 +103,9 @@ class Evaluator(ABC):
         self._create_template_with_question_and_evaluation()
 
         # Insert File data into database
-        self._create_files_of_evaluation([audio for audio_list in self._eval_audios for audio in audio_list])
+        audios = [audio for audio_list in self._eval_audios for audio in audio_list]
+        for i in range(0, len(audios), 500):
+            self._create_files_of_evaluation(audios[i : i + 500])
 
         # Get the upload time & finish time.
         upload_start, upload_finish = self._upload_manager.get_upload_time()
