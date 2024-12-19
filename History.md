@@ -1,3 +1,7 @@
+## 0.5.0
+
+- Remove the duplicate tags
+
 ## 0.4.0
 
 - Split the audio's list into several chunk per 500
