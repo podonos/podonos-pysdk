@@ -46,7 +46,7 @@ class File:
     def is_ref(self) -> Optional[bool]:
         return self._is_ref
 
-    def _set_tags(self, tags: list[str]) -> list[str]:
+    def _set_tags(self, tags: List[str]) -> List[str]:
         unique_tags = []
         seen = set()
         for tag in tags:
