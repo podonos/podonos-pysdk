@@ -8,8 +8,7 @@ class File:
     _tags: List[str]
     _script: Optional[str]
 
-    def __init__(self, path: str, model_tag: str, tags: List[str] = [], script: Optional[str] = None,
-                 is_ref: bool = False) -> None:
+    def __init__(self, path: str, model_tag: str, tags: List[str] = [], script: Optional[str] = None, is_ref: bool = False) -> None:
         """
         Args:
             path: Path to the file to evaluate. Required.
@@ -23,7 +22,7 @@ class File:
         log.check_ne(model_tag, "")
         self._path = path
         self._model_tag = model_tag
-        self._tags = tags
+        self._tags = self._set_tags(tags)
         self._script = script
         self._is_ref = is_ref
 
@@ -46,3 +45,12 @@ class File:
     @property
     def is_ref(self) -> Optional[bool]:
         return self._is_ref
+
+    def _set_tags(self, tags: List[str]) -> List[str]:
+        unique_tags = []
+        seen = set()
+        for tag in tags:
+            if tag not in seen:
+                seen.add(tag)
+                unique_tags.append(tag)
+        return unique_tags
