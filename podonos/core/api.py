@@ -11,6 +11,7 @@ from packaging.version import Version
 from podonos.common.constant import *
 from podonos.common.exception import HTTPError
 from podonos.core.base import *
+from podonos.core.template import Template
 
 
 class APIVersion:
@@ -147,6 +148,21 @@ class APIClient:
                 f"Failed to Upload JSON {data}: {e}",
                 status_code=e.response.status_code if e.response else None,
             )
+
+    def get_template_by_code(self, template_id: str) -> Template:
+        """
+        Get template information by Id
+
+        Returns: Template
+        """
+        try:
+            response = requests.get(f"{self._api_url}/templates/one?code={template_id}", headers=self._headers)
+            response.raise_for_status()
+            template = Template.from_dict(response.json())
+            log.info(f"Get template by id {template_id}")
+            return template
+        except Exception as e:
+            raise HTTPError(f"Failed to get template by id: {template_id} / {e}")
 
     @staticmethod
     def _get_content_type_by_filename(path: str) -> str:

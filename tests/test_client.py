@@ -23,14 +23,15 @@ def mocked_requests_post(*args, **kwargs):
     if "/evaluations" in args[0]:
         # Evaluation list
         evaluation_list = dict(
-                id="mock_id",
-                title="mock_title",
-                internal_name="mock_internal_name",
-                description="mock_desc",
-                status="mock_status",
-                created_time="2024-05-21T06:18:09.659270Z",
-                updated_time="2024-05-21T06:18:09.659270Z",
-            )
+            id="mock_id",
+            title="mock_title",
+            internal_name="mock_internal_name",
+            batch_size=1,
+            description="mock_desc",
+            status="mock_status",
+            created_time="2024-05-21T06:18:09.659270Z",
+            updated_time="2024-05-21T06:18:09.659270Z",
+        )
         return MockResponse(None, evaluation_list, 200)
 
     return MockResponse(None, None, 404)
@@ -62,8 +63,15 @@ def mocked_requests_get(*args, **kwargs):
     if "/evaluations" in args[0] and "/stats" in args[0]:
         # Stats by id
         evaluation_stats = [
-            dict(files=[{"name": "tr16.wav", "model_tag": "my_model", "tags": ["generated"], "type": "A"}],
-                 mean=3.4, median=3.5, std=1.07, ci_90=1.14, ci_95=1.48, ci_99=1.53)
+            dict(
+                files=[{"name": "tr16.wav", "model_tag": "my_model", "tags": ["generated"], "type": "A"}],
+                mean=3.4,
+                median=3.5,
+                std=1.07,
+                ci_90=1.14,
+                ci_95=1.48,
+                ci_99=1.53,
+            )
         ]
         return MockResponse(None, evaluation_stats, 200)
 
@@ -75,6 +83,7 @@ def mocked_requests_get(*args, **kwargs):
                 title="mock_title",
                 internal_name="mock_internal_name",
                 description="mock_desc",
+                batch_size=1,
                 status="mock_status",
                 created_time="2024-05-21T06:18:09.659270Z",
                 updated_time="2024-05-21T06:18:09.659270Z",
@@ -102,8 +111,16 @@ class TestEvaluationClient(unittest.TestCase):
         auto_start = False
         max_upload_workers = 10
         etor = self._mock_client.create_evaluator(
-            name=name, desc=desc, type=type, lan=lan, granularity=granularity, num_eval=num_eval,
-            due_hours=due_hours, auto_start=auto_start, max_upload_workers=max_upload_workers)
+            name=name,
+            desc=desc,
+            type=type,
+            lan=lan,
+            granularity=granularity,
+            num_eval=num_eval,
+            due_hours=due_hours,
+            auto_start=auto_start,
+            max_upload_workers=max_upload_workers,
+        )
         self.assertTrue(isinstance(etor, SingleStimulusEvaluator))
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
@@ -121,8 +138,16 @@ class TestEvaluationClient(unittest.TestCase):
         auto_start = False
         max_upload_workers = 10
         etor = self._mock_client.create_evaluator(
-            name=name, desc=desc, type=type, lan=lan, granularity=granularity, num_eval=num_eval,
-            due_hours=due_hours, auto_start=auto_start, max_upload_workers=max_upload_workers)
+            name=name,
+            desc=desc,
+            type=type,
+            lan=lan,
+            granularity=granularity,
+            num_eval=num_eval,
+            due_hours=due_hours,
+            auto_start=auto_start,
+            max_upload_workers=max_upload_workers,
+        )
         self.assertTrue(isinstance(etor, DoubleStimuliEvaluator))
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)

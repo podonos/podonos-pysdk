@@ -14,6 +14,7 @@ class EvalConfigDefault:
     USE_ANNOTATION = False
     AUTO_START = False
     GRANULARITY = 1.0
+    BATCH_SIZE = 1
     MAX_UPLOAD_WORKERS = 20
 
 
@@ -26,10 +27,12 @@ class EvalConfig:
     _eval_type: EvalType = EvalConfigDefault.TYPE
     _eval_language: Language = EvalConfigDefault.LAN
     _eval_granularity: float = EvalConfigDefault.GRANULARITY
+    _eval_batch_size: int = EvalConfigDefault.BATCH_SIZE
     _eval_num: int = EvalConfigDefault.NUM_EVAL
     _eval_expected_due_tzname: Optional[str] = None
     _eval_use_annotation: bool = False
     _eval_auto_start: bool = False
+    _eval_template_id: Optional[str] = None
     _max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
 
     def __init__(
@@ -43,6 +46,7 @@ class EvalConfig:
         due_hours: int = EvalConfigDefault.DUE_HOURS,  # TODO: allow floating point hours, e.g. 0.5.
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
+        template_id: Optional[str] = None,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> None:
         self._eval_name = self._valudate_eval_name(name)
@@ -51,12 +55,14 @@ class EvalConfig:
         self._eval_language = self._validate_eval_language(lan)
         self._eval_num = self._validate_eval_num(num_eval)
         self._eval_granularity = self._validate_eval_granularity(granularity)
+        self._eval_batch_size = self._validate_eval_batch_size(type)
         self._eval_expected_due = self._validate_eval_expected_due(due_hours)
         self._eval_expected_due_tzname = self._validate_eval_expected_due_tzname()
         self._eval_creation_timestamp = self._validate_eval_creation_timestamp()
         self._eval_id = self._eval_creation_timestamp
         self._eval_use_annotation = self._validate_eval_use_annotation(use_annotation, type)
         self._eval_auto_start = auto_start
+        self._eval_template_id = template_id
         self._max_upload_workers = max_upload_workers
         self.log_eval_config()
 
@@ -70,6 +76,7 @@ class EvalConfig:
         log.debug(f"Evaluation ID: {self._eval_id}")
         log.debug(f"Evaluation use annotation: {self._eval_use_annotation}")
         log.debug(f"Evaluation auto start: {self._eval_auto_start}")
+        log.debug(f"Evaluation Template ID: {self._eval_template_id}")
         log.debug(f"Max upload workers: {self._max_upload_workers}")
 
     @property
@@ -97,6 +104,10 @@ class EvalConfig:
         return self._eval_auto_start
 
     @property
+    def eval_template_id(self) -> Optional[str]:
+        return self._eval_template_id
+
+    @property
     def max_upload_workers(self) -> int:
         return self._max_upload_workers
 
@@ -120,6 +131,8 @@ class EvalConfig:
             EvalType.SMOS.value,
             EvalType.P808.value,
             EvalType.PREF.value,
+            EvalType.CUSTOM_SINGLE.value,
+            EvalType.CUSTOM_DOUBLE.value,
         ]:
             raise ValueError(
                 f'"type" must be one of {{NMOS, QMOS, SMOS, P808}}. \n'
@@ -161,6 +174,11 @@ class EvalConfig:
             raise ValueError(f'"granularity" must be one of 0.5 and 1.9')
         return granularity
 
+    def _validate_eval_batch_size(self, eval_type: str) -> int:
+        if EvalType.is_single(eval_type):
+            return 1
+        return 2
+
     # TODO: allow floating point hours, e.g. 0.5.
     def _validate_eval_expected_due(self, due_hours: int) -> str:
         if due_hours < 12:
@@ -180,6 +198,7 @@ class EvalConfig:
             EvalType.NMOS.value,
             EvalType.QMOS.value,
             EvalType.P808.value,
+            EvalType.CUSTOM_SINGLE.value,
         ]:
             raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808}} when using "use_annotation"')
         return eval_use_annotation
@@ -196,6 +215,7 @@ class EvalConfig:
             "eval_creation_timestamp": self._eval_creation_timestamp,
             "eval_use_annotation": self._eval_use_annotation,
             "eval_auto_start": self._eval_auto_start,
+            "eval_template_id": self._eval_template_id,
             "max_upload_workers": self._max_upload_workers,
         }
 
@@ -208,6 +228,16 @@ class EvalConfig:
             "num_required_etors": self._eval_num,
             "granularity": self._eval_granularity,
             "evaluation_type": self._eval_type.get_type(),
+            "batch_size": self._eval_batch_size,
             "use_annotation": self._eval_use_annotation,
             "auto_start": self._eval_auto_start,
+        }
+
+    def to_create_from_template_request_dto(self) -> Dict[str, Any]:
+        return {
+            "template_id": self._eval_template_id,
+            "title": self._eval_name,
+            "description": self._eval_description,
+            "num_required_etors": self._eval_num,
+            "use_annotation": self._eval_use_annotation,
         }

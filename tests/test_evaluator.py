@@ -23,7 +23,7 @@ class MockEvaluator(Evaluator):
     def add_file(self, file: File) -> None:
         pass
 
-    def add_files(self, target: File, ref: File) -> None:
+    def add_files(self, file0: File, file1: File) -> None:
         pass
 
     def _create_evaluation(self) -> Evaluation:
@@ -32,6 +32,21 @@ class MockEvaluator(Evaluator):
             "title": "mock_title",
             "internal_name": "mock_internal_name",
             "description": "mock_desc",
+            "batch_size": 1,
+            "status": "mock_status",
+            "created_time": "2024-05-21T06:18:09.659270Z",
+            "updated_time": "2024-05-22T06:18:09.659270Z",
+        }
+        evaluation = Evaluation.from_dict(evaluation_config)
+        return evaluation
+
+    def _create_evaluation_from_template(self) -> Evaluation:
+        evaluation_config = {
+            "id": "mock_id",
+            "title": "mock_title",
+            "internal_name": "mock_internal_name",
+            "description": "mock_desc",
+            "batch_size": 1,
             "status": "mock_status",
             "created_time": "2024-05-21T06:18:09.659270Z",
             "updated_time": "2024-05-22T06:18:09.659270Z",
@@ -41,7 +56,6 @@ class MockEvaluator(Evaluator):
 
 
 class TestEvaluator(unittest.TestCase):
-
     def setUp(self):
         self.eval_config = EvalConfig(type="NMOS")
         self.evaluator = MockEvaluator(eval_config=self.eval_config)
@@ -54,9 +68,8 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(result, eval_config)
 
     def test_get_eval_config_not_initialized(self):
-        evaluator = MockEvaluator(eval_config=None)
-
         with self.assertRaises(ValueError) as context:
+            evaluator = MockEvaluator(eval_config=None)
             evaluator._get_eval_config()
 
         self.assertEqual(str(context.exception), "Evaluator is not initialized")
@@ -69,6 +82,7 @@ class TestEvaluator(unittest.TestCase):
             "title": "title",
             "internal_name": None,
             "description": None,
+            "batch_size": 1,
             "status": "DRAFT",
             "created_time": datetime.now().isoformat(),
             "updated_time": datetime.now().isoformat(),
@@ -79,6 +93,28 @@ class TestEvaluator(unittest.TestCase):
         evaluator._api_client.post.return_value = mock_response  # type: ignore
 
         evaluation = evaluator._create_evaluation()
+
+        self.assertEqual(evaluation.id, "mock_id")
+
+    def test_create_evaluation_from_template_success(self):
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = None  # No exception
+        mock_response.json.return_value = {
+            "id": "123",
+            "title": "title",
+            "internal_name": None,
+            "description": None,
+            "batch_size": 1,
+            "status": "DRAFT",
+            "created_time": datetime.now().isoformat(),
+            "updated_time": datetime.now().isoformat(),
+        }
+
+        eval_config = EvalConfig(name="Evaluation from Template", template_id="mock_template_id")
+        evaluator = MockEvaluator(api_client=MagicMock(), eval_config=eval_config)
+        evaluator._api_client.post.return_value = mock_response  # type: ignore
+
+        evaluation = evaluator._create_evaluation_from_template()
 
         self.assertEqual(evaluation.id, "mock_id")
 

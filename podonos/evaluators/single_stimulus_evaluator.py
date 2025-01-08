@@ -66,5 +66,4 @@ class SingleStimulusEvaluator(Evaluator):
             )
 
     def add_files(self, file0: File, file1: File) -> None:
-        raise NotSupportedError("The 'add_files' is only supported for group evaluations like "
-                                "{'CMOS', 'DMOS', 'PREF'}")
+        raise NotSupportedError("The 'add_files' is only supported for group evaluations like " "{'CMOS', 'DMOS', 'PREF', 'CUSTOM_DOUBLE'}")

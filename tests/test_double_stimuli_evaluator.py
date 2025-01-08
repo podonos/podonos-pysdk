@@ -23,6 +23,7 @@ class MockDoubleStimuliEvaluator(DoubleStimuliEvaluator):
             "title": "mock_title",
             "internal_name": "mock_internal_name",
             "description": "mock_desc",
+            "batch_size": 1,
             "status": "mock_status",
             "created_time": "2024-05-21T06:18:09.659270Z",
             "updated_time": "2024-05-22T06:18:09.659270Z",

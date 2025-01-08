@@ -13,15 +13,23 @@ class EvalType(Enum):
     PREF = "PREF"
     CMOS = "CMOS"
     DMOS = "DMOS"
+    CUSTOM_SINGLE = "CUSTOM_SINGLE"
+    CUSTOM_DOUBLE = "CUSTOM_DOUBLE"
 
     def get_type(self) -> str:
-        if self.value == "PREF":
+        if self.value in ["CUSTOM_SINGLE", "CUSTOM_DOUBLE"]:
+            return "CUSTOM"
+        elif self.value == "PREF":
             return "SPEECH_PREFERENCE"
         return f"SPEECH_{self.value}"
 
     @staticmethod
     def is_eval_type(eval_type: str) -> bool:
         return any([item for item in EvalType if item.value == eval_type])
+
+    @staticmethod
+    def is_single(eval_type: str) -> bool:
+        return eval_type in ["NMOS", "QMOS", "P808", "CUSTOM_SINGLE"]
 
 
 class Language(Enum):
@@ -39,6 +47,13 @@ class Language(Enum):
     ITALIAN = "it-it"
     POLISH = "pl-pl"
     AUDIO = "audio"
+
+    @classmethod
+    def from_value(cls, value):
+        for member in cls:
+            if member.value == value:
+                return member
+        raise ValueError(f"{value} is not a valid value for {cls.__name__}")
 
 
 class QuestionFileType(str, Enum):
