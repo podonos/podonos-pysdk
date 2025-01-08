@@ -1,3 +1,8 @@
+## 0.6.0
+
+- `create_evaluator_from_template`: Creating evaluation from template's unique code
+- `create_evaluator`: The CUSTOM_SINGLE and CUSTOM_DOUBLE are supported
+
 ## 0.5.0
 
 - Remove the duplicate tags
