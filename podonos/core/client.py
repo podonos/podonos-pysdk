@@ -64,7 +64,9 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         if not EvalType.is_eval_type(type):
-            raise ValueError("Not supported evaluation types. Use one of the " "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF'}")
+            raise ValueError(
+                "Not supported evaluation types. Use one of the " "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE'}"
+            )
 
         eval_config = EvalConfig(
             name=name,

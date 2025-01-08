@@ -200,7 +200,7 @@ class EvalConfig:
             EvalType.P808.value,
             EvalType.CUSTOM_SINGLE.value,
         ]:
-            raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808}} when using "use_annotation"')
+            raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808, CUSTOM_SINGLE}} when using "use_annotation"')
         return eval_use_annotation
 
     def to_dict(self) -> Dict[str, Any]:
