@@ -12,7 +12,7 @@ from podonos.errors.error import NotSupportedError
 from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 
 
-class MockDoubleStimuliEvaluator(SingleStimulusEvaluator):
+class MockSingleStimuliEvaluator(SingleStimulusEvaluator):
     def __init__(self, supported_evaluation_types: List[EvalType], api_client=Mock(spec=APIClient), eval_config: Optional[EvalConfig] = None):
         super().__init__(supported_evaluation_types, api_client, eval_config)
 
@@ -23,6 +23,7 @@ class MockDoubleStimuliEvaluator(SingleStimulusEvaluator):
             "internal_name": "mock_internal_name",
             "description": "mock_desc",
             "status": "mock_status",
+            "batch_size": 1,
             "created_time": "2024-05-21T06:18:09.659270Z",
             "updated_time": "2024-05-22T06:18:09.659270Z",
         }
@@ -34,7 +35,7 @@ class TestSingleStimulusEvaluator:
     def setup_method(self):
         self.api_client = Mock(spec=APIClient)
         self.eval_config = EvalConfig(type="NMOS")
-        self.evaluator = MockDoubleStimuliEvaluator(
+        self.evaluator = MockSingleStimuliEvaluator(
             supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808], api_client=self.api_client, eval_config=self.eval_config
         )
 

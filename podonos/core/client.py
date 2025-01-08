@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional, List
 
 from requests import HTTPError
 
+from podonos.common.constant import PODONOS_CONTACT_EMAIL
 from podonos.common.enum import EvalType
 from podonos.core.api import APIClient
 from podonos.core.base import *
@@ -63,8 +64,9 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         if not EvalType.is_eval_type(type):
-            raise ValueError("Not supported evaluation types. Use one of the "
-                             "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF'}")
+            raise ValueError(
+                "Not supported evaluation types. Use one of the " "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE'}"
+            )
 
         eval_config = EvalConfig(
             name=name,
@@ -79,18 +81,79 @@ class Client:
             max_upload_workers=max_upload_workers,
         )
         evaluator = None
-        if type in [EvalType.SMOS.value, EvalType.PREF.value]:
+        if type in [EvalType.SMOS.value, EvalType.PREF.value, EvalType.CUSTOM_DOUBLE.value]:
             evaluator = DoubleStimuliEvaluator(
-                supported_evaluation_types=[EvalType.SMOS, EvalType.PREF],
+                supported_evaluation_types=[EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE],
                 api_client=self._api_client,
                 eval_config=eval_config,
             )
         else:
             evaluator = SingleStimulusEvaluator(
-                supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808],
+                supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE],
                 api_client=self._api_client,
                 eval_config=eval_config,
             )
+        log.check(isinstance(evaluator, Evaluator))
+        return evaluator
+
+    def create_evaluator_from_template(
+        self,
+        name: str,
+        template_id: str,
+        num_eval: int,
+        desc: Optional[str] = None,
+        use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
+        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+    ) -> Evaluator:
+        """
+        Creates a new evaluator using a predefined template.
+
+        Args:
+            name: This session name. Required.
+            desc: Description of this session. Optional.
+            template_id: The ID of the template to use for evaluation parameters.
+            num_eval: The number of evaluators per file. Should be >=1.
+            use_annotation: Enable detailed annotation on script for detailed rating reasoning.
+            max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
+
+        Returns:
+            Evaluator instance.
+
+        Raises:
+            ValueError: If the template ID is invalid or not found.
+        """
+        if not self._initialized:
+            raise ValueError("This function is called before initialization.")
+
+        if not template_id:
+            raise ValueError("Template Id should exist")
+
+        template = self._api_client.get_template_by_code(template_id)
+        eval_config = EvalConfig(
+            type=EvalType.CUSTOM_SINGLE.value if template.batch_size == 1 else EvalType.CUSTOM_DOUBLE.value,
+            name=name,
+            desc=desc,
+            num_eval=num_eval,
+            use_annotation=use_annotation,
+            template_id=str(template.id),
+            max_upload_workers=max_upload_workers,
+        )
+
+        if template.batch_size == 1:
+            evaluator = SingleStimulusEvaluator(
+                supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE],
+                api_client=self._api_client,
+                eval_config=eval_config,
+            )
+        elif template.batch_size == 2:
+            evaluator = DoubleStimuliEvaluator(
+                supported_evaluation_types=[EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE],
+                api_client=self._api_client,
+                eval_config=eval_config,
+            )
+        else:
+            raise ValueError(f"Template has invalid type so please contact {PODONOS_CONTACT_EMAIL}")
+
         log.check(isinstance(evaluator, Evaluator))
         return evaluator
 

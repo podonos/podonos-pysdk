@@ -1,3 +1,4 @@
+from datetime import datetime
 import re
 import unittest
 from unittest.mock import patch, MagicMock
@@ -97,22 +98,49 @@ class TestAPIClient(unittest.TestCase):
         mock_version.assert_called_once_with("podonos")
 
     def test_get_content_type(self):
-        path_wav = '/a/b/123.wav'
+        path_wav = "/a/b/123.wav"
         self.assertEqual("audio/wav", self.client._get_content_type_by_filename(path_wav))
 
-        path_wav = '/a/b/456.mp3'
+        path_wav = "/a/b/456.mp3"
         self.assertEqual("audio/mpeg", self.client._get_content_type_by_filename(path_wav))
 
-        path_wav = '/a/b/789.json'
+        path_wav = "/a/b/789.json"
         self.assertEqual("application/json", self.client._get_content_type_by_filename(path_wav))
 
-        path_wav = '/a/b/abc.obj'
+        path_wav = "/a/b/abc.obj"
         self.assertEqual("application/octet-stream", self.client._get_content_type_by_filename(path_wav))
 
     def test_package_version(self):
         version_str = self.client._get_podonos_version()
         # Test the version string is in the format of "<decimal_version>.<decimal_subversion>"
-        self.assertTrue(re.search(r'\d+\.\d+', version_str))
+        self.assertTrue(re.search(r"\d+\.\d+", version_str))
+
+    @patch("requests.get")
+    def test_get_template_by_id_success(self, mock_get):
+        # Mock response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "id": "123",
+            "code": "123456",
+            "title": "Test Template",
+            "description": None,
+            "batch_size": 1,
+            "language": "en-us",
+            "created_time": str(datetime.now()),
+            "updated_time": str(datetime.now()),
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        api_client = APIClient(api_key=self.api_key, api_url=self.api_url)
+
+        # Call the method
+        template = api_client.get_template_by_code("123")
+
+        # Assertions
+        self.assertEqual(template.id, "123")
+        self.assertEqual(template.code, "123456")
+        self.assertEqual(template.title, "Test Template")
 
 
 if __name__ == "__main__":

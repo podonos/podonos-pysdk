@@ -13,7 +13,6 @@ from podonos.core.audio import Audio
 from podonos.core.config import EvalConfig
 from podonos.core.evaluation import Evaluation
 from podonos.core.file import File
-from podonos.core.query import Query
 from podonos.core.upload_manager import UploadManager
 
 
@@ -30,9 +29,6 @@ class Evaluator(ABC):
     # Upload manager. Lazy initialization when used for saving resources.
     _upload_manager: Optional[UploadManager] = None
 
-    # Custom Query.
-    _query: Optional[Query] = None
-
     # Contains the metadata for all the audio files for evaluation.
     _eval_audios: List[List[Audio]] = []
     _eval_audio_json = []
@@ -45,7 +41,7 @@ class Evaluator(ABC):
         self._initialized = True
         self._eval_audios = []
         self._eval_audio_json = []
-        self._evaluation = self._create_evaluation()
+        self._evaluation = self._set_evaluation(eval_config)
 
     def _init_eval_variables(self):
         """Initializes the variables for one evaluation session."""
@@ -99,9 +95,6 @@ class Evaluator(ABC):
 
         log.info("Uploading the final pieces...")
 
-        # Create a template if custom query exists
-        self._create_template_with_question_and_evaluation()
-
         # Insert File data into database
         audios = [audio for audio_list in self._eval_audios for audio in audio_list]
         for i in range(0, len(audios), 500):
@@ -121,7 +114,6 @@ class Evaluator(ABC):
 
         # Create a json.
         session_json = self._eval_config.to_dict()
-        session_json["query"] = self._query.to_dict() if self._query else None
         session_json["files"] = self._eval_audio_json
 
         presigned_url = self._get_presigned_url_for_put_method(
@@ -153,6 +145,11 @@ class Evaluator(ABC):
             raise ValueError("Evaluator is not initialized")
         return self._eval_config
 
+    def _set_evaluation(self, eval_config: Optional[EvalConfig]) -> Evaluation:
+        if eval_config and eval_config.eval_template_id:
+            return self._create_evaluation_from_template()
+        return self._create_evaluation()
+
     def _create_evaluation(self) -> Evaluation:
         """
         Create a new evaluation based on the evaluation configuration
@@ -163,10 +160,31 @@ class Evaluator(ABC):
         Returns:
             Evaluation: Get new evaluation information
         """
-        log.debug("Creates evaluation")
+        log.debug("Create evaluation")
         eval_config = self._get_eval_config()
         try:
             response = self._api_client.post("evaluations", data=eval_config.to_create_request_dto())
+            response.raise_for_status()
+            evaluation = Evaluation.from_dict(response.json())
+            log.info(f"Evaluation is generated: {evaluation.id}")
+            return evaluation
+        except Exception as e:
+            raise HTTPError(f"Failed to create the evaluation: {e}")
+
+    def _create_evaluation_from_template(self) -> Evaluation:
+        """
+        Create a new evaluation based on built-in template
+
+        Raises:
+            HTTPError: If the template id is invalid
+
+        Returns:
+            Evaluation: Get new evaluation information
+        """
+        log.debug("Create Evaluation from Template")
+        eval_config = self._get_eval_config()
+        try:
+            response = self._api_client.post("evaluations/templates", data=eval_config.to_create_from_template_request_dto())
             response.raise_for_status()
             evaluation = Evaluation.from_dict(response.json())
             log.info(f"Evaluation is generated: {evaluation.id}")
@@ -251,28 +269,6 @@ class Evaluator(ABC):
                 f"Failed to create evaluation files: {e}",
                 status_code=e.response.status_code if e.response else None,
             )
-
-    def _create_template_with_question_and_evaluation(
-        self,
-    ) -> None:
-        eval_config = self._get_eval_config()
-        try:
-            if not self._query:
-                return None
-
-            response = self._api_client.post(
-                "templates",
-                {
-                    "evaluation_id": self.get_evaluation_id(),
-                    "title": self._query.title,
-                    "description": self._query.description,
-                    "language": eval_config.eval_language.value,
-                },
-            )
-            response.raise_for_status()
-        except Exception as e:
-            log.error(f"HTTP error in evaluation template generation: {e}")
-            raise e
 
     def _set_audio(
         self,

@@ -23,7 +23,7 @@ class DoubleStimuliEvaluator(Evaluator):
         self._supported_evaluation_types = supported_evaluation_types
 
     def add_file(self, file: File) -> None:
-        raise NotSupportedError("The 'add_file' is only supported in single file evaluation types: " "{'NMOS', 'QMOS', 'P808'}")
+        raise NotSupportedError("The 'add_file' is only supported in single file evaluation types: " "{'NMOS', 'QMOS', 'P808', 'CUSTOM_SINGLE'}")
 
     def add_files(self, file0: File, file1: File) -> None:
         """Adds files for speech evaluation in an ordered or unordered way. If the evaluation requires an order of
@@ -54,11 +54,11 @@ class DoubleStimuliEvaluator(Evaluator):
         eval_config = self._get_eval_config()
         if eval_config.eval_type not in self._supported_evaluation_types:
             raise ValueError(f"Unsupported evaluation type: {eval_config.eval_type}")
-        if eval_config.eval_type not in [EvalType.SMOS, EvalType.PREF, EvalType.CMOS, EvalType.DMOS]:
+        if eval_config.eval_type not in [EvalType.SMOS, EvalType.PREF, EvalType.CMOS, EvalType.DMOS, EvalType.CUSTOM_DOUBLE]:
             raise ValueError("The add_files is used for such evaluations that require multiple files.")
 
         group = self._generate_random_group_name()
-        if eval_config.eval_type == EvalType.PREF:
+        if eval_config.eval_type in [EvalType.PREF, EvalType.CUSTOM_DOUBLE]:
             # Files are ordered stimulus.
             audio0 = self._set_audio(file=file0, group=group, type=QuestionFileType.STIMULUS, order_in_group=0)
             audio1 = self._set_audio(file=file1, group=group, type=QuestionFileType.STIMULUS, order_in_group=1)

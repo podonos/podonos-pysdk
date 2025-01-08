@@ -53,6 +53,7 @@ def mocked_requests_post(*args, **kwargs):
             title="mock_title",
             internal_name="mock_internal_name",
             description="mock_desc",
+            batch_size=1,
             status="mock_status",
             created_time="2024-05-21T06:18:09.659270Z",
             updated_time="2024-05-22T06:18:09.659270Z",
@@ -157,7 +158,7 @@ class TestPodonosEvaluator(unittest.TestCase):
         self.assertIsNotNone(etor)
 
         some_file = os.path.join(os.path.dirname(__file__), "../speech_0_0.mp3")
-        etor.add_file(File(path=some_file, model_tag='my_new_model', tags=["unknown_file,new_model"]))
+        etor.add_file(File(path=some_file, model_tag="my_new_model", tags=["unknown_file,new_model"]))
         etor.close()
 
 

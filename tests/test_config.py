@@ -19,4 +19,4 @@ class TestEvalConfig(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.eval_config._validate_eval_use_annotation(eval_use_annotation=True, eval_type=invalid_eval_type)
 
-        self.assertEqual(str(context.exception), '"eval_type" must be one of {NMOS, QMOS, P808} when using "use_annotation"')
+        self.assertEqual(str(context.exception), '"eval_type" must be one of {NMOS, QMOS, P808, CUSTOM_SINGLE} when using "use_annotation"')
