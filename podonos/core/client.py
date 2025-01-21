@@ -34,6 +34,7 @@ class Client:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
+        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
@@ -50,6 +51,7 @@ class Client:
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
                         Must be >= 12. Default: 12.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
+            use_power_normalization: Enable power normalization for evaluation.
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
@@ -77,6 +79,7 @@ class Client:
             num_eval=num_eval,
             due_hours=due_hours,
             use_annotation=use_annotation,
+            use_power_normalization=use_power_normalization,
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
@@ -103,6 +106,7 @@ class Client:
         num_eval: int,
         desc: Optional[str] = None,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
+        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """
@@ -114,6 +118,7 @@ class Client:
             template_id: The ID of the template to use for evaluation parameters.
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
+            use_power_normalization: Enable power normalization for evaluation.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -135,6 +140,7 @@ class Client:
             desc=desc,
             num_eval=num_eval,
             use_annotation=use_annotation,
+            use_power_normalization=use_power_normalization,
             template_id=str(template.id),
             max_upload_workers=max_upload_workers,
         )
