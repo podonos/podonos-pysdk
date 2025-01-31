@@ -1,3 +1,8 @@
+## 0.7.0
+
+- Fix the bug of `get_stats_dict_by_id` and `download_stats_csv_by_id`
+- Add `use_power_normalization` option in `create_evaluator` and `create_evaluator_from_template`
+
 ## 0.6.0
 
 - `create_evaluator_from_template`: Creating evaluation from template's unique code

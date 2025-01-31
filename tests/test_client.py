@@ -65,12 +65,15 @@ def mocked_requests_get(*args, **kwargs):
         evaluation_stats = [
             dict(
                 files=[{"name": "tr16.wav", "model_tag": "my_model", "tags": ["generated"], "type": "A"}],
+                question={
+                    "title": "Attending **ONLY to the BACKGROUND (noise or other speakers' voices)**, select the category which best describes the sample you just heard.",
+                    "order": 0,
+                },
                 mean=3.4,
                 median=3.5,
                 std=1.07,
-                ci_90=1.14,
-                ci_95=1.48,
-                ci_99=1.53,
+                option_a=True,
+                option_b=False,
             )
         ]
         return MockResponse(None, evaluation_stats, 200)
@@ -173,14 +176,34 @@ class TestEvaluationClient(unittest.TestCase):
         response = self._mock_client.get_stats_dict_by_id(evaluation_id="mock_id")
         self.assertTrue(isinstance(response, list))
         self.assertTrue(len(response) > 0)
+
         json = response[0]
+
         self.assertTrue("files" in json)
-        self.assertTrue("mean" in json)
-        self.assertTrue("median" in json)
-        self.assertTrue("std" in json)
-        self.assertTrue("ci_90" in json)
-        self.assertTrue("ci_95" in json)
-        self.assertTrue("ci_99" in json)
+        self.assertTrue("question" in json)
+
+        files = json["files"]
+        self.assertTrue(isinstance(files, list))
+        self.assertTrue(len(files) > 0)
+        file = files[0]
+        self.assertTrue("name" in file)
+        self.assertTrue("model_tag" in file)
+        self.assertTrue("tags" in file)
+        self.assertTrue("type" in file)
+
+        question = json["question"]
+        self.assertTrue("title" in question)
+        self.assertTrue("order" in question)
+
+        optional_stats = ["mean", "median", "std"]
+        for stat in optional_stats:
+            if stat in json:
+                self.assertTrue(isinstance(json[stat], (int, float)))
+
+        self.assertTrue("option_a" in json)
+        self.assertTrue("option_b" in json)
+        self.assertTrue(isinstance(json["option_a"], bool))
+        self.assertTrue(isinstance(json["option_b"], bool))
 
 
 class TestEvaluationClientApiKey(unittest.TestCase):
