@@ -214,12 +214,37 @@ class Client:
         log.check_ne(evaluation_id, "")
         log.check_ne(output_path, "")
         stats = self.get_stats_dict_by_id(evaluation_id)
+
         with open(output_path, "w") as f:
-            f.write("name,tags,type,mean,median,std,ci_90,ci_95,ci_99\n")
+            question_headers = ["question_title", "question_order"]
+            file_headers = ["name", "model_tag", "tags", "type"]
+            stat_fields = ["mean", "median", "std", "sem", "ci_95"]
+
+            option_keys = set()
             for stat in stats:
+                if "options" in stat:
+                    option_keys.update(stat["options"].keys())
+
+            all_headers = question_headers + file_headers + stat_fields + sorted(list(option_keys))
+            f.write(",".join(all_headers) + "\n")
+
+            for stat in stats:
+                question = stat.get("question", {})
                 for file in stat["files"]:
-                    tags = ";".join(file["tags"])
-                    f.write(
-                        f"{file['name']},{tags},{file['type']},{stat['mean']},{stat['median']},{stat['std']},"
-                        f"{stat['ci_90']},{stat['ci_95']},{stat['ci_99']}\n"
-                    )
+                    row_data = [
+                        question.get("title", ""),
+                        str(question.get("order", "")),
+                        file["name"],
+                        file["model_tag"],
+                        ";".join(file["tags"]),
+                        file["type"],
+                    ]
+
+                    for field in stat_fields:
+                        row_data.append(str(stat.get(field, "")))
+
+                    options = stat.get("options", {})
+                    for key in sorted(list(option_keys)):
+                        row_data.append(str(options.get(key, "")))
+
+                    f.write(",".join(row_data) + "\n")
