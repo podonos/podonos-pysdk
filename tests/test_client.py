@@ -178,11 +178,10 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue(len(response) > 0)
 
         json = response[0]
-        # 필수 필드 검증
+
         self.assertTrue("files" in json)
         self.assertTrue("question" in json)
 
-        # files 검증
         files = json["files"]
         self.assertTrue(isinstance(files, list))
         self.assertTrue(len(files) > 0)
@@ -192,18 +191,15 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue("tags" in file)
         self.assertTrue("type" in file)
 
-        # question 검증
         question = json["question"]
         self.assertTrue("title" in question)
         self.assertTrue("order" in question)
 
-        # 선택적 통계 필드 검증
         optional_stats = ["mean", "median", "std"]
         for stat in optional_stats:
             if stat in json:
                 self.assertTrue(isinstance(json[stat], (int, float)))
 
-        # 추가 옵션 필드 검증
         self.assertTrue("option_a" in json)
         self.assertTrue("option_b" in json)
         self.assertTrue(isinstance(json["option_a"], bool))
