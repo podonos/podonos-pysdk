@@ -1,5 +1,6 @@
-from typing import Any, Dict, Optional, List
-
+import json
+from pathlib import Path
+from typing import Any, Dict, Optional, List, Tuple
 from requests import HTTPError
 
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
@@ -12,6 +13,8 @@ from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
 from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
 from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
+from podonos.core.template import TemplateQuestion
+from podonos.core.query import GuideQuestion, Question, ComparisonQuestion
 
 
 class Client:
@@ -163,6 +166,126 @@ class Client:
         log.check(isinstance(evaluator, Evaluator))
         return evaluator
 
+    def create_evaluator_from_template_json(
+        self,
+        json_file_path: str,
+        name: Optional[str],
+        is_single: bool,
+        desc: Optional[str] = None,
+        lan: str = EvalConfigDefault.LAN.value,
+        num_eval: int = EvalConfigDefault.NUM_EVAL,
+        use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
+        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
+        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+    ) -> Evaluator:
+        """Creates a new evaluator using a template JSON file.
+
+        Args:
+            json_file_path: Path to the JSON template file
+            is_single: If True, creates CUSTOM_SINGLE evaluator. If False, creates CUSTOM_DOUBLE evaluator.
+            name: This session name. Required.
+            desc: Description of this session. Optional.
+            lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
+            num_eval: The number of evaluators per file. Should be >=1.
+            use_annotation: Enable detailed annotation on script for detailed rating reasoning.
+            use_power_normalization: Enable power normalization for evaluation.
+            max_upload_workers: The maximum number of upload workers. Must be a positive integer.
+
+        Returns:
+            Evaluator instance.
+
+        Raises:
+            ValueError: If the JSON file is invalid or contains incompatible question types
+            FileNotFoundError: If the JSON file doesn't exist
+        """
+        if not self._initialized:
+            raise ValueError("This function is called before initialization.")
+
+        log.info(f"Creating {'single' if is_single else 'double'} stimulus evaluator from template JSON: {json_file_path}")
+
+        # Read template JSON
+        json_path = Path(json_file_path)
+        if not json_path.exists():
+            raise FileNotFoundError(f"JSON file not found: {json_file_path}")
+
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        log.info(f"Successfully loaded template JSON with {len(data['questions'])} questions")
+
+        # Validate JSON structure
+        guide_questions, core_questions = self._validate_template_questions(data, is_single)
+        log.info("Template JSON validation completed")
+
+        # Create evaluator first
+        eval_type = EvalType.CUSTOM_SINGLE if is_single else EvalType.CUSTOM_DOUBLE
+        eval_config = EvalConfig(
+            name=name,
+            desc=desc,
+            type=eval_type.value,
+            lan=lan,
+            num_eval=num_eval,
+            use_annotation=use_annotation,
+            use_power_normalization=use_power_normalization,
+            max_upload_workers=max_upload_workers,
+        )
+        log.info(f"Created evaluation config with type: {eval_type.value}")
+
+        if is_single:
+            evaluator = SingleStimulusEvaluator(
+                supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE],
+                api_client=self._api_client,
+                eval_config=eval_config,
+            )
+        else:
+            evaluator = DoubleStimuliEvaluator(
+                supported_evaluation_types=[EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE],
+                api_client=self._api_client,
+                eval_config=eval_config,
+            )
+
+        try:
+            # Guide 질문 생성
+            if guide_questions:
+                log.info(f"Creating {len(guide_questions)} guide questions...")
+                guide_request = {
+                    "evaluation_id": evaluator.get_evaluation_id(),
+                    "questions": [q.to_create_dict() for q in guide_questions]
+                }
+                response = self._api_client.put("template-questions/bulk", data=guide_request)
+                response.raise_for_status()
+                
+                for q_response, question in zip(response.json(), guide_questions):
+                    question.id = q_response['id']
+
+            # Core 질문 생성
+            if core_questions:
+                log.info(f"Creating {len(core_questions)} core questions...")
+                core_request = {
+                    "evaluation_id": evaluator.get_evaluation_id(),
+                    "questions": [q.to_create_dict() for q in core_questions]
+                }
+                response = self._api_client.put("template-questions/bulk", data=core_request)
+                response.raise_for_status()
+                
+                for q_response, question in zip(response.json(), core_questions):
+                    question.id = q_response['id']
+
+            # Create options for questions that have options
+            questions_with_options = [q for q in (guide_questions + core_questions) if q.options]
+            if questions_with_options:
+                log.info(f"Creating options for {len(questions_with_options)} questions...")
+                for question in questions_with_options:
+                    option_request = question.to_option_bulk_request()
+                    response = self._api_client.put("template-options/bulk", data=option_request)
+                    response.raise_for_status()
+
+        except Exception as e:
+            log.error(f"Failed to create template: {str(e)}")
+            raise HTTPError(f"Failed to create template questions: {e}")
+
+        log.info("Template creation completed successfully")
+        return evaluator
+
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
 
@@ -248,3 +371,56 @@ class Client:
                         row_data.append(str(options.get(key, "")))
 
                     f.write(",".join(row_data) + "\n")
+
+    def _validate_template_questions(
+        self, 
+        data: Dict[str, Any], 
+        is_single: bool
+    ) -> Tuple[List[TemplateQuestion], List[TemplateQuestion]]:
+        """Validates the template JSON data and returns TemplateQuestion objects.
+        
+        Returns:
+            Tuple of (guide_template_questions, core_template_questions)
+        """
+        if not isinstance(data.get('questions'), list):
+            raise ValueError("Template must contain a 'questions' list")
+
+        if not data['questions']:
+            raise ValueError("Template must contain at least one question")
+
+        guide_questions = []
+        core_questions = []
+        guide_order = 0
+        core_order = 0
+        
+        log.info(f"Processing {len(data['questions'])} questions...")
+        
+        for i, q_data in enumerate(data['questions']):
+            try:
+                question = Question.from_dict(q_data)
+                question.validate()
+                
+                if is_single and isinstance(question, ComparisonQuestion):
+                    raise ValueError(
+                        "COMPARISON type questions are not allowed in single stimulus evaluation. "
+                        "Please use is_single=False for comparison questions."
+                    )
+                
+                template_question = question.to_template_question()
+                
+                if isinstance(question, GuideQuestion):
+                    template_question.order = guide_order
+                    guide_order += 1
+                    guide_questions.append(template_question)
+                else:
+                    template_question.order = core_order
+                    core_order += 1
+                    core_questions.append(template_question)
+                    
+            except Exception as e:
+                log.error(f"Failed to process question {i} ({q_data.get('type', 'unknown type')}): {str(e)}")
+                raise
+
+        log.info(f"Processed {len(guide_questions)} guide questions and {len(core_questions)} core questions")
+        
+        return guide_questions, core_questions
