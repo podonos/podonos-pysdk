@@ -183,9 +183,9 @@ class Client:
         Args:
             json: Template JSON as a dictionary. Optional if json_file is provided.
             json_file: Path to the JSON template file. Optional if json is provided.
-            name: This session name. Required.
+            name: This evaluation name. Required.
             custom_type: Type of evaluation ("SINGLE" or "DOUBLE")
-            desc: Description of this session. Optional.
+            desc: Description of this evaluation. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
