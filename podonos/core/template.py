@@ -71,12 +71,12 @@ class TemplateValidator:
         guide_order = 0
         core_order = 0
 
-        # Process guide questions if they exist
+        # Process guide questions if exist
         if "guide" in data and data["guide"]:
             if not isinstance(data["guide"], list):
                 raise ValueError("Guide questions must be in a list format")
 
-            log.info(f"Processing {len(data['guide'])} guide questions...")
+            log.debug(f"Processing {len(data['guide'])} guide questions...")
             for i, q_data in enumerate(data["guide"]):
                 try:
                     question = Question.from_dict(q_data)
@@ -94,7 +94,7 @@ class TemplateValidator:
                     raise
 
         # Process core questions
-        log.info(f"Processing {len(data['query'])} core questions...")
+        log.debug(f"Processing {len(data['query'])} core questions...")
         for i, q_data in enumerate(data["query"]):
             try:
                 question = Question.from_dict(q_data)
@@ -118,6 +118,6 @@ class TemplateValidator:
                 log.error(f"Failed to process core question {i} ({q_data.get('type', 'unknown type')}): {str(e)}")
                 raise
 
-        log.info(f"Processed {len(guide_questions)} guide questions and {len(core_questions)} core questions")
+        log.debug(f"Processed {len(guide_questions)} guide questions and {len(core_questions)} core questions")
 
         return guide_questions, core_questions

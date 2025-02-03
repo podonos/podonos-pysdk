@@ -187,8 +187,8 @@ class Client:
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
-            use_power_normalization: Enable power normalization for evaluation.
-            max_upload_workers: The maximum number of upload workers. Must be a positive integer.
+            use_power_normalization: Enable power normalization for evaluation. Default: False
+            max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
             Evaluator instance.
@@ -212,9 +212,9 @@ class Client:
 
         # Use the validator from template.py
         guide_questions, core_questions = TemplateValidator.validate_and_create_questions(data, is_single)
-        log.info("Template JSON validation completed")
+        log.info("Template JSON is validated.")
 
-        # Create evaluator first
+        # Create an evaluator
         eval_type = EvalType.CUSTOM_SINGLE if is_single else EvalType.CUSTOM_DOUBLE
         eval_config = EvalConfig(
             name=name,
@@ -243,7 +243,7 @@ class Client:
 
         try:
             if guide_questions:
-                log.info(f"Creating {len(guide_questions)} guide questions...")
+                log.debug(f"Creating {len(guide_questions)} guide questions...")
                 guide_request = {"evaluation_id": evaluator.get_evaluation_id(), "questions": [q.to_create_dict() for q in guide_questions]}
                 print(guide_request)
                 response = self._api_client.put("template-questions/bulk", data=guide_request)
@@ -253,7 +253,7 @@ class Client:
                     question.id = q_response["id"]
 
             if core_questions:
-                log.info(f"Creating {len(core_questions)} core questions...")
+                log.debug(f"Creating {len(core_questions)} core questions...")
                 core_request = {"evaluation_id": evaluator.get_evaluation_id(), "questions": [q.to_create_dict() for q in core_questions]}
                 response = self._api_client.put("template-questions/bulk", data=core_request)
                 response.raise_for_status()
@@ -264,7 +264,7 @@ class Client:
             # Create options for questions that have options
             questions_with_options = [q for q in (guide_questions + core_questions) if q.options]
             if questions_with_options:
-                log.info(f"Creating options for {len(questions_with_options)} questions...")
+                log.debug(f"Creating options for {len(questions_with_options)} questions...")
                 for question in questions_with_options:
                     option_request = question.to_option_bulk_request()
                     response = self._api_client.put("template-options/bulk", data=option_request)
