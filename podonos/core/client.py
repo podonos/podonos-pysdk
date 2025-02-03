@@ -13,8 +13,7 @@ from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
 from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
 from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
-from podonos.core.template import TemplateQuestion
-from podonos.core.query import GuideQuestion, Question, ComparisonQuestion
+from podonos.core.template import TemplateValidator
 
 
 class Client:
@@ -208,12 +207,11 @@ class Client:
         if not json_path.exists():
             raise FileNotFoundError(f"JSON file not found: {json_file_path}")
 
-        with open(json_path, 'r', encoding='utf-8') as f:
+        with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        log.info(f"Successfully loaded template JSON with {len(data['questions'])} questions")
 
-        # Validate JSON structure
-        guide_questions, core_questions = self._validate_template_questions(data, is_single)
+        # Use the validator from template.py
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(data, is_single)
         log.info("Template JSON validation completed")
 
         # Create evaluator first
@@ -244,31 +242,24 @@ class Client:
             )
 
         try:
-            # Guide 질문 생성
             if guide_questions:
                 log.info(f"Creating {len(guide_questions)} guide questions...")
-                guide_request = {
-                    "evaluation_id": evaluator.get_evaluation_id(),
-                    "questions": [q.to_create_dict() for q in guide_questions]
-                }
+                guide_request = {"evaluation_id": evaluator.get_evaluation_id(), "questions": [q.to_create_dict() for q in guide_questions]}
+                print(guide_request)
                 response = self._api_client.put("template-questions/bulk", data=guide_request)
                 response.raise_for_status()
-                
-                for q_response, question in zip(response.json(), guide_questions):
-                    question.id = q_response['id']
 
-            # Core 질문 생성
+                for q_response, question in zip(response.json(), guide_questions):
+                    question.id = q_response["id"]
+
             if core_questions:
                 log.info(f"Creating {len(core_questions)} core questions...")
-                core_request = {
-                    "evaluation_id": evaluator.get_evaluation_id(),
-                    "questions": [q.to_create_dict() for q in core_questions]
-                }
+                core_request = {"evaluation_id": evaluator.get_evaluation_id(), "questions": [q.to_create_dict() for q in core_questions]}
                 response = self._api_client.put("template-questions/bulk", data=core_request)
                 response.raise_for_status()
-                
+
                 for q_response, question in zip(response.json(), core_questions):
-                    question.id = q_response['id']
+                    question.id = q_response["id"]
 
             # Create options for questions that have options
             questions_with_options = [q for q in (guide_questions + core_questions) if q.options]
@@ -371,56 +362,3 @@ class Client:
                         row_data.append(str(options.get(key, "")))
 
                     f.write(",".join(row_data) + "\n")
-
-    def _validate_template_questions(
-        self, 
-        data: Dict[str, Any], 
-        is_single: bool
-    ) -> Tuple[List[TemplateQuestion], List[TemplateQuestion]]:
-        """Validates the template JSON data and returns TemplateQuestion objects.
-        
-        Returns:
-            Tuple of (guide_template_questions, core_template_questions)
-        """
-        if not isinstance(data.get('questions'), list):
-            raise ValueError("Template must contain a 'questions' list")
-
-        if not data['questions']:
-            raise ValueError("Template must contain at least one question")
-
-        guide_questions = []
-        core_questions = []
-        guide_order = 0
-        core_order = 0
-        
-        log.info(f"Processing {len(data['questions'])} questions...")
-        
-        for i, q_data in enumerate(data['questions']):
-            try:
-                question = Question.from_dict(q_data)
-                question.validate()
-                
-                if is_single and isinstance(question, ComparisonQuestion):
-                    raise ValueError(
-                        "COMPARISON type questions are not allowed in single stimulus evaluation. "
-                        "Please use is_single=False for comparison questions."
-                    )
-                
-                template_question = question.to_template_question()
-                
-                if isinstance(question, GuideQuestion):
-                    template_question.order = guide_order
-                    guide_order += 1
-                    guide_questions.append(template_question)
-                else:
-                    template_question.order = core_order
-                    core_order += 1
-                    core_questions.append(template_question)
-                    
-            except Exception as e:
-                log.error(f"Failed to process question {i} ({q_data.get('type', 'unknown type')}): {str(e)}")
-                raise
-
-        log.info(f"Processed {len(guide_questions)} guide questions and {len(core_questions)} core questions")
-        
-        return guide_questions, core_questions

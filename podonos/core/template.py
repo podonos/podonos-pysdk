@@ -1,65 +1,18 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 
-from podonos.common.enum import (
-    Language,
-    QuestionResponseCategory,
-    QuestionUsageType,
-)
+from podonos.common.enum import Language
+from podonos.core.base import *
+from podonos.core.types import TemplateQuestion
+from podonos.core.query import Question, GuideQuestion, ComparisonQuestion
 
-@dataclass
-class TemplateOption:
-    value: str
-    label_text: Optional[str] = None
-    order: int = 0
-    id: Optional[str] = None
-    label_uri: Optional[str] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "value": self.value,
-            "label_text": self.label_text,
-            "label_uri": self.label_uri,
-            "order": self.order
-        }
-
-@dataclass
-class TemplateQuestion:
-    title: str
-    response_category: QuestionResponseCategory
-    usage_type: QuestionUsageType
-    order: int
-    description: Optional[str] = None
-    scale: int = 0
-    has_other: bool = False
-    has_none: bool = False
-    id: Optional[str] = None
-    options: List[TemplateOption] = field(default_factory=list)
-
-    def to_create_dict(self) -> Dict[str, Any]:
-        return {
-            "title": self.title,
-            "description": self.description,
-            "response_category": self.response_category.value,
-            "usage_type": self.usage_type.value,
-            "scale": self.scale,
-            "order": self.order,
-            "has_other": self.has_other,
-            "has_none": self.has_none
-        }
-
-    def to_option_bulk_request(self) -> Dict[str, Any]:
-        return {
-            "template_question_id": self.id,
-            "options": [opt.to_dict() for opt in self.options]
-        }
 
 @dataclass
 class Template:
     """Template class for handling API responses"""
+
     id: Optional[str] = None
     code: Optional[str] = None
     title: Optional[str] = None
@@ -68,7 +21,7 @@ class Template:
     batch_size: Optional[int] = None
     created_time: Optional[datetime] = None
     updated_time: Optional[datetime] = None
-    
+
     @staticmethod
     def from_api_response(data: dict) -> "Template":
         """Create Template instance from API response."""
@@ -87,3 +40,84 @@ class Template:
             created_time=datetime.fromisoformat(data["created_time"].replace("Z", "+00:00")),
             updated_time=datetime.fromisoformat(data["updated_time"].replace("Z", "+00:00")),
         )
+
+
+class TemplateValidator:
+    """Validator class for template JSON data"""
+
+    @staticmethod
+    def validate_and_create_questions(data: Dict[str, Any], is_single: bool) -> Tuple[List[TemplateQuestion], List[TemplateQuestion]]:
+        """Validates the template JSON data and returns TemplateQuestion objects.
+
+        Args:
+            data: Template JSON data
+            is_single: If True, validates for single stimulus evaluation
+
+        Returns:
+            Tuple of (guide_template_questions, core_template_questions)
+
+        Raises:
+            ValueError: If template structure is invalid or contains incompatible questions
+        """
+        # Validate core questions (required)
+        if "query" not in data or not isinstance(data["query"], list):
+            raise ValueError("Template must contain a 'query' list")
+
+        if not data["query"]:
+            raise ValueError("Template must contain at least one query question")
+
+        guide_questions = []
+        core_questions = []
+        guide_order = 0
+        core_order = 0
+
+        # Process guide questions if they exist
+        if "guide" in data and data["guide"]:
+            if not isinstance(data["guide"], list):
+                raise ValueError("Guide questions must be in a list format")
+
+            log.info(f"Processing {len(data['guide'])} guide questions...")
+            for i, q_data in enumerate(data["guide"]):
+                try:
+                    question = Question.from_dict(q_data)
+                    question.validate()
+
+                    if not isinstance(question, GuideQuestion):
+                        raise ValueError(f"Question in guide section must be of type GUIDE, got {q_data.get('type')}")
+
+                    template_question = question.to_template_question()
+                    template_question.order = guide_order
+                    guide_order += 1
+                    guide_questions.append(template_question)
+                except Exception as e:
+                    log.error(f"Failed to process guide question {i}: {str(e)}")
+                    raise
+
+        # Process core questions
+        log.info(f"Processing {len(data['query'])} core questions...")
+        for i, q_data in enumerate(data["query"]):
+            try:
+                question = Question.from_dict(q_data)
+                question.validate()
+
+                if is_single and isinstance(question, ComparisonQuestion):
+                    raise ValueError(
+                        "COMPARISON type questions are not allowed in single stimulus evaluation. "
+                        "Please use is_single=False for comparison questions."
+                    )
+
+                if isinstance(question, GuideQuestion):
+                    raise ValueError(f"GUIDE type questions are not allowed in query section")
+
+                template_question = question.to_template_question()
+                template_question.order = core_order
+                core_order += 1
+                core_questions.append(template_question)
+
+            except Exception as e:
+                log.error(f"Failed to process core question {i} ({q_data.get('type', 'unknown type')}): {str(e)}")
+                raise
+
+        log.info(f"Processed {len(guide_questions)} guide questions and {len(core_questions)} core questions")
+
+        return guide_questions, core_questions

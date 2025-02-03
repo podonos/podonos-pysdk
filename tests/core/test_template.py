@@ -1,7 +1,9 @@
 import unittest
 from datetime import datetime
-from podonos.core.template import Template, TemplateOption, TemplateQuestion
+
+from podonos.core.template import Template, TemplateValidator
 from podonos.common.enum import Language, QuestionResponseCategory, QuestionUsageType
+from podonos.core.types import TemplateOption, TemplateQuestion
 
 
 class TestTemplate(unittest.TestCase):
@@ -134,6 +136,83 @@ class TestTemplateQuestion(unittest.TestCase):
         # Then
         self.assertEqual(result["template_question_id"], None)
         self.assertEqual(len(result["options"]), 0)
+
+
+class TestTemplateValidator(unittest.TestCase):
+    def setUp(self):
+        self.valid_single_template = {
+            "query": [
+                {
+                    "type": "SCORED",
+                    "title": "Audio Quality",
+                    "description": "Rate the audio quality",
+                    "options": [{"value": "1", "label_text": "Poor"}, {"value": "2", "label_text": "Good"}],
+                }
+            ],
+            "guide": [{"type": "GUIDE", "title": "Evaluation Guide", "description": "How to evaluate", "category": "WARNING"}],
+        }
+
+        self.valid_double_template = {
+            "query": [{"type": "COMPARISON", "title": "Compare Audio", "description": "Compare two audio samples", "scale": 7}]
+        }
+
+    def test_validate_single_stimulus_template(self):
+        # When
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(self.valid_single_template, is_single=True)
+
+        # Then
+        self.assertEqual(len(guide_questions), 1)
+        self.assertEqual(len(core_questions), 1)
+        self.assertEqual(guide_questions[0].usage_type, QuestionUsageType.GUIDELINE_WARNING)
+        self.assertEqual(core_questions[0].response_category, QuestionResponseCategory.CHOICE_ONE)
+
+    def test_validate_double_stimulus_template(self):
+        # When
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(self.valid_double_template, is_single=False)
+
+        # Then
+        self.assertEqual(len(guide_questions), 0)
+        self.assertEqual(len(core_questions), 1)
+        self.assertEqual(core_questions[0].response_category, QuestionResponseCategory.SCALE_LINEAR)
+
+    def test_validate_missing_query(self):
+        # Given
+        invalid_template = {"guide": []}
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            TemplateValidator.validate_and_create_questions(invalid_template, is_single=True)
+        self.assertIn("must contain a 'query' list", str(context.exception))
+
+    def test_validate_empty_query(self):
+        # Given
+        invalid_template = {"query": []}
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            TemplateValidator.validate_and_create_questions(invalid_template, is_single=True)
+        self.assertIn("must contain at least one query question", str(context.exception))
+
+    def test_validate_invalid_guide_question_type(self):
+        # Given
+        invalid_template = {
+            "query": [{"type": "SCORED", "title": "Test", "options": [{"value": "1"}]}],
+            "guide": [{"type": "SCORED", "title": "Invalid Guide", "options": [{"value": "1"}]}],
+        }
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            TemplateValidator.validate_and_create_questions(invalid_template, is_single=True)
+        self.assertIn("must be of type GUIDE", str(context.exception))
+
+    def test_validate_comparison_in_single_stimulus(self):
+        # Given
+        invalid_template = {"query": [{"type": "COMPARISON", "title": "Compare", "scale": 5}]}
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            TemplateValidator.validate_and_create_questions(invalid_template, is_single=True)
+        self.assertIn("not allowed in single stimulus evaluation", str(context.exception))
 
 
 if __name__ == "__main__":

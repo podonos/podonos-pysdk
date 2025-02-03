@@ -105,9 +105,9 @@ class TestEvaluationClient(unittest.TestCase):
 
     def setUp(self):
         self.valid_api_key = "1234567890"
-        # Single stimulus용 템플릿 (COMPARISON 질문 제외)
+        # Single stimulus
         self.single_template_json = {
-            "questions": [
+            "query": [
                 {
                     "type": "SCORED",
                     "title": "Audio Quality Assessment",
@@ -129,51 +129,26 @@ class TestEvaluationClient(unittest.TestCase):
                     "has_other": True,
                     "has_none": False,
                 },
+            ],
+            "guide": [
                 {
                     "type": "GUIDE",
                     "title": "Evaluation Guidelines",
                     "description": "Important points to consider when evaluating audio",
                     "category": "WARNING",
-                },
-            ]
+                }
+            ],
         }
 
-        # Double stimulus용 템플릿 (모든 질문 포함)
+        # Double stimulus
         self.double_template_json = {
-            "questions": [
-                {
-                    "type": "SCORED",
-                    "title": "Audio Quality Assessment",
-                    "description": "Please evaluate the overall quality of the audio",
-                    "options": [
-                        {"value": "1", "label_text": "Very Poor"},
-                        {"value": "2", "label_text": "Poor"},
-                        {"value": "3", "label_text": "Fair"},
-                        {"value": "4", "label_text": "Good"},
-                        {"value": "5", "label_text": "Excellent"},
-                    ],
-                },
-                {
-                    "type": "NON_SCORED",
-                    "title": "Audio Characteristics",
-                    "description": "Please select all audio characteristics that you hear",
-                    "options": [{"value": "Background Noise"}, {"value": "Echo"}, {"value": "Distortion"}],
-                    "allow_multiple": True,
-                    "has_other": True,
-                    "has_none": False,
-                },
+            "query": [
                 {
                     "type": "COMPARISON",
                     "title": "Audio Quality Comparison",
                     "description": "Please compare the quality between two audio samples",
                     "scale": 7,
-                },
-                {
-                    "type": "GUIDE",
-                    "title": "Evaluation Guidelines",
-                    "description": "Important points to consider when evaluating audio",
-                    "category": "WARNING",
-                },
+                }
             ]
         }
 
@@ -295,7 +270,7 @@ class TestEvaluationClient(unittest.TestCase):
         # Mock successful responses
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = [{"id": f"question_{i}"} for i in range(3)]  # 3 questions for single
+        mock_response.json.return_value = [{"id": f"question_{i}"} for i in range(3)]
         mock_put.return_value = mock_response
 
         try:
@@ -306,26 +281,9 @@ class TestEvaluationClient(unittest.TestCase):
 
             # Then
             self.assertIsInstance(evaluator, SingleStimulusEvaluator)
-
-            # Verify API calls
-            self.assertTrue(mock_put.call_count >= 2)  # At least 2 calls: guide questions and core questions
-
-            # Verify the calls were made with correct data
-            for call in mock_put.call_args_list:
-                kwargs = call[1]
-                json_data = kwargs["json"]
-
-                # Check if this is a question creation call
-                if "evaluation_id" in json_data:
-                    self.assertIn("questions", json_data)
-                # Check if this is an option creation call
-                elif "template_question_id" in json_data:
-                    self.assertIn("options", json_data)
-                else:
-                    self.fail("Unexpected API call structure")
+            self.assertTrue(mock_put.call_count >= 2)
 
         finally:
-            # Cleanup
             Path(json_path).unlink()
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
@@ -339,7 +297,7 @@ class TestEvaluationClient(unittest.TestCase):
         # Mock successful responses
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = [{"id": f"question_{i}"} for i in range(4)]  # 4 questions for double
+        mock_response.json.return_value = [{"id": f"question_{i}"} for i in range(1)]
         mock_put.return_value = mock_response
 
         try:
@@ -350,26 +308,9 @@ class TestEvaluationClient(unittest.TestCase):
 
             # Then
             self.assertIsInstance(evaluator, DoubleStimuliEvaluator)
-
-            # Verify API calls
-            self.assertTrue(mock_put.call_count >= 2)  # At least 2 calls: guide questions and core questions
-
-            # Verify the calls were made with correct data
-            for call in mock_put.call_args_list:
-                kwargs = call[1]
-                json_data = kwargs["json"]
-
-                # Check if this is a question creation call
-                if "evaluation_id" in json_data:
-                    self.assertIn("questions", json_data)
-                # Check if this is an option creation call
-                elif "template_question_id" in json_data:
-                    self.assertIn("options", json_data)
-                else:
-                    self.fail("Unexpected API call structure")
+            self.assertTrue(mock_put.call_count >= 1)
 
         finally:
-            # Cleanup
             Path(json_path).unlink()
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
@@ -427,6 +368,71 @@ class TestEvaluationClientApiKey(unittest.TestCase):
         self.assertEqual(api_key_env, "ABCD123ENV")
         mock_client = podonos.init(api_key="ABCD123PARAM")
         self.assertTrue(isinstance(mock_client, Client))
+
+
+class TestClient(unittest.TestCase):
+    def setUp(self):
+        self.valid_api_key = "test_key"
+        self.api_client = MagicMock()
+        self.client = Client(self.api_client)
+
+        # Mock successful evaluation creation response
+        self.mock_eval_response = {
+            "id": "mock_id",
+            "title": "mock_title",
+            "internal_name": "mock_internal_name",
+            "batch_size": 1,
+            "description": "mock_desc",
+            "status": "mock_status",
+            "created_time": "2024-03-21T06:18:09.659270Z",
+            "updated_time": "2024-03-21T06:18:09.659270Z",
+        }
+
+    def test_create_evaluator_from_template_json(self):
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        self.api_client.post.return_value = mock_post_response
+
+        mock_put_response = MagicMock(status_code=200)
+        mock_put_response.json.return_value = [{"id": "question_1"}]
+        self.api_client.put.return_value = mock_put_response
+
+        template_data = {"query": [{"type": "SCORED", "title": "Test Question", "options": [{"value": "1", "label_text": "Option 1"}]}]}
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(template_data, f)
+            template_path = f.name
+
+        try:
+            # When
+            evaluator = self.client.create_evaluator_from_template_json(
+                json_file_path=template_path, name="Test Evaluation", is_single=True, desc="Test Description"
+            )
+
+            # Then
+            self.assertIsInstance(evaluator, SingleStimulusEvaluator)
+            self.api_client.post.assert_called_once()
+            self.assertTrue(self.api_client.put.call_count >= 1)
+
+            # Verify at least one API call contains question data
+            has_question_call = False
+            for call in self.api_client.put.call_args_list:
+                _, kwargs = call
+                data = kwargs.get("data", {})
+                if "questions" in data:
+                    has_question_call = True
+                    break
+
+            self.assertTrue(has_question_call, "No question creation API call found")
+
+        finally:
+            Path(template_path).unlink()
+
+    def test_create_evaluator_from_invalid_json_path(self):
+        # When/Then
+        with self.assertRaises(FileNotFoundError):
+            self.client.create_evaluator_from_template_json(json_file_path="nonexistent.json", name="Test", is_single=True)
 
 
 if __name__ == "__main__":
