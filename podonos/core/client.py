@@ -1,6 +1,6 @@
 import json as json_lib
 from pathlib import Path
-from typing import Any, Dict, Optional, List, Tuple
+from typing import Any, Dict, Literal, Optional, List, Union
 from requests import HTTPError
 
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
@@ -170,7 +170,7 @@ class Client:
         json: Optional[Dict] = None,
         json_file: Optional[str] = None,
         name: Optional[str] = None,
-        batch_size: int = 1,
+        custom_type: Union[Literal["SINGLE"], Literal["DOUBLE"]] = "SINGLE",
         desc: Optional[str] = None,
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
@@ -184,7 +184,7 @@ class Client:
             json: Template JSON as a dictionary. Optional if json_file is provided.
             json_file: Path to the JSON template file. Optional if json is provided.
             name: This session name. Required.
-            batch_size: Number of stimuli to compare (1 for single, 2 for double)
+            custom_type: Type of evaluation ("SINGLE" or "DOUBLE")
             desc: Description of this session. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
@@ -197,7 +197,7 @@ class Client:
 
         Raises:
             ValueError: If neither json nor json_file is provided, or if both are provided
-            ValueError: If batch_size is not 1 or 2
+            ValueError: If custom_type is not "SINGLE" or "DOUBLE"
             ValueError: If the JSON is invalid or contains incompatible question types
             FileNotFoundError: If the json_file path doesn't exist
         """
@@ -210,9 +210,9 @@ class Client:
         if json is not None and json_file is not None:
             raise ValueError("Only one of 'json' or 'json_file' should be provided")
 
-        # Validate batch_size
-        if batch_size not in [1, 2]:
-            raise ValueError("batch_size must be either 1 (single stimulus) or 2 (double stimuli)")
+        # Validate custom_type
+        if custom_type not in ["SINGLE", "DOUBLE"]:
+            raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
 
         # Get template data
         if json_file is not None:
@@ -229,11 +229,12 @@ class Client:
             template_data = json
 
         # Use the validator from template.py
+        batch_size = 1 if custom_type == "SINGLE" else 2
         guide_questions, core_questions = TemplateValidator.validate_and_create_questions(template_data, batch_size)
         log.info("Template JSON is validated.")
 
         # Create an evaluator
-        eval_type = EvalType.CUSTOM_SINGLE if batch_size == 1 else EvalType.CUSTOM_DOUBLE
+        eval_type = EvalType.CUSTOM_SINGLE if custom_type == "SINGLE" else EvalType.CUSTOM_DOUBLE
         eval_config = EvalConfig(
             name=name,
             desc=desc,
@@ -246,7 +247,7 @@ class Client:
         )
         log.info(f"Created evaluation config with type: {eval_type.value}")
 
-        if batch_size == 1:
+        if custom_type == "SINGLE":
             evaluator = SingleStimulusEvaluator(
                 supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE],
                 api_client=self._api_client,

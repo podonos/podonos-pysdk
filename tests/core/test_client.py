@@ -276,7 +276,7 @@ class TestEvaluationClient(unittest.TestCase):
         try:
             # When
             evaluator = self._mock_client.create_evaluator_from_template_json(
-                json_file=json_path, name="Test Template Evaluation", batch_size=1, desc="Testing template-based evaluation", num_eval=5
+                json_file=json_path, name="Test Template Evaluation", custom_type="SINGLE", desc="Testing template-based evaluation", num_eval=5
             )
 
             # Then
@@ -303,7 +303,7 @@ class TestEvaluationClient(unittest.TestCase):
         try:
             # When
             evaluator = self._mock_client.create_evaluator_from_template_json(
-                json_file=json_path, name="Test Template Evaluation", batch_size=2, desc="Testing template-based evaluation", num_eval=5
+                json_file=json_path, name="Test Template Evaluation", custom_type="DOUBLE", desc="Testing template-based evaluation", num_eval=5
             )
 
             # Then
@@ -322,7 +322,7 @@ class TestEvaluationClient(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(FileNotFoundError):
-            self._mock_client.create_evaluator_from_template_json(json_file=non_existent_path, name="Test Template Evaluation", batch_size=1)
+            self._mock_client.create_evaluator_from_template_json(json_file=non_existent_path, name="Test Template Evaluation", custom_type="SINGLE")
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
@@ -336,7 +336,7 @@ class TestEvaluationClient(unittest.TestCase):
         try:
             # When/Then
             with self.assertRaises(ValueError):
-                self._mock_client.create_evaluator_from_template_json(json_file=json_path, name="Test Template Evaluation", batch_size=1)
+                self._mock_client.create_evaluator_from_template_json(json_file=json_path, name="Test Template Evaluation", custom_type="SINGLE")
         finally:
             # Cleanup
             Path(json_path).unlink()
@@ -402,7 +402,7 @@ class TestClient(unittest.TestCase):
 
         # When
         evaluator = self.client.create_evaluator_from_template_json(
-            json=self.template_data, name="Test Evaluation", batch_size=1, desc="Test Description"
+            json=self.template_data, name="Test Evaluation", custom_type="SINGLE", desc="Test Description"
         )
 
         # Then
@@ -427,7 +427,7 @@ class TestClient(unittest.TestCase):
         try:
             # When
             evaluator = self.client.create_evaluator_from_template_json(
-                json_file=template_path, name="Test Evaluation", batch_size=1, desc="Test Description"
+                json_file=template_path, name="Test Evaluation", custom_type="SINGLE", desc="Test Description"
             )
 
             # Then
@@ -441,20 +441,20 @@ class TestClient(unittest.TestCase):
     def test_create_evaluator_with_both_json_inputs(self):
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.client.create_evaluator_from_template_json(json=self.template_data, json_file="test.json", name="Test", batch_size=1)
+            self.client.create_evaluator_from_template_json(json=self.template_data, json_file="test.json", name="Test", custom_type="SINGLE")
         self.assertIn("Only one of", str(context.exception))
 
     def test_create_evaluator_with_no_json_input(self):
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.client.create_evaluator_from_template_json(name="Test", batch_size=1)
+            self.client.create_evaluator_from_template_json(name="Test", custom_type="SINGLE")
         self.assertIn("Either 'json' or 'json_file' must be provided", str(context.exception))
 
-    def test_create_evaluator_with_invalid_batch_size(self):
+    def test_create_evaluator_with_invalid_custom_type(self):
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.client.create_evaluator_from_template_json(json=self.template_data, name="Test", batch_size=3)
-        self.assertIn("batch_size must be either 1", str(context.exception))
+            self.client.create_evaluator_from_template_json(json=self.template_data, name="Test", custom_type="TRIPLE")  # type: ignore
+        self.assertIn('custom_type must be either "SINGLE" or "DOUBLE"', str(context.exception))
 
 
 if __name__ == "__main__":
