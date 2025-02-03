@@ -10,7 +10,7 @@ from podonos.core.evaluation import Evaluation
 from podonos.core.file import File
 from podonos.errors.error import NotSupportedError
 from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
-from tests.test_audio import TESTDATA_SPEECH_TWO_CH1_WAV, TESTDATA_SPEECH_TWO_CH2_WAV
+from tests.core.test_audio import TESTDATA_SPEECH_TWO_CH1_WAV, TESTDATA_SPEECH_TWO_CH2_WAV
 
 
 class MockDoubleStimuliEvaluator(DoubleStimuliEvaluator):

@@ -146,7 +146,7 @@ class TestPodonosClient(unittest.TestCase):
 
 class TestPodonosEvaluator(unittest.TestCase):
 
-    @unittest.skip
+    @unittest.skip("skipped")
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     def test_evaluator(self, mock_get):
         valid_api_key = "1234567890"
