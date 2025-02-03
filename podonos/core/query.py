@@ -62,6 +62,13 @@ class ScoredQuestion(Question):
         if not self.options:
             raise ValueError("SCORED question must have options")
 
+        # Validate that all option values are numbers
+        for option in self.options:
+            try:
+                float(option.value)
+            except ValueError:
+                raise ValueError(f"SCORED question option value '{option.value}' must be a number")
+
     def to_template_question(self) -> TemplateQuestion:
         return TemplateQuestion(
             title=self.title,
