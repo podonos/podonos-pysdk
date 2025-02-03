@@ -181,7 +181,7 @@ class Client:
 
         Args:
             json_file_path: Path to the JSON template file
-            batch_size: Number of stimuli to compare (1 for single, 2 for double, etc.)
+            batch_size: Number of stimuli to compare (1 for single, 2 for double)
             name: This session name. Required.
             desc: Description of this session. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
@@ -194,11 +194,15 @@ class Client:
             Evaluator instance.
 
         Raises:
+            ValueError: If batch_size is not 1 or 2
             ValueError: If the JSON file is invalid or contains incompatible question types
             FileNotFoundError: If the JSON file doesn't exist
         """
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
+
+        if batch_size not in [1, 2]:
+            raise ValueError("batch_size must be either 1 (single stimulus) or 2 (double stimuli)")
 
         log.info(f"Creating {batch_size}-stimulus evaluator from template JSON: {json_file_path}")
 

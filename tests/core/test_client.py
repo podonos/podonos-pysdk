@@ -460,6 +460,11 @@ class TestClient(unittest.TestCase):
         finally:
             Path(template_path).unlink()
 
+    def test_create_evaluator_from_invalid_batch_size(self):
+        # When/Then
+        with self.assertRaises(ValueError):
+            self.client.create_evaluator_from_template_json(json_file_path="template.json", name="Test", batch_size=0)
+
     def test_create_evaluator_from_invalid_json_path(self):
         # When/Then
         with self.assertRaises(FileNotFoundError):
