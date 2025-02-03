@@ -142,8 +142,8 @@ class ComparisonQuestion(Question):
 
     def validate(self) -> None:
         super().validate()
-        if self.scale < 1 or self.scale > 9:
-            raise ValueError("COMPARISON question scale must be between 1 and 9")
+        if self.scale < 2 or self.scale > 9:
+            raise ValueError("COMPARISON question scale must be between 2 and 9")
 
     def to_template_question(self) -> TemplateQuestion:
         return TemplateQuestion(
