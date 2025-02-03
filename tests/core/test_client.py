@@ -276,7 +276,7 @@ class TestEvaluationClient(unittest.TestCase):
         try:
             # When
             evaluator = self._mock_client.create_evaluator_from_template_json(
-                json_file_path=json_path, name="Test Template Evaluation", is_single=True, desc="Testing template-based evaluation", num_eval=5
+                json_file_path=json_path, name="Test Template Evaluation", batch_size=1, desc="Testing template-based evaluation", num_eval=5
             )
 
             # Then
@@ -303,7 +303,7 @@ class TestEvaluationClient(unittest.TestCase):
         try:
             # When
             evaluator = self._mock_client.create_evaluator_from_template_json(
-                json_file_path=json_path, name="Test Template Evaluation", is_single=False, desc="Testing template-based evaluation", num_eval=5
+                json_file_path=json_path, name="Test Template Evaluation", batch_size=2, desc="Testing template-based evaluation", num_eval=5
             )
 
             # Then
@@ -322,7 +322,7 @@ class TestEvaluationClient(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(FileNotFoundError):
-            self._mock_client.create_evaluator_from_template_json(json_file_path=non_existent_path, name="Test Template Evaluation", is_single=True)
+            self._mock_client.create_evaluator_from_template_json(json_file_path=non_existent_path, name="Test Template Evaluation", batch_size=1)
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
@@ -336,7 +336,7 @@ class TestEvaluationClient(unittest.TestCase):
         try:
             # When/Then
             with self.assertRaises(ValueError):
-                self._mock_client.create_evaluator_from_template_json(json_file_path=json_path, name="Test Template Evaluation", is_single=True)
+                self._mock_client.create_evaluator_from_template_json(json_file_path=json_path, name="Test Template Evaluation", batch_size=1)
         finally:
             # Cleanup
             Path(json_path).unlink()
@@ -388,7 +388,7 @@ class TestClient(unittest.TestCase):
             "updated_time": "2024-03-21T06:18:09.659270Z",
         }
 
-    def test_create_evaluator_from_template_json(self):
+    def test_create_evaluator_from_template_json_single(self):
         # Given
         mock_post_response = MagicMock(status_code=200)
         mock_post_response.json.return_value = self.mock_eval_response
@@ -407,7 +407,7 @@ class TestClient(unittest.TestCase):
         try:
             # When
             evaluator = self.client.create_evaluator_from_template_json(
-                json_file_path=template_path, name="Test Evaluation", is_single=True, desc="Test Description"
+                json_file_path=template_path, name="Test Evaluation", batch_size=1, desc="Test Description"  # Single stimulus
             )
 
             # Then
@@ -429,10 +429,41 @@ class TestClient(unittest.TestCase):
         finally:
             Path(template_path).unlink()
 
+    def test_create_evaluator_from_template_json_double(self):
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        self.mock_eval_response["batch_size"] = 2  # Update batch size for double stimulus
+        mock_post_response.json.return_value = self.mock_eval_response
+        self.api_client.post.return_value = mock_post_response
+
+        mock_put_response = MagicMock(status_code=200)
+        mock_put_response.json.return_value = [{"id": "question_1"}]
+        self.api_client.put.return_value = mock_put_response
+
+        template_data = {"query": [{"type": "COMPARISON", "title": "Compare Audio", "description": "Compare two audio samples", "scale": 7}]}
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(template_data, f)
+            template_path = f.name
+
+        try:
+            # When
+            evaluator = self.client.create_evaluator_from_template_json(
+                json_file_path=template_path, name="Test Evaluation", batch_size=2, desc="Test Description"  # Double stimulus
+            )
+
+            # Then
+            self.assertIsInstance(evaluator, DoubleStimuliEvaluator)
+            self.api_client.post.assert_called_once()
+            self.assertTrue(self.api_client.put.call_count >= 1)
+
+        finally:
+            Path(template_path).unlink()
+
     def test_create_evaluator_from_invalid_json_path(self):
         # When/Then
         with self.assertRaises(FileNotFoundError):
-            self.client.create_evaluator_from_template_json(json_file_path="nonexistent.json", name="Test", is_single=True)
+            self.client.create_evaluator_from_template_json(json_file_path="nonexistent.json", name="Test", batch_size=1)
 
 
 if __name__ == "__main__":

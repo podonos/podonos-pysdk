@@ -169,7 +169,7 @@ class Client:
         self,
         json_file_path: str,
         name: Optional[str],
-        is_single: bool,
+        batch_size: int,
         desc: Optional[str] = None,
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
@@ -181,7 +181,7 @@ class Client:
 
         Args:
             json_file_path: Path to the JSON template file
-            is_single: If True, creates CUSTOM_SINGLE evaluator. If False, creates CUSTOM_DOUBLE evaluator.
+            batch_size: Number of stimuli to compare (1 for single, 2 for double, etc.)
             name: This session name. Required.
             desc: Description of this session. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
@@ -200,7 +200,7 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        log.info(f"Creating {'single' if is_single else 'double'} stimulus evaluator from template JSON: {json_file_path}")
+        log.info(f"Creating {batch_size}-stimulus evaluator from template JSON: {json_file_path}")
 
         # Read template JSON
         json_path = Path(json_file_path)
@@ -211,11 +211,11 @@ class Client:
             data = json.load(f)
 
         # Use the validator from template.py
-        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(data, is_single)
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(data, batch_size)
         log.info("Template JSON is validated.")
 
         # Create an evaluator
-        eval_type = EvalType.CUSTOM_SINGLE if is_single else EvalType.CUSTOM_DOUBLE
+        eval_type = EvalType.CUSTOM_SINGLE if batch_size == 1 else EvalType.CUSTOM_DOUBLE
         eval_config = EvalConfig(
             name=name,
             desc=desc,
@@ -228,7 +228,7 @@ class Client:
         )
         log.info(f"Created evaluation config with type: {eval_type.value}")
 
-        if is_single:
+        if batch_size == 1:
             evaluator = SingleStimulusEvaluator(
                 supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE],
                 api_client=self._api_client,

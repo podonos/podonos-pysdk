@@ -158,7 +158,7 @@ class TestTemplateValidator(unittest.TestCase):
 
     def test_validate_single_stimulus_template(self):
         # When
-        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(self.valid_single_template, is_single=True)
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(self.valid_single_template, 1)
 
         # Then
         self.assertEqual(len(guide_questions), 1)
@@ -168,7 +168,7 @@ class TestTemplateValidator(unittest.TestCase):
 
     def test_validate_double_stimulus_template(self):
         # When
-        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(self.valid_double_template, is_single=False)
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(self.valid_double_template, 2)
 
         # Then
         self.assertEqual(len(guide_questions), 0)
@@ -181,7 +181,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, is_single=True)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1)
         self.assertIn("must contain a 'query' list", str(context.exception))
 
     def test_validate_empty_query(self):
@@ -190,7 +190,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, is_single=True)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1)
         self.assertIn("must contain at least one query question", str(context.exception))
 
     def test_validate_invalid_guide_question_type(self):
@@ -202,7 +202,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, is_single=True)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1)
         self.assertIn("must be of type GUIDE", str(context.exception))
 
     def test_validate_comparison_in_single_stimulus(self):
@@ -211,7 +211,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, is_single=True)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1)
         self.assertIn("not allowed in single stimulus evaluation", str(context.exception))
 
 

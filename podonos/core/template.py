@@ -46,12 +46,12 @@ class TemplateValidator:
     """Validator class for template JSON data"""
 
     @staticmethod
-    def validate_and_create_questions(data: Dict[str, Any], is_single: bool) -> Tuple[List[TemplateQuestion], List[TemplateQuestion]]:
+    def validate_and_create_questions(data: Dict[str, Any], batch_size: int) -> Tuple[List[TemplateQuestion], List[TemplateQuestion]]:
         """Validates the template JSON data and returns TemplateQuestion objects.
 
         Args:
             data: Template JSON data
-            is_single: If True, validates for single stimulus evaluation
+            batch_size: Number of stimuli to compare (1 for single, 2 for double, etc.)
 
         Returns:
             Tuple of (guide_template_questions, core_template_questions)
@@ -100,10 +100,10 @@ class TemplateValidator:
                 question = Question.from_dict(q_data)
                 question.validate()
 
-                if is_single and isinstance(question, ComparisonQuestion):
+                if batch_size == 1 and isinstance(question, ComparisonQuestion):
                     raise ValueError(
                         "COMPARISON type questions are not allowed in single stimulus evaluation. "
-                        "Please use is_single=False for comparison questions."
+                        "Please use batch_size=2 for comparison questions."
                     )
 
                 if isinstance(question, GuideQuestion):
