@@ -251,4 +251,5 @@ class EvalConfig:
             "description": self._eval_description,
             "num_required_etors": self._eval_num,
             "use_annotation": self._eval_use_annotation,
+            "use_power_normalization": self._eval_use_power_normalization,
         }

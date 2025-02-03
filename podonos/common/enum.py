@@ -60,3 +60,21 @@ class QuestionFileType(str, Enum):
     STIMULUS = "STIMULUS"
     REF = "REF"
     META = "META"
+
+class QuestionResponseCategory(Enum):
+    CHOICE_ONE = "CHOICE_ONE"
+    CHOICE_MULTI = "CHOICE_MULTI"
+    CHOICE_ONE_NO_SCORE = "CHOICE_ONE_NO_SCORE"
+    SCALE_LINEAR = "SCALE_LINEAR"
+    INSTRUCTION = "INSTRUCTION"
+
+class QuestionUsageType(Enum):
+    GUIDELINE_CORRECT = "GUIDELINE_CORRECT"
+    GUIDELINE_WARNING = "GUIDELINE_WARNING"
+    GUIDELINE_PROHIBIT = "GUIDELINE_PROHIBIT"
+    SCORE = "SCORE"
+
+class GuideCategory(Enum):
+    CORRECT = "CORRECT"
+    WARNING = "WARNING"
+    PROHIBIT = "PROHIBIT"

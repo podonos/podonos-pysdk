@@ -1,5 +1,6 @@
-from typing import Any, Dict, Optional, List
-
+import json as json_lib
+from pathlib import Path
+from typing import Any, Dict, Literal, Optional, List, Union
 from requests import HTTPError
 
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
@@ -12,6 +13,7 @@ from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
 from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
 from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
+from podonos.core.template import TemplateValidator
 
 
 class Client:
@@ -161,6 +163,136 @@ class Client:
             raise ValueError(f"Template has invalid type so please contact {PODONOS_CONTACT_EMAIL}")
 
         log.check(isinstance(evaluator, Evaluator))
+        return evaluator
+
+    def create_evaluator_from_template_json(
+        self,
+        json: Optional[Dict] = None,
+        json_file: Optional[str] = None,
+        name: Optional[str] = None,
+        custom_type: Union[Literal["SINGLE"], Literal["DOUBLE"]] = "SINGLE",
+        desc: Optional[str] = None,
+        lan: str = EvalConfigDefault.LAN.value,
+        num_eval: int = EvalConfigDefault.NUM_EVAL,
+        use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
+        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
+        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+    ) -> Evaluator:
+        """Creates a new evaluator using a template JSON.
+
+        Args:
+            json: Template JSON as a dictionary. Optional if json_file is provided.
+            json_file: Path to the JSON template file. Optional if json is provided.
+            name: This evaluation name. Required.
+            custom_type: Type of evaluation ("SINGLE" or "DOUBLE")
+            desc: Description of this evaluation. Optional.
+            lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
+            num_eval: The number of evaluators per file. Should be >=1.
+            use_annotation: Enable detailed annotation on script for detailed rating reasoning.
+            use_power_normalization: Enable power normalization for evaluation. Default: False
+            max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
+
+        Returns:
+            Evaluator instance.
+
+        Raises:
+            ValueError: If neither json nor json_file is provided, or if both are provided
+            ValueError: If custom_type is not "SINGLE" or "DOUBLE"
+            ValueError: If the JSON is invalid or contains incompatible question types
+            FileNotFoundError: If the json_file path doesn't exist
+        """
+        if not self._initialized:
+            raise ValueError("This function is called before initialization.")
+
+        # Validate input parameters
+        if json is None and json_file is None:
+            raise ValueError("Either 'json' or 'json_file' must be provided")
+        if json is not None and json_file is not None:
+            raise ValueError("Only one of 'json' or 'json_file' should be provided")
+
+        # Validate custom_type
+        if custom_type not in ["SINGLE", "DOUBLE"]:
+            raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
+
+        # Get template data
+        if json_file is not None:
+            log.info(f"Reading template from file: {json_file}")
+            json_path = Path(json_file)
+            if not json_path.exists():
+                raise FileNotFoundError(f"JSON file not found: {json_file}")
+
+            with open(json_path, "r", encoding="utf-8") as f:
+                template_data = json_lib.load(f)
+        else:
+            log.info("Using provided template JSON")
+            assert json is not None
+            template_data = json
+
+        # Use the validator from template.py
+        batch_size = 1 if custom_type == "SINGLE" else 2
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(template_data, batch_size)
+        log.info("Template JSON is validated.")
+
+        # Create an evaluator
+        eval_type = EvalType.CUSTOM_SINGLE if custom_type == "SINGLE" else EvalType.CUSTOM_DOUBLE
+        eval_config = EvalConfig(
+            name=name,
+            desc=desc,
+            type=eval_type.value,
+            lan=lan,
+            num_eval=num_eval,
+            use_annotation=use_annotation,
+            use_power_normalization=use_power_normalization,
+            max_upload_workers=max_upload_workers,
+        )
+        log.info(f"Created evaluation config with type: {eval_type.value}")
+
+        if custom_type == "SINGLE":
+            evaluator = SingleStimulusEvaluator(
+                supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE],
+                api_client=self._api_client,
+                eval_config=eval_config,
+            )
+        else:
+            evaluator = DoubleStimuliEvaluator(
+                supported_evaluation_types=[EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE],
+                api_client=self._api_client,
+                eval_config=eval_config,
+            )
+
+        try:
+            if guide_questions:
+                log.debug(f"Creating {len(guide_questions)} guide questions...")
+                guide_request = {"evaluation_id": evaluator.get_evaluation_id(), "questions": [q.to_create_dict() for q in guide_questions]}
+                response = self._api_client.put("template-questions/bulk", data=guide_request)
+                response.raise_for_status()
+
+                for q_response, question in zip(response.json(), guide_questions):
+                    question.id = q_response["id"]
+
+            if core_questions:
+                log.debug(f"Creating {len(core_questions)} core questions...")
+                core_request = {"evaluation_id": evaluator.get_evaluation_id(), "questions": [q.to_create_dict() for q in core_questions]}
+                response = self._api_client.put("template-questions/bulk", data=core_request)
+                response.raise_for_status()
+
+                for q_response, question in zip(response.json(), core_questions):
+                    question.id = q_response["id"]
+
+            # Create options for questions that have options
+            questions_with_options = [q for q in (guide_questions + core_questions) if q.options]
+            if questions_with_options:
+                log.debug(f"Creating options for {len(questions_with_options)} questions...")
+                for question in questions_with_options:
+                    option_request = question.to_option_bulk_request()
+                    response = self._api_client.put("template-options/bulk", data=option_request)
+                    response.raise_for_status()
+
+        except Exception as e:
+            log.error(f"Failed to create template: {str(e)}")
+            raise HTTPError(f"Failed to create template questions: {e}")
+
+        log.info("Template creation completed successfully")
         return evaluator
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:

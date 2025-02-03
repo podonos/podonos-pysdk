@@ -158,7 +158,7 @@ class APIClient:
         try:
             response = requests.get(f"{self._api_url}/templates/one?code={template_id}", headers=self._headers)
             response.raise_for_status()
-            template = Template.from_dict(response.json())
+            template = Template.from_api_response(response.json())
             log.info(f"Get template by id {template_id}")
             return template
         except Exception as e:
