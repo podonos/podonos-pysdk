@@ -1,4 +1,4 @@
-import json
+import json as json_lib
 from pathlib import Path
 from typing import Any, Dict, Optional, List, Tuple
 from requests import HTTPError
@@ -167,9 +167,10 @@ class Client:
 
     def create_evaluator_from_template_json(
         self,
-        json_file_path: str,
-        name: Optional[str],
-        batch_size: int,
+        json: Optional[Dict] = None,
+        json_file: Optional[str] = None,
+        name: Optional[str] = None,
+        batch_size: int = 1,
         desc: Optional[str] = None,
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
@@ -177,12 +178,13 @@ class Client:
         use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
-        """Creates a new evaluator using a template JSON file.
+        """Creates a new evaluator using a template JSON.
 
         Args:
-            json_file_path: Path to the JSON template file
-            batch_size: Number of stimuli to compare (1 for single, 2 for double)
+            json: Template JSON as a dictionary. Optional if json_file is provided.
+            json_file: Path to the JSON template file. Optional if json is provided.
             name: This session name. Required.
+            batch_size: Number of stimuli to compare (1 for single, 2 for double)
             desc: Description of this session. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
@@ -194,28 +196,40 @@ class Client:
             Evaluator instance.
 
         Raises:
+            ValueError: If neither json nor json_file is provided, or if both are provided
             ValueError: If batch_size is not 1 or 2
-            ValueError: If the JSON file is invalid or contains incompatible question types
-            FileNotFoundError: If the JSON file doesn't exist
+            ValueError: If the JSON is invalid or contains incompatible question types
+            FileNotFoundError: If the json_file path doesn't exist
         """
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
+        # Validate input parameters
+        if json is None and json_file is None:
+            raise ValueError("Either 'json' or 'json_file' must be provided")
+        if json is not None and json_file is not None:
+            raise ValueError("Only one of 'json' or 'json_file' should be provided")
+
+        # Validate batch_size
         if batch_size not in [1, 2]:
             raise ValueError("batch_size must be either 1 (single stimulus) or 2 (double stimuli)")
 
-        log.info(f"Creating {batch_size}-stimulus evaluator from template JSON: {json_file_path}")
+        # Get template data
+        if json_file is not None:
+            log.info(f"Reading template from file: {json_file}")
+            json_path = Path(json_file)
+            if not json_path.exists():
+                raise FileNotFoundError(f"JSON file not found: {json_file}")
 
-        # Read template JSON
-        json_path = Path(json_file_path)
-        if not json_path.exists():
-            raise FileNotFoundError(f"JSON file not found: {json_file_path}")
-
-        with open(json_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            with open(json_path, "r", encoding="utf-8") as f:
+                template_data = json_lib.load(f)
+        else:
+            log.info("Using provided template JSON")
+            assert json is not None
+            template_data = json
 
         # Use the validator from template.py
-        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(data, batch_size)
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(template_data, batch_size)
         log.info("Template JSON is validated.")
 
         # Create an evaluator
@@ -249,7 +263,6 @@ class Client:
             if guide_questions:
                 log.debug(f"Creating {len(guide_questions)} guide questions...")
                 guide_request = {"evaluation_id": evaluator.get_evaluation_id(), "questions": [q.to_create_dict() for q in guide_questions]}
-                print(guide_request)
                 response = self._api_client.put("template-questions/bulk", data=guide_request)
                 response.raise_for_status()
 
