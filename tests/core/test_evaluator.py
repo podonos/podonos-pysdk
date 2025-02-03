@@ -13,7 +13,7 @@ from podonos.core.config import EvalConfig
 from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
 from podonos.core.file import File
-from tests.test_audio import TESTDATA_SPEECH_CH1_MP3
+from tests.core.test_audio import TESTDATA_SPEECH_CH1_MP3
 
 
 class MockEvaluator(Evaluator):

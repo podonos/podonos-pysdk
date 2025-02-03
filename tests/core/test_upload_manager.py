@@ -4,7 +4,7 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 from podonos.core.upload_manager import UploadManager
-from tests.test_audio import TESTDATA_SPEECH_CH1_MP3
+from tests.core.test_audio import TESTDATA_SPEECH_CH1_MP3
 
 
 class TestUploadManager(unittest.TestCase):
