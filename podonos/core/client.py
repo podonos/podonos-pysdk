@@ -11,8 +11,6 @@ from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
-from podonos.evaluators.double_stimuli_evaluator import DoubleStimuliEvaluator
-from podonos.evaluators.single_stimulus_evaluator import SingleStimulusEvaluator
 from podonos.core.template import TemplateValidator
 
 
@@ -85,21 +83,15 @@ class Client:
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
-        evaluator = None
-        if type in [EvalType.SMOS.value, EvalType.PREF.value, EvalType.CUSTOM_DOUBLE.value]:
-            evaluator = DoubleStimuliEvaluator(
-                supported_evaluation_types=[EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE],
-                api_client=self._api_client,
-                eval_config=eval_config,
-            )
+
+        if EvalType.is_double(type):
+            supported_types = EvalType.get_double_types()
+        elif EvalType.is_single(type):
+            supported_types = EvalType.get_single_types()
         else:
-            evaluator = SingleStimulusEvaluator(
-                supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE],
-                api_client=self._api_client,
-                eval_config=eval_config,
-            )
-        log.check(isinstance(evaluator, Evaluator))
-        return evaluator
+            raise ValueError(f"Invalid evaluation type: {type}")
+
+        return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
 
     def create_evaluator_from_template(
         self,
@@ -148,22 +140,12 @@ class Client:
         )
 
         if template.batch_size == 1:
-            evaluator = SingleStimulusEvaluator(
-                supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE],
-                api_client=self._api_client,
-                eval_config=eval_config,
-            )
+            supported_types = EvalType.get_single_types()
         elif template.batch_size == 2:
-            evaluator = DoubleStimuliEvaluator(
-                supported_evaluation_types=[EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE],
-                api_client=self._api_client,
-                eval_config=eval_config,
-            )
+            supported_types = EvalType.get_double_types()
         else:
             raise ValueError(f"Template has invalid type so please contact {PODONOS_CONTACT_EMAIL}")
-
-        log.check(isinstance(evaluator, Evaluator))
-        return evaluator
+        return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
 
     def create_evaluator_from_template_json(
         self,
@@ -248,18 +230,13 @@ class Client:
         log.info(f"Created evaluation config with type: {eval_type.value}")
 
         if custom_type == "SINGLE":
-            evaluator = SingleStimulusEvaluator(
-                supported_evaluation_types=[EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE],
-                api_client=self._api_client,
-                eval_config=eval_config,
-            )
+            supported_types = EvalType.get_single_types()
+        elif custom_type == "DOUBLE":
+            supported_types = EvalType.get_double_types()
         else:
-            evaluator = DoubleStimuliEvaluator(
-                supported_evaluation_types=[EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE],
-                api_client=self._api_client,
-                eval_config=eval_config,
-            )
+            raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
 
+        evaluator = Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
         try:
             if guide_questions:
                 log.debug(f"Creating {len(guide_questions)} guide questions...")

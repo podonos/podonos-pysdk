@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from datetime import datetime
 import os
 import soundfile as sf
 from pathlib import Path
@@ -5,7 +7,8 @@ from typing import Tuple, Optional, Dict, Any, List
 
 from podonos.common.enum import QuestionFileType
 from podonos.core.base import *
-from podonos.errors.error import InvalidFileError
+from podonos.common.util import generate_random_name, process_paths_to_posix
+from podonos.core.file import File
 
 
 class AudioMeta:
@@ -86,59 +89,66 @@ class AudioMeta:
         return nchannels, framerate, duration_in_ms
 
 
-class Audio:
-    _path: str
-    _name: str
-    _remote_object_name: str
-    _metadata: AudioMeta
-    _script: Optional[str] = None
-    _is_ref: bool = False
-    _upload_start_at: Optional[str] = None
-    _upload_finish_at: Optional[str] = None
-    _model_tag: str
-    _tags: Optional[List[str]] = None
-    _group: Optional[str] = None
-    _type: QuestionFileType = QuestionFileType.STIMULUS
-    _order_in_group: int = 0
-
+class Audio(File):
     def __init__(
         self,
         path: str,
         name: str,
         remote_object_name: str,
         script: Optional[str],
-        is_ref: bool,
+        tags: List[str],
         model_tag: str,
-        tags: Optional[List[str]],
+        is_ref: bool,
         group: Optional[str],
         type: QuestionFileType,
         order_in_group: int,
-    ) -> None:
-        log.check_notnone(path)
-        log.check_ne(path, "")
-        log.check(os.path.isfile(path), f"{path} doesn't exist")
-        log.check(os.access(path, os.R_OK), f"{path} isn't readable")
-        log.check_notnone(model_tag)
-        log.check(model_tag, "")
-        log.check_notnone(name)
-        log.check_notnone(remote_object_name)
-        log.check_ge(order_in_group, 0)
-
-        self._path = path
+    ):
+        super().__init__(path, model_tag, tags, script, is_ref)
         self._name = name
         self._remote_object_name = remote_object_name
-        self._script = script
-        self._metadata = AudioMeta(path)
-        self._model_tag = model_tag
-        self._is_ref = is_ref
-        self._tags = tags
         self._group = group
         self._type = type
+        self._metadata = AudioMeta(path)
         self._order_in_group = order_in_group
+        self._upload_start_at = None
+        self._upload_finish_at = None
 
-    @property
-    def path(self) -> str:
-        return self._path
+    @classmethod
+    def from_file(
+        cls,
+        file: File,
+        creation_timestamp: str,
+        group: Optional[str],
+        type: QuestionFileType,
+        order_in_group: int,
+    ) -> "Audio":
+        """Create Audio instance from File object
+
+        Args:
+            file: Source File object
+            creation_timestamp: Timestamp for remote path
+            group: Optional group identifier
+            type: Question file type
+            order_in_group: Order in group
+
+        Returns:
+            New Audio instance
+        """
+        remote_object_name = os.path.join(creation_timestamp, generate_random_name())
+        original_path, remote_path = process_paths_to_posix(file.path, str(remote_object_name))
+
+        return cls(
+            path=file.path,
+            name=original_path,
+            remote_object_name=remote_path,
+            script=file.script,
+            tags=file.tags,
+            model_tag=file.model_tag,
+            is_ref=file.is_ref if file.is_ref else False,
+            group=group,
+            type=type,
+            order_in_group=order_in_group,
+        )
 
     @property
     def name(self) -> str:
@@ -149,28 +159,8 @@ class Audio:
         return self._remote_object_name
 
     @property
-    def script(self) -> Optional[str]:
-        return self._script
-
-    @property
-    def model_tag(self) -> str:
-        return self._model_tag
-
-    @property
-    def tags(self) -> Optional[List[str]]:
-        return self._tags
-
-    @property
-    def is_ref(self) -> bool:
-        return self._is_ref
-
-    @property
     def group(self) -> Optional[str]:
         return self._group
-
-    @property
-    def metadata(self) -> AudioMeta:
-        return self._metadata
 
     @property
     def type(self) -> QuestionFileType:
@@ -219,4 +209,41 @@ class Audio:
             "script": self._script,
             "group": self._group,
             "order_in_group": self._order_in_group,
+        }
+
+
+@dataclass
+class AudioGroup:
+    """Represent a group of files for evaluation"""
+
+    group_id: Optional[str]  # None for single stimulus, UUID for double stimuli
+    audios: List[Audio]
+    created_at: datetime
+
+    def __init__(self, group_id: Optional[str], audios: List[Audio], created_at: datetime):
+        self.group_id = group_id
+        self.created_at = created_at
+        self.set_audios(audios)
+
+    def set_audios(self, audios: List[Audio]):
+        """
+        Args:
+            audios: List of Audio objects
+
+        Raises:
+            ValueError: If all audios don't have the same group_id or order_in_group is not unique
+        """
+        for i, audio in enumerate(audios):
+            if audio.group != self.group_id:
+                raise ValueError(f"All audios must have the same group_id. Expected {self.group_id}, got {audio.group}.")
+            if audio.order_in_group != i:
+                raise ValueError(f"Order in group must be unique. Got {audio.order_in_group}.")
+
+        self.audios = audios
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "group_id": self.group_id,
+            "audios": [audio.to_dict() for audio in self.audios],
+            "created_at": self.created_at.isoformat(),
         }

@@ -8,7 +8,8 @@ from unittest.mock import patch, MagicMock
 
 
 import podonos
-from podonos.core.client import Client, SingleStimulusEvaluator, DoubleStimuliEvaluator
+from podonos.core.client import Client
+from podonos.core.evaluator import Evaluator
 
 
 def mocked_requests_post(*args, **kwargs):
@@ -181,7 +182,7 @@ class TestEvaluationClient(unittest.TestCase):
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
-        self.assertTrue(isinstance(etor, SingleStimulusEvaluator))
+        self.assertTrue(isinstance(etor, Evaluator))
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
@@ -207,7 +208,7 @@ class TestEvaluationClient(unittest.TestCase):
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
-        self.assertTrue(isinstance(etor, DoubleStimuliEvaluator))
+        self.assertTrue(isinstance(etor, Evaluator))
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     def test_evaluation_list(self, mock_get):
@@ -280,7 +281,7 @@ class TestEvaluationClient(unittest.TestCase):
             )
 
             # Then
-            self.assertIsInstance(evaluator, SingleStimulusEvaluator)
+            self.assertIsInstance(evaluator, Evaluator)
             self.assertTrue(mock_put.call_count >= 2)
 
         finally:
@@ -307,7 +308,7 @@ class TestEvaluationClient(unittest.TestCase):
             )
 
             # Then
-            self.assertIsInstance(evaluator, DoubleStimuliEvaluator)
+            self.assertIsInstance(evaluator, Evaluator)
             self.assertTrue(mock_put.call_count >= 1)
 
         finally:
@@ -406,7 +407,7 @@ class TestClient(unittest.TestCase):
         )
 
         # Then
-        self.assertIsInstance(evaluator, SingleStimulusEvaluator)
+        self.assertIsInstance(evaluator, Evaluator)
         self.api_client.post.assert_called_once()
         self.assertTrue(self.api_client.put.call_count >= 1)
 
@@ -431,7 +432,7 @@ class TestClient(unittest.TestCase):
             )
 
             # Then
-            self.assertIsInstance(evaluator, SingleStimulusEvaluator)
+            self.assertIsInstance(evaluator, Evaluator)
             self.api_client.post.assert_called_once()
             self.assertTrue(self.api_client.put.call_count >= 1)
 

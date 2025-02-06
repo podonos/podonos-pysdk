@@ -59,6 +59,7 @@ class APIClient:
         self._check_minimum_version()
 
         response = self.get("customers/verify/api-key")
+        # TODO: change into other APIs
         if response.text != "true":
             raise ValueError(TerminalColor.FAIL + f"Invalid API key: {self._api_key}" + TerminalColor.ENDC)
         return True

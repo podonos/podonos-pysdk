@@ -1,196 +1,295 @@
-import os
-import requests
-from abc import ABC, abstractmethod
-from typing import Tuple, Dict, List, Optional
+from datetime import datetime
+from typing import Dict, List, Optional
 
+from podonos.common.util import generate_random_group_name
 from podonos.core.base import *
 from podonos.common.constant import *
 from podonos.common.enum import EvalType, QuestionFileType
-from podonos.common.exception import HTTPError
-from podonos.common.util import generate_random_name
 from podonos.core.api import APIClient
-from podonos.core.audio import Audio
+from podonos.core.audio import Audio, AudioGroup
 from podonos.core.config import EvalConfig
 from podonos.core.evaluation import Evaluation
 from podonos.core.file import File
 from podonos.core.upload_manager import UploadManager
+from podonos.service.evaluation_service import EvaluationService
 
 
-class Evaluator(ABC):
-    """Evaluator for a single type of evaluation session."""
+class Evaluator:
+    """Base class for all evaluators."""
 
-    _initialized: bool = False
     _api_client: APIClient
-    _api_key: Optional[str] = None
-    _eval_config: Optional[EvalConfig] = None
-    _supported_evaluation_types: List[EvalType]
+    _eval_config: EvalConfig
     _evaluation: Optional[Evaluation] = None
+    _evaluation_service: EvaluationService
+    _supported_eval_types: List[EvalType]
+    _initialized: bool = False
+    _upload_manager: Optional[UploadManager] = None  # Upload manager. Lazy initialization when used for saving resources.
+    _ordered_file_groups: List[AudioGroup]  # ordered evaluation files groups
 
-    # Upload manager. Lazy initialization when used for saving resources.
-    _upload_manager: Optional[UploadManager] = None
+    def __init__(self, api_client: APIClient, eval_config: EvalConfig, supported_eval_types: List[EvalType]):
+        """Initialize the evaluator.
 
-    # Contains the metadata for all the audio files for evaluation.
-    _eval_audios: List[List[Audio]] = []
-    _eval_audio_json = []
-
-    def __init__(self, api_client: APIClient, eval_config: Optional[EvalConfig] = None):
-        log.check(api_client, "api_client is not initialized.")
-        self._api_client = api_client
-        self._api_key = api_client.api_key
-        self._eval_config = eval_config
+        Args:
+            api_client: API client for making requests
+            eval_config: Optional evaluation configuration
+        """
         self._initialized = True
-        self._eval_audios = []
-        self._eval_audio_json = []
+        self._validate_initialization(api_client, eval_config, supported_eval_types)
+        self._initialize_attributes(api_client, eval_config, supported_eval_types)
+
+    def _validate_initialization(self, api_client: APIClient, eval_config: EvalConfig, supported_eval_types: List[EvalType]) -> None:
+        """Validate the initialization parameters.
+
+        Args:
+            api_client: API client to validate
+            eval_config: Evaluation configuration to validate
+
+        Raises:
+            ValueError: If api_client is not initialized
+            ValueError: If eval_config is not initialized
+        """
+        if not api_client:
+            raise ValueError("api_client is not initialized.")
+        if not eval_config:
+            raise ValueError("eval_config is not initialized.")
+        if eval_config.eval_type not in supported_eval_types:
+            raise ValueError("Not supported evaluation type")
+
+    def _initialize_attributes(self, api_client: APIClient, eval_config: EvalConfig, supported_eval_types: List[EvalType]) -> None:
+        """Initialize class attributes.
+
+        Args:
+            api_client: API client for making requests
+            eval_config: Evaluation configuration
+        """
+        self._api_client = api_client
+        self._eval_config = eval_config
+        self._evaluation_service = EvaluationService(api_client)
         self._evaluation = self._set_evaluation(eval_config)
+        self._supported_eval_types = supported_eval_types
+        self._ordered_file_groups = []
+        self._upload_manager = None
 
-    def _init_eval_variables(self):
-        """Initializes the variables for one evaluation session."""
-        self._initialized = False
-        self._api_key = None
-        self._eval_config = None
-        self._eval_audios = []
-        self._eval_audio_json = []
+    def _validate_eval_type(self, method_name: str) -> None:
+        """Validate if the evaluation type is supported for the given method.
 
-    @abstractmethod
+        Args:
+            method_name: Name of the method being validated ('add_file' or 'add_files')
+
+        Raises:
+            ValueError: If evaluation type is not supported for the method
+        """
+        if method_name == "add_file":
+            supported_types = [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]
+            error_msg = f"The '{method_name}' is only supported for single file evaluation types: " f"{supported_types}"
+        else:  # add_files
+            supported_types = [EvalType.CMOS, EvalType.DMOS, EvalType.PREF, EvalType.SMOS, EvalType.CUSTOM_DOUBLE]
+            error_msg = f"The '{method_name}' is only supported for comparison evaluation types: " f"{supported_types}"
+
+        if self._eval_config.eval_type not in supported_types:
+            raise ValueError(error_msg)
+
     def add_file(self, file: File) -> None:
-        pass
+        """Add new file for speech evaluation.
+        The file may be either in {wav, mp3} format. The file will be securely uploaded to
+        Podonos service system.
 
-    @abstractmethod
+        Args:
+            file: File object including the path, the model tag, the other tags, and the script.
+
+        Example:
+        If you want to evaluate each audio file separately (e.g., Naturalness MOS):
+            add_file(file=File(path='./test.wav', model_tag='my_new_model1', tags=['male', 'generated'],
+                               script='hello there'))
+
+        Returns: None
+
+        Raises:
+            ValueError: if this function is called before calling init()
+            FileNotFoundError: if a given file is not found.
+        """
+
+        log.check(file, "file is not set")
+
+        if not self._initialized:
+            raise ValueError("Try to add file once the evaluator is closed.")
+
+        self._validate_eval_type("add_file")
+        if self._eval_config.eval_use_annotation and file.script is None:
+            raise ValueError(
+                "Annotation evaluation is enabled (eval_use_annotation=True), "
+                "but no script is provided in File. Please provide a corresponding script."
+            )
+
+        audio = self._create_audio(file=file, group=None, type=QuestionFileType.STIMULUS, order_in_group=0)
+        self._ordered_file_groups.append(AudioGroup(group_id=None, audios=[audio], created_at=datetime.now()))
+        self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio.remote_object_name, path=audio.path)
+
     def add_files(self, file0: File, file1: File) -> None:
-        pass
+        """Add two files for speech evaluation. The files will be securely uploaded to Podonos service system.
+
+        The order of files is maintained based on evaluation type:
+        - PREF, CUSTOM_DOUBLE: Files are ordered stimulus
+        - SMOS: Files are unordered stimulus
+        - CMOS, DMOS: One file must be reference, one must be stimulus
+
+        Args:
+            file0: First audio file
+            file1: Second audio file
+
+        Example:
+        If you want to evaluate audio files together (e.g., Comparative MOS):
+            f0 = File(path="/path/to/generated.wav", model_tag='my_new_model1', tags=['male', 'english'], is_ref=True)
+            f1 = File(path="/path/to/original.wav", model_tag='my_new_model2', tags=['male', 'english', 'param1'])
+            add_files(file0=f0, file1=f1)
+
+        Returns: None
+
+        Raises:
+            ValueError: If evaluator not initialized or invalid file configuration
+        """
+        self._validate_files_input(file0, file1)
+        group_id = generate_random_group_name()
+        audio_pair = self._create_audio_pair(file0=file0, file1=file1, group_id=group_id)
+        self._add_audio_group(group_id=group_id, audios=audio_pair)
+        self._upload_audio_pair(audio_pair)
+
+    def _validate_files_input(self, file0: File, file1: File) -> None:
+        """Validate input files"""
+        log.check(file0, "file0 is not set")
+        log.check(file1, "file1 is not set")
+        self._validate_eval_type("add_files")
+
+        if not self._initialized:
+            raise ValueError("Evaluator is not initialized")
+
+        if self._needs_reference_file() and file0.is_ref == file1.is_ref:
+            raise ValueError("One file must be reference, one must be stimulus")
+
+    def _needs_reference_file(self) -> bool:
+        """Check if evaluation type requires reference file"""
+        return self._eval_config.eval_type in [EvalType.CMOS, EvalType.DMOS]
+
+    def _create_audio_pair(self, file0: File, file1: File, group_id: str) -> List[Audio]:
+        """Create pair of audio objects based on evaluation type"""
+        if self._eval_config.eval_type in [EvalType.PREF, EvalType.CUSTOM_DOUBLE, EvalType.SMOS]:
+            return self._create_stimulus_pair(file0, file1, group_id)
+        else:  # CMOS, DMOS
+            return self._create_reference_stimulus_pair(file0, file1, group_id)
+
+    def _create_stimulus_pair(self, file0: File, file1: File, group_id: str) -> List[Audio]:
+        """Create pair of stimulus audio objects"""
+        return [
+            self._create_audio(file=file0, group=group_id, type=QuestionFileType.STIMULUS, order_in_group=0),
+            self._create_audio(file=file1, group=group_id, type=QuestionFileType.STIMULUS, order_in_group=1),
+        ]
+
+    def _create_reference_stimulus_pair(self, file0: File, file1: File, group_id: str) -> List[Audio]:
+        """Create reference-stimulus audio pair"""
+        audio0_type = QuestionFileType.REF if file0.is_ref else QuestionFileType.STIMULUS
+        audio1_type = QuestionFileType.REF if file1.is_ref else QuestionFileType.STIMULUS
+
+        return [
+            self._create_audio(file=file0, group=group_id, type=audio0_type, order_in_group=0),
+            self._create_audio(file=file1, group=group_id, type=audio1_type, order_in_group=1),
+        ]
+
+    def _add_audio_group(self, group_id: str, audios: List[Audio]) -> None:
+        """Add new audio group to ordered groups"""
+        self._ordered_file_groups.append(AudioGroup(group_id=group_id, audios=audios, created_at=datetime.now()))
+
+    def _upload_audio_pair(self, audios: List[Audio]) -> None:
+        """Upload pair of audio files"""
+        for audio in audios:
+            self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio.remote_object_name, path=audio.path)
 
     def get_evaluation_id(self) -> str:
-        """
-        Returns the evaluation id for this evaluator
+        """Get the evaluation ID.
 
         Returns:
-            Evaluation id in string
+            str: Evaluation ID
+
+        Raises:
+            AssertionError: If evaluation is not initialized
         """
-        assert self._evaluation
+        assert self._evaluation, "Evaluation not initialized"
         return self._evaluation.id
 
     def close(self) -> Dict[str, str]:
-        """Closes the file uploading and evaluation session.
-        This function holds until the file uploading finishes.
+        """Close the evaluation session and upload results.
 
         Returns:
-            JSON object containing the uploading status.
+            Dict[str, str]: Status of the operation
 
         Raises:
-            ValueError: if this function is called before calling init().
+            ValueError: If session is not initialized or upload manager is not defined
         """
-        log.debug("Closing the evaluator")
+        self._validate_close()
+        self._wait_for_uploads()
+        self._process_audio_files()
+        self._upload_session_json()
+        self._cleanup()
+        return {"status": "ok"}
+
+    def _validate_close(self) -> None:
+        """Validate the state before closing.
+
+        Raises:
+            ValueError: If session is not properly initialized
+        """
         if not self._initialized or self._eval_config is None:
             raise ValueError("No evaluation session is open.")
 
-        if self._eval_config.eval_type not in self._supported_evaluation_types:
-            raise ValueError("Not supported evaluation type")
-
-        if self._upload_manager is None:
-            raise ValueError("Upload Manager is not defined")
-
-        # Wait until file uploading finishes.
+    def _wait_for_uploads(self) -> None:
+        """Wait for all file uploads to complete."""
         log.debug("Wait until the upload manager shuts down all the upload workers")
-        assert self._upload_manager.wait_and_close()
+        assert self._upload_manager and self._upload_manager.wait_and_close()
 
+    def _process_audio_files(self) -> None:
+        """Process and upload audio files metadata."""
         log.info("Uploading the final pieces...")
-
-        # Insert File data into database
-        audios = [audio for audio_list in self._eval_audios for audio in audio_list]
+        audios = [audio for group in self._ordered_file_groups for audio in group.audios]
         for i in range(0, len(audios), 500):
-            self._create_files_of_evaluation(audios[i : i + 500])
+            self._evaluation_service.create_evaluation_files(self.get_evaluation_id(), audios[i : i + 500])
 
-        # Get the upload time & finish time.
+        self._process_upload_times()
+
+    def _process_upload_times(self) -> None:
+        """Process and store upload times for audio files."""
+        if not self._upload_manager:
+            return
+
         upload_start, upload_finish = self._upload_manager.get_upload_time()
-        for audio_list in self._eval_audios:
-            audio_json_list = []
-            for audio in audio_list:
-                remote_object_name = audio.remote_object_name
-                upload_start_at = upload_start[remote_object_name]
-                upload_finish_at = upload_finish[remote_object_name]
-                audio.set_upload_at(upload_start_at, upload_finish_at)
-                audio_json_list.append(audio.to_dict())
-            self._eval_audio_json.append(audio_json_list)
+        for group in self._ordered_file_groups:
+            for audio in group.audios:
+                self._update_audio_upload_times(audio, upload_start, upload_finish)
 
-        # Create a json.
-        session_json = self._eval_config.to_dict()
-        session_json["files"] = self._eval_audio_json
+    def _update_audio_upload_times(self, audio: Audio, upload_start: Dict[str, str], upload_finish: Dict[str, str]) -> None:
+        """Update upload times for a single audio file.
 
-        presigned_url = self._get_presigned_url_for_put_method(
-            self.get_evaluation_id(),
-            "session.json",
-        )
-
-        try:
-            response = self._api_client.put_json_presigned_url(url=presigned_url, data=session_json, headers={"Content-type": "application/json"})
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            log.error(f"HTTP error in uploading a json: {e}")
-            raise HTTPError(
-                f"Failed to upload session info json: {e}",
-                status_code=e.response.status_code if e.response else None,
-            )
-
-        if self._eval_config.eval_auto_start:
-            log.info(f"{TerminalColor.OK}Upload finished. The evaluation will start immediately.{TerminalColor.ENDC}")
-        else:
-            log.info(f"{TerminalColor.OK}Upload finished. Please start the evaluation at {PODONOS_WORKSPACE}." f"{TerminalColor.ENDC}")
-
-        # Initialize variables.
-        self._init_eval_variables()
-        return {"status": "ok"}
-
-    def _get_eval_config(self) -> EvalConfig:
-        if not self._eval_config:
-            raise ValueError("Evaluator is not initialized")
-        return self._eval_config
-
-    def _set_evaluation(self, eval_config: Optional[EvalConfig]) -> Evaluation:
-        if eval_config and eval_config.eval_template_id:
-            return self._create_evaluation_from_template()
-        return self._create_evaluation()
-
-    def _create_evaluation(self) -> Evaluation:
+        Args:
+            audio: Audio object to update
+            upload_start: Dictionary of upload start times
+            upload_finish: Dictionary of upload finish times
         """
-        Create a new evaluation based on the evaluation configuration
+        remote_object_name = audio.remote_object_name
+        upload_start_at = upload_start[remote_object_name]
+        upload_finish_at = upload_finish[remote_object_name]
+        audio.set_upload_at(upload_start_at, upload_finish_at)
 
-        Raises:
-            HTTPError: If the value is invalid
+    def _upload_session_json(self) -> None:
+        """Upload the session JSON data."""
+        self._evaluation_service.upload_session_json(self.get_evaluation_id(), self._eval_config, self._ordered_file_groups)
 
-        Returns:
-            Evaluation: Get new evaluation information
-        """
-        log.debug("Create evaluation")
-        eval_config = self._get_eval_config()
-        try:
-            response = self._api_client.post("evaluations", data=eval_config.to_create_request_dto())
-            response.raise_for_status()
-            evaluation = Evaluation.from_dict(response.json())
-            log.info(f"Evaluation is generated: {evaluation.id}")
-            return evaluation
-        except Exception as e:
-            raise HTTPError(f"Failed to create the evaluation: {e}")
+    def _cleanup(self) -> None:
+        """Clean up the evaluation session."""
+        self._initialized = False
+        self._ordered_file_groups = []
 
-    def _create_evaluation_from_template(self) -> Evaluation:
-        """
-        Create a new evaluation based on built-in template
-
-        Raises:
-            HTTPError: If the template id is invalid
-
-        Returns:
-            Evaluation: Get new evaluation information
-        """
-        log.debug("Create Evaluation from Template")
-        eval_config = self._get_eval_config()
-        try:
-            response = self._api_client.post("evaluations/templates", data=eval_config.to_create_from_template_request_dto())
-            response.raise_for_status()
-            evaluation = Evaluation.from_dict(response.json())
-            log.info(f"Evaluation is generated: {evaluation.id}")
-            return evaluation
-        except Exception as e:
-            raise HTTPError(f"Failed to create the evaluation: {e}")
+    def _set_evaluation(self, eval_config: EvalConfig) -> Evaluation:
+        if eval_config.eval_template_id:
+            return self._evaluation_service.create_from_template(eval_config)
+        return self._evaluation_service.create(eval_config)
 
     def _upload_one_file(
         self,
@@ -232,87 +331,13 @@ class Evaluator(ABC):
             self._upload_manager.add_file_to_queue(evaluation_id, remote_object_name, path)
         return
 
-    def _get_presigned_url_for_put_method(
-        self,
-        evaluation_id: str,
-        remote_object_name: str,
-    ) -> str:
-        log.check_ne(evaluation_id, "")
-        log.check_ne(remote_object_name, "")
-
-        try:
-            response = self._api_client.put(
-                f"evaluations/{evaluation_id}/uploading-presigned-url",
-                {
-                    "processed_uri": remote_object_name,
-                },
-            )
-            response.raise_for_status()
-            return response.text.replace('"', "")
-        except requests.exceptions.HTTPError as e:
-            log.error(f"HTTP error in getting a presigned url: {e}")
-            raise HTTPError(
-                f"Failed to get presigned URL for {remote_object_name}: {e}",
-                status_code=e.response.status_code if e.response else None,
-            )
-
-    def _create_files_of_evaluation(self, audios: List[Audio]):
-        try:
-            response = self._api_client.put(
-                f"evaluations/{self.get_evaluation_id()}/files",
-                {"files": [audio.to_create_file_dict() for audio in audios]},
-            )
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            log.error(f"HTTP error in adding file meta: {e}")
-            raise HTTPError(
-                f"Failed to create evaluation files: {e}",
-                status_code=e.response.status_code if e.response else None,
-            )
-
-    def _set_audio(
+    def _create_audio(
         self,
         file: File,
         group: Optional[str],
         type: QuestionFileType,
-        order_in_group: int,
+        order_in_group: int = 0,
     ) -> Audio:
-        log.check_ne(file.path, "")
-
-        valid_path = self._validate_path(file.path)
-        remote_object_name = self._get_remote_object_name()
-        original_path, remote_path = self._process_original_path_and_remote_object_path_into_posix_style(valid_path, remote_object_name)
-
-        log.debug(f"remote_object_name: {remote_object_name}")
-        return Audio(
-            path=valid_path,
-            name=original_path,
-            remote_object_name=remote_path,
-            script=file.script,
-            tags=file.tags,
-            model_tag=file.model_tag,
-            is_ref=file.is_ref if file.is_ref else False,
-            group=group,
-            type=type,
-            order_in_group=order_in_group,
+        return Audio.from_file(
+            file=file, creation_timestamp=self._eval_config.eval_creation_timestamp, group=group, type=type, order_in_group=order_in_group
         )
-
-    @staticmethod
-    def _validate_path(path: str) -> str:
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f"File {path} doesn't exist")
-
-        if not os.access(path, os.R_OK):
-            raise FileNotFoundError(f"File {path} isn't readable")
-        return path
-
-    def _get_remote_object_name(self) -> str:
-        eval_config = self._get_eval_config()
-        remote_object_name = os.path.join(eval_config.eval_creation_timestamp, generate_random_name())
-        return remote_object_name
-
-    @staticmethod
-    def _process_original_path_and_remote_object_path_into_posix_style(original_path: str, remote_object_path: str) -> Tuple[str, str]:
-        posix_original_path = original_path.replace("\\", "/")
-        posix_remote_object_path = remote_object_path.replace("\\", "/")
-        return posix_original_path, posix_remote_object_path

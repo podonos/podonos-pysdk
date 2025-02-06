@@ -3,6 +3,7 @@ Default enum values across whole SDK
 """
 
 from enum import Enum
+from typing import List
 
 
 class EvalType(Enum):
@@ -24,12 +25,28 @@ class EvalType(Enum):
         return f"SPEECH_{self.value}"
 
     @staticmethod
-    def is_eval_type(eval_type: str) -> bool:
-        return any([item for item in EvalType if item.value == eval_type])
+    def get_single_types() -> List["EvalType"]:
+        """Get all single stimulus evaluation types"""
+        return [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]
 
     @staticmethod
-    def is_single(eval_type: str) -> bool:
-        return eval_type in ["NMOS", "QMOS", "P808", "CUSTOM_SINGLE"]
+    def get_double_types() -> List["EvalType"]:
+        """Get all double stimuli evaluation types"""
+        return [EvalType.PREF, EvalType.SMOS, EvalType.CUSTOM_DOUBLE]
+
+    @staticmethod
+    def is_single(type_str: str) -> bool:
+        """Check if type is single stimulus"""
+        return EvalType(type_str) in EvalType.get_single_types()
+
+    @staticmethod
+    def is_double(type_str: str) -> bool:
+        """Check if type is double stimuli"""
+        return EvalType(type_str) in EvalType.get_double_types()
+
+    @staticmethod
+    def is_eval_type(eval_type: str) -> bool:
+        return any([item for item in EvalType if item.value == eval_type])
 
 
 class Language(Enum):
@@ -61,6 +78,7 @@ class QuestionFileType(str, Enum):
     REF = "REF"
     META = "META"
 
+
 class QuestionResponseCategory(Enum):
     CHOICE_ONE = "CHOICE_ONE"
     CHOICE_MULTI = "CHOICE_MULTI"
@@ -68,11 +86,13 @@ class QuestionResponseCategory(Enum):
     SCALE_LINEAR = "SCALE_LINEAR"
     INSTRUCTION = "INSTRUCTION"
 
+
 class QuestionUsageType(Enum):
     GUIDELINE_CORRECT = "GUIDELINE_CORRECT"
     GUIDELINE_WARNING = "GUIDELINE_WARNING"
     GUIDELINE_PROHIBIT = "GUIDELINE_PROHIBIT"
     SCORE = "SCORE"
+
 
 class GuideCategory(Enum):
     CORRECT = "CORRECT"

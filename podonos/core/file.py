@@ -1,4 +1,5 @@
-from typing import List, Optional
+import os
+from typing import List, Optional, Tuple
 
 from podonos.core.base import *
 
@@ -20,7 +21,8 @@ class File:
         """
         log.check_ne(path, "")
         log.check_ne(model_tag, "")
-        self._path = path
+
+        self._path = self._validate_path(path)
         self._model_tag = model_tag
         self._tags = self._set_tags(tags)
         self._script = script
@@ -45,6 +47,26 @@ class File:
     @property
     def is_ref(self) -> Optional[bool]:
         return self._is_ref
+
+    def _validate_path(self, path: str) -> str:
+        """Validate file path exists and is readable.
+
+        Args:
+            path: File path to validate
+
+        Returns:
+            Validated path
+
+        Raises:
+            FileNotFoundError: If file doesn't exist or isn't readable
+        """
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"File {path} doesn't exist")
+
+        if not os.access(path, os.R_OK):
+            raise FileNotFoundError(f"File {path} isn't readable")
+
+        return path
 
     def _set_tags(self, tags: List[str]) -> List[str]:
         unique_tags = []
