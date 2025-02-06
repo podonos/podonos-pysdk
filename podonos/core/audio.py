@@ -223,7 +223,7 @@ class AudioGroup:
     def __init__(self, group_id: Optional[str], audios: List[Audio], created_at: datetime):
         self.group_id = group_id
         self.created_at = created_at
-        self.set_audios(audios)
+        self.audios = self.set_audios(audios)
 
     def set_audios(self, audios: List[Audio]):
         """
@@ -239,7 +239,7 @@ class AudioGroup:
             if audio.order_in_group != i:
                 raise ValueError(f"Order in group must be unique. Got {audio.order_in_group}.")
 
-        self.audios = audios
+        return audios
 
     def to_dict(self) -> Dict[str, Any]:
         return {
