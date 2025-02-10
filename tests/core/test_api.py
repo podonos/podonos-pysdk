@@ -2,6 +2,7 @@ from datetime import datetime
 import re
 import unittest
 from unittest.mock import patch, MagicMock
+from podonos.common.util import get_content_type_by_filename
 from podonos.core.api import APIClient, APIVersion
 
 
@@ -59,30 +60,30 @@ class TestAPIClient(unittest.TestCase):
         mock_put.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, json=data)
 
     @patch("podonos.core.api.APIClient._check_minimum_version")
-    @patch("podonos.core.api.APIClient.get")
-    def test_initialize_success(self, mock_get, mock_check_minimum_version):
+    @patch("podonos.core.api.APIClient.patch")
+    def test_initialize_success(self, mock_patch, mock_check_minimum_version):
         mock_response = MagicMock()
         mock_response.text = "true"
-        mock_get.return_value = mock_response
+        mock_patch.return_value = mock_response
         mock_check_minimum_version.return_value = True
 
         result = self.client.initialize()
         self.assertTrue(result)
-        mock_get.assert_called_once_with(f"customers/verify/api-key")
+        mock_patch.assert_called_once_with("api-keys/last-used-time", headers=self.client._headers, data={})
 
     @patch("podonos.core.api.APIClient._check_minimum_version")
-    @patch("podonos.core.api.APIClient.get")
-    def test_initialize_invalid_api_key(self, mock_get, mock_check_minimum_version):
+    @patch("podonos.core.api.APIClient.patch")
+    def test_initialize_invalid_api_key(self, mock_patch, mock_check_minimum_version):
         mock_response = MagicMock()
         mock_response.text = "false"
-        mock_get.return_value = mock_response
+        mock_patch.return_value = mock_response
         mock_check_minimum_version.return_value = True
 
         with self.assertRaises(ValueError) as context:
             self.client.initialize()
 
         self.assertIn("Invalid API key", str(context.exception))
-        mock_get.assert_called_once_with("customers/verify/api-key")
+        mock_patch.assert_called_once_with("api-keys/last-used-time", headers=self.client._headers, data={})
 
     def test_add_headers(self):
         self.client.add_headers("New-Header", "HeaderValue")
@@ -99,16 +100,16 @@ class TestAPIClient(unittest.TestCase):
 
     def test_get_content_type(self):
         path_wav = "/a/b/123.wav"
-        self.assertEqual("audio/wav", self.client._get_content_type_by_filename(path_wav))
+        self.assertEqual("audio/wav", get_content_type_by_filename(path_wav))
 
         path_wav = "/a/b/456.mp3"
-        self.assertEqual("audio/mpeg", self.client._get_content_type_by_filename(path_wav))
+        self.assertEqual("audio/mpeg", get_content_type_by_filename(path_wav))
 
         path_wav = "/a/b/789.json"
-        self.assertEqual("application/json", self.client._get_content_type_by_filename(path_wav))
+        self.assertEqual("application/json", get_content_type_by_filename(path_wav))
 
         path_wav = "/a/b/abc.obj"
-        self.assertEqual("application/octet-stream", self.client._get_content_type_by_filename(path_wav))
+        self.assertEqual("application/octet-stream", get_content_type_by_filename(path_wav))
 
     def test_package_version(self):
         version_str = self.client._get_podonos_version()
