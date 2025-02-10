@@ -199,8 +199,8 @@ class Audio(File):
 
     def to_create_file_dict(self) -> Dict[str, Any]:
         return {
-            "original_uri": self._path,
-            "processed_uri": self._remote_object_name,
+            "original_name": self._path,
+            "uploaded_file_name": self._remote_object_name,
             "duration": self._metadata.duration_in_ms,
             "model_tag": self._model_tag,
             "is_ref": self._is_ref,

@@ -1,6 +1,9 @@
+import os
 import time
-from typing import Tuple
 import uuid
+from typing import Tuple
+
+from podonos.core.base import log
 
 
 def generate_random_name():
@@ -26,3 +29,16 @@ def process_paths_to_posix(original_path: str, remote_object_path: str) -> Tuple
         Tuple of processed original and remote paths
     """
     return (original_path.replace("\\", "/"), remote_object_path.replace("\\", "/"))
+
+
+def get_content_type_by_filename(path: str) -> str:
+    log.check_notnone(path)
+    log.check_ne(path, "")
+    _, ext = os.path.splitext(path)
+    if ext == ".wav":
+        return "audio/wav"
+    elif ext == ".mp3":
+        return "audio/mpeg"
+    elif ext == ".json":
+        return "application/json"
+    return "application/octet-stream"

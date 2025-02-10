@@ -106,50 +106,6 @@ class APIClient:
         response = requests.put(f"{self._api_url}/{endpoint}", headers=request_header, json=data)
         return response
 
-    def put_file_presigned_url(self, url: str, path: str) -> Response:
-        log.check_notnone(url)
-        log.check_notnone(path)
-        log.check_ne(url, "")
-        log.check_ne(path, "")
-        log.check(os.path.isfile(path), f"{path} doesn't exist")
-        log.check(os.access(path, os.R_OK), f"{path} isn't readable")
-
-        try:
-            response = requests.put(
-                url,
-                data=open(path, "rb"),
-                headers={"Content-Type": self._get_content_type_by_filename(path)},
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            log.error(f"HTTP error in uploading a file to presigned URL: {e}")
-            raise HTTPError(
-                f"Failed to Upload File {path}: {e}",
-                status_code=e.response.status_code if e.response else None,
-            )
-
-    def put_json_presigned_url(self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Response:
-        log.check_notnone(url)
-        log.check_ne(url, "")
-
-        log.debug("JSON data")
-        for key, value in data.items():
-            log.debug(f"{key}: {value}")
-        if headers:
-            log.debug("Headers")
-            for key, value in data.items():
-                log.debug(f"{key}: {value}")
-
-        try:
-            response = requests.put(url, json=data, headers=headers)
-            return response
-        except requests.exceptions.RequestException as e:
-            log.error(f"HTTP error in uploading a json to presigned url: {e}")
-            raise HTTPError(
-                f"Failed to Upload JSON {data}: {e}",
-                status_code=e.response.status_code if e.response else None,
-            )
-
     def get_template_by_code(self, template_id: str) -> Template:
         """
         Get template information by Id

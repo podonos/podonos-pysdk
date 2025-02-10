@@ -168,7 +168,9 @@ class TestAudio(unittest.TestCase):
         file_dict = audio.to_create_file_dict()
 
         # Then
-        self.assertEqual(file_dict["processed_uri"], "remote/path.wav")
+        self.assertEqual(file_dict["original_name"], self.test_wav)
+        self.assertEqual(file_dict["uploaded_file_name"], "remote/path.wav")
+        self.assertEqual(file_dict["duration"], 558)
         self.assertEqual(file_dict["model_tag"], "test_model")
         self.assertEqual(file_dict["tags"], ["test", "mono"])
         self.assertEqual(file_dict["script"], "test script")

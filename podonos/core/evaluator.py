@@ -323,7 +323,7 @@ class Evaluator:
         if self._upload_manager is None:
             log.debug(f"max_upload_workers: {self._eval_config.max_upload_workers}")
             self._upload_manager = UploadManager(
-                api_client=self._api_client,
+                evaluation_service=self._evaluation_service,
                 max_workers=self._eval_config.max_upload_workers,
             )
 
