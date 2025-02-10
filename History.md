@@ -1,3 +1,9 @@
+## 0.8.0
+
+- Change the API key verification method
+- Remove `SingleStimlusEvaluator` and `DoubleStimlusEvaluator`
+- Create `EvaluationService` class for managing evaluations
+
 ## 0.7.0
 
 - Fix the bug of `get_stats_dict_by_id` and `download_stats_csv_by_id`
