@@ -1,6 +1,5 @@
 import atexit
 import datetime
-import requests
 import queue
 import threading
 import time
@@ -10,9 +9,8 @@ from threading import Event
 from tqdm import tqdm
 from typing import Optional
 
-from podonos.core.api import APIClient
-from podonos.common.exception import HTTPError
 from podonos.core.base import *
+from podonos.service.evaluation_service import EvaluationService
 
 
 class UploadManager:
@@ -32,8 +30,8 @@ class UploadManager:
     _worker_event: Optional[Event] = None
     # Master daemon thread. Alive until the manager closes.
     _daemon_thread: Optional[threading.Thread] = None
-    # API client for
-    _api_client: Optional[APIClient] = None
+    # Evaluation service
+    _evaluation_service: EvaluationService
     # Manager status. True if the manager is ready.
     _status: bool = False
     # Maximum number of uploader worker threads
@@ -48,12 +46,16 @@ class UploadManager:
 
         return self._upload_start, self._upload_finish
 
-    def __init__(self, api_client: APIClient, max_workers: int) -> None:
-        log.check(api_client, "api_client is not initialized")
+    def __init__(
+        self,
+        evaluation_service: EvaluationService,
+        max_workers: int,
+    ) -> None:
+        log.check(evaluation_service, "api_client is not initialized")
 
         self._upload_start = dict()
         self._upload_finish = dict()
-        self._api_client = api_client
+        self._evaluation_service = evaluation_service
         self._queue = queue.Queue()
         self._total_files = 0
         self._max_workers = max_workers
@@ -72,41 +74,13 @@ class UploadManager:
         log.debug(f"Uploader daemon is shutting down")
         executor.shutdown(wait=True)
 
-    def _get_presigned_url_for_put_method(
-        self,
-        evaluation_id: str,
-        remote_object_name: str,
-    ) -> str:
-        log.check_ne(evaluation_id, "")
-        log.check_ne(remote_object_name, "")
-
-        try:
-            if not self._api_client:
-                log.error("API Client is not initialized")
-                raise ValueError("API Client is not initialized")
-
-            response = self._api_client.put(
-                f"evaluations/{evaluation_id}/uploading-presigned-url",
-                {
-                    "processed_uri": remote_object_name,
-                },
-            )
-            response.raise_for_status()
-            return response.text.replace('"', "")
-        except requests.exceptions.HTTPError as e:
-            log.error(f"HTTP error in getting a presigned url: {e}")
-            raise HTTPError(
-                f"Failed to get presigned URL for {remote_object_name}: {e}",
-                status_code=e.response.status_code if e.response else None,
-            )
-
     def _upload_worker(self, index, worker_event) -> None:
         # Individual worker for uploading files. The upload manager creates multiple threads for each of this worker.
         if not (
             self._queue is not None
             and self._worker_event is not None
             and self._daemon_thread is not None
-            and self._api_client is not None
+            and self._evaluation_service is not None
             and self._upload_start is not None
             and self._upload_finish is not None
         ):
@@ -121,7 +95,7 @@ class UploadManager:
                 path = item[2]
 
                 log.debug(f"Worker {index} presigned url request")
-                presigned_url = self._get_presigned_url_for_put_method(
+                presigned_url = self._evaluation_service.get_presigned_url(
                     evaluation_id,
                     remote_object_name,
                 )
@@ -130,7 +104,7 @@ class UploadManager:
                 log.debug(f"Worker {index} uploading {path}")
                 # Timestamp in ISO 8601.
                 upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec="milliseconds")
-                self._api_client.put_file_presigned_url(presigned_url, path)
+                self._evaluation_service.upload_evaluation_file(presigned_url, path)
                 upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec="milliseconds")
                 log.debug(f"Worker {index} finished uploading {item}")
 
@@ -152,7 +126,7 @@ class UploadManager:
             self._queue is not None
             and self._worker_event is not None
             and self._daemon_thread is not None
-            and self._api_client is not None
+            and self._evaluation_service is not None
             and self._upload_start is not None
             and self._upload_finish is not None
         ):
@@ -193,7 +167,7 @@ class UploadManager:
             self._queue is not None
             and self._worker_event is not None
             and self._daemon_thread is not None
-            and self._api_client is not None
+            and self._evaluation_service is not None
             and self._upload_start is not None
             and self._upload_finish is not None
         )

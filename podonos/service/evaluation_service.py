@@ -1,8 +1,9 @@
+import os
+import requests
+from requests import Response
 from typing import Any, Dict, List, Optional
 
-from requests import Response
-import requests
-
+from podonos.common.util import get_content_type_by_filename
 from podonos.core.audio import Audio, AudioGroup
 from podonos.core.base import log
 from podonos.core.api import APIClient
@@ -85,13 +86,35 @@ class EvaluationService:
         try:
             response = self.api_client.put(
                 f"evaluations/{evaluation_id}/uploading-presigned-url",
-                data={"processed_uri": remote_object_name},
+                data={"uploaded_file_name": remote_object_name},
             )
             response.raise_for_status()
             return response.text.replace('"', "")
         except Exception as e:
             log.error(f"HTTP error in getting a presigned url: {e}")
             raise HTTPError(f"Failed to get presigned URL: {e}")
+
+    def upload_evaluation_file(self, url: str, path: str) -> Response:
+        log.check_notnone(url)
+        log.check_notnone(path)
+        log.check_ne(url, "")
+        log.check_ne(path, "")
+        log.check(os.path.isfile(path), f"{path} doesn't exist")
+        log.check(os.access(path, os.R_OK), f"{path} isn't readable")
+
+        try:
+            response = requests.put(
+                url,
+                data=open(path, "rb"),
+                headers={"Content-Type": get_content_type_by_filename(path)},
+            )
+            return response
+        except requests.exceptions.RequestException as e:
+            log.error(f"HTTP error in uploading a file to presigned URL: {e}")
+            raise HTTPError(
+                f"Failed to Upload File {path}: {e}",
+                status_code=e.response.status_code if e.response else None,
+            )
 
     def upload_session_json(self, evaluation_id: str, config: EvalConfig, audio_groups: List[AudioGroup]) -> None:
         """Upload session JSON data"""
