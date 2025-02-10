@@ -58,8 +58,7 @@ class APIClient:
     def initialize(self) -> bool:
         self._check_minimum_version()
 
-        response = self.get("customers/verify/api-key")
-        # TODO: change into other APIs
+        response = self.patch("api-keys/last-used-time", headers=self._headers, data={})
         if response.text != "true":
             raise ValueError(TerminalColor.FAIL + f"Invalid API key: {self._api_key}" + TerminalColor.ENDC)
         return True
@@ -106,6 +105,19 @@ class APIClient:
         response = requests.put(f"{self._api_url}/{endpoint}", headers=request_header, json=data)
         return response
 
+    def patch(
+        self,
+        endpoint: str,
+        data: Dict[str, Any],
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Response:
+        log.check_notnone(endpoint)
+        log.check_ne(endpoint, "")
+
+        request_header = self._headers if headers is None else headers
+        response = requests.patch(f"{self._api_url}/{endpoint}", headers=request_header, json=data)
+        return response
+
     def get_template_by_code(self, template_id: str) -> Template:
         """
         Get template information by Id
@@ -120,19 +132,6 @@ class APIClient:
             return template
         except Exception as e:
             raise HTTPError(f"Failed to get template by id: {template_id} / {e}")
-
-    @staticmethod
-    def _get_content_type_by_filename(path: str) -> str:
-        log.check_notnone(path)
-        log.check_ne(path, "")
-        _, ext = os.path.splitext(path)
-        if ext == ".wav":
-            return "audio/wav"
-        elif ext == ".mp3":
-            return "audio/mpeg"
-        elif ext == ".json":
-            return "application/json"
-        return "application/octet-stream"
 
     def _check_minimum_version(self) -> bool:
         response = self.get("version/sdk")

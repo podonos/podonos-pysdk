@@ -2,6 +2,7 @@ from datetime import datetime
 import re
 import unittest
 from unittest.mock import patch, MagicMock
+from podonos.common.util import get_content_type_by_filename
 from podonos.core.api import APIClient, APIVersion
 
 
@@ -99,16 +100,16 @@ class TestAPIClient(unittest.TestCase):
 
     def test_get_content_type(self):
         path_wav = "/a/b/123.wav"
-        self.assertEqual("audio/wav", self.client._get_content_type_by_filename(path_wav))
+        self.assertEqual("audio/wav", get_content_type_by_filename(path_wav))
 
         path_wav = "/a/b/456.mp3"
-        self.assertEqual("audio/mpeg", self.client._get_content_type_by_filename(path_wav))
+        self.assertEqual("audio/mpeg", get_content_type_by_filename(path_wav))
 
         path_wav = "/a/b/789.json"
-        self.assertEqual("application/json", self.client._get_content_type_by_filename(path_wav))
+        self.assertEqual("application/json", get_content_type_by_filename(path_wav))
 
         path_wav = "/a/b/abc.obj"
-        self.assertEqual("application/octet-stream", self.client._get_content_type_by_filename(path_wav))
+        self.assertEqual("application/octet-stream", get_content_type_by_filename(path_wav))
 
     def test_package_version(self):
         version_str = self.client._get_podonos_version()
