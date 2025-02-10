@@ -34,11 +34,14 @@ def process_paths_to_posix(original_path: str, remote_object_path: str) -> Tuple
 def get_content_type_by_filename(path: str) -> str:
     log.check_notnone(path)
     log.check_ne(path, "")
+
     _, ext = os.path.splitext(path)
     if ext == ".wav":
         return "audio/wav"
     elif ext == ".mp3":
         return "audio/mpeg"
+    elif ext == ".flac":
+        return "audio/flac"
     elif ext == ".json":
         return "application/json"
     return "application/octet-stream"
