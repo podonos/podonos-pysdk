@@ -120,18 +120,29 @@ class File:
 
     def _set_tags(self, tags: List[str]) -> List[str]:
         """
-        Set the tags as a list of unique strings for the file even though it's not strings.
+        Set the tags as a list of unique strings for the file.
 
         Args:
             tags: A list of string for file.
 
         Returns:
             A list of unique tags
+
+        Raises:
+            ValueError: If tags is not a list or contains non-string elements
         """
+        if not isinstance(tags, list):
+            raise ValueError(f"tags must be a list, got {type(tags)}")
+
         unique_tags = []
         seen = set()
-        for tag in tags:
-            if tag not in seen:
-                seen.add(tag)
-                unique_tags.append(str(tag))
+        for i, tag in enumerate(tags):
+            if not isinstance(tag, (str, int, float)):
+                raise ValueError(f"tag at index {i} must be a string, number, or boolean, got {type(tag)}")
+
+            str_tag = str(tag)
+            if str_tag not in seen:
+                seen.add(str_tag)
+                unique_tags.append(str_tag)
+
         return unique_tags
