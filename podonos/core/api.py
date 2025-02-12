@@ -9,9 +9,7 @@ from typing import Dict, Any, Optional
 from packaging.version import Version
 
 from podonos.common.constant import *
-from podonos.common.exception import HTTPError
 from podonos.core.base import *
-from podonos.core.template import Template
 
 
 class APIVersion:
@@ -117,21 +115,6 @@ class APIClient:
         request_header = self._headers if headers is None else headers
         response = requests.patch(f"{self._api_url}/{endpoint}", headers=request_header, json=data)
         return response
-
-    def get_template_by_code(self, template_id: str) -> Template:
-        """
-        Get template information by Id
-
-        Returns: Template
-        """
-        try:
-            response = requests.get(f"{self._api_url}/templates/one?code={template_id}", headers=self._headers)
-            response.raise_for_status()
-            template = Template.from_api_response(response.json())
-            log.info(f"Get template by id {template_id}")
-            return template
-        except Exception as e:
-            raise HTTPError(f"Failed to get template by id: {template_id} / {e}")
 
     def _check_minimum_version(self) -> bool:
         response = self.get("version/sdk")

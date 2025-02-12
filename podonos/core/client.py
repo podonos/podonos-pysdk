@@ -12,6 +12,7 @@ from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
 from podonos.core.template import TemplateValidator
+from podonos.service.template_service import TemplateService
 
 
 class Client:
@@ -127,7 +128,8 @@ class Client:
         if not template_id:
             raise ValueError("Template Id should exist")
 
-        template = self._api_client.get_template_by_code(template_id)
+        template_service = TemplateService(self._api_client)
+        template = template_service.get_template_by_code(template_id)
         eval_config = EvalConfig(
             type=EvalType.CUSTOM_SINGLE.value if template.batch_size == 1 else EvalType.CUSTOM_DOUBLE.value,
             name=name,
@@ -236,24 +238,21 @@ class Client:
         else:
             raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
 
+        template_service = TemplateService(self._api_client)
         evaluator = Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
         try:
             if guide_questions:
                 log.debug(f"Creating {len(guide_questions)} guide questions...")
-                guide_request = {"evaluation_id": evaluator.get_evaluation_id(), "questions": [q.to_create_dict() for q in guide_questions]}
-                response = self._api_client.put("template-questions/bulk", data=guide_request)
-                response.raise_for_status()
+                response = template_service.create_template_questions_by_evaluation_id_and_questions(evaluator.get_evaluation_id(), guide_questions)
 
-                for q_response, question in zip(response.json(), guide_questions):
+                for q_response, question in zip(response, guide_questions):
                     question.id = q_response["id"]
 
             if core_questions:
                 log.debug(f"Creating {len(core_questions)} core questions...")
-                core_request = {"evaluation_id": evaluator.get_evaluation_id(), "questions": [q.to_create_dict() for q in core_questions]}
-                response = self._api_client.put("template-questions/bulk", data=core_request)
-                response.raise_for_status()
+                response = template_service.create_template_questions_by_evaluation_id_and_questions(evaluator.get_evaluation_id(), core_questions)
 
-                for q_response, question in zip(response.json(), core_questions):
+                for q_response, question in zip(response, core_questions):
                     question.id = q_response["id"]
 
             # Create options for questions that have options
@@ -261,9 +260,8 @@ class Client:
             if questions_with_options:
                 log.debug(f"Creating options for {len(questions_with_options)} questions...")
                 for question in questions_with_options:
-                    option_request = question.to_option_bulk_request()
-                    response = self._api_client.put("template-options/bulk", data=option_request)
-                    response.raise_for_status()
+                    if question.id:
+                        template_service.create_template_options_by_question_id_and_options(question.id, question.options)
 
         except Exception as e:
             log.error(f"Failed to create template: {str(e)}")

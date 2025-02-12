@@ -116,33 +116,6 @@ class TestAPIClient(unittest.TestCase):
         # Test the version string is in the format of "<decimal_version>.<decimal_subversion>"
         self.assertTrue(re.search(r"\d+\.\d+", version_str))
 
-    @patch("requests.get")
-    def test_get_template_by_id_success(self, mock_get):
-        # Mock response
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "id": "123",
-            "code": "123456",
-            "title": "Test Template",
-            "description": None,
-            "batch_size": 1,
-            "language": "en-us",
-            "created_time": str(datetime.now()),
-            "updated_time": str(datetime.now()),
-        }
-        mock_response.raise_for_status = MagicMock()
-        mock_get.return_value = mock_response
-
-        api_client = APIClient(api_key=self.api_key, api_url=self.api_url)
-
-        # Call the method
-        template = api_client.get_template_by_code("123")
-
-        # Assertions
-        self.assertEqual(template.id, "123")
-        self.assertEqual(template.code, "123456")
-        self.assertEqual(template.title, "Test Template")
-
 
 if __name__ == "__main__":
     unittest.main()

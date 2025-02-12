@@ -89,6 +89,34 @@ class Evaluator:
         if self._eval_config.eval_type not in supported_types:
             raise ValueError(error_msg)
 
+    def get_evaluation_id(self) -> str:
+        """Get the evaluation ID.
+
+        Returns:
+            str: Evaluation ID
+
+        Raises:
+            AssertionError: If evaluation is not initialized
+        """
+        assert self._evaluation, "Evaluation not initialized"
+        return self._evaluation.id
+
+    def close(self) -> Dict[str, str]:
+        """Close the evaluation session and upload results.
+
+        Returns:
+            Dict[str, str]: Status of the operation
+
+        Raises:
+            ValueError: If session is not initialized or upload manager is not defined
+        """
+        self._validate_close()
+        self._wait_for_uploads()
+        self._process_audio_files()
+        self._upload_session_json()
+        self._cleanup()
+        return {"status": "ok"}
+
     def add_file(self, file: File) -> None:
         """Add new file for speech evaluation.
         The file may be either in {wav, mp3} format. The file will be securely uploaded to
@@ -202,34 +230,6 @@ class Evaluator:
         """Upload pair of audio files"""
         for audio in audios:
             self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio.remote_object_name, path=audio.path)
-
-    def get_evaluation_id(self) -> str:
-        """Get the evaluation ID.
-
-        Returns:
-            str: Evaluation ID
-
-        Raises:
-            AssertionError: If evaluation is not initialized
-        """
-        assert self._evaluation, "Evaluation not initialized"
-        return self._evaluation.id
-
-    def close(self) -> Dict[str, str]:
-        """Close the evaluation session and upload results.
-
-        Returns:
-            Dict[str, str]: Status of the operation
-
-        Raises:
-            ValueError: If session is not initialized or upload manager is not defined
-        """
-        self._validate_close()
-        self._wait_for_uploads()
-        self._process_audio_files()
-        self._upload_session_json()
-        self._cleanup()
-        return {"status": "ok"}
 
     def _validate_close(self) -> None:
         """Validate the state before closing.
