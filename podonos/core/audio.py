@@ -57,8 +57,8 @@ class AudioMeta:
         suffix = Path(path).suffix
         support_file_type = [".wav", ".mp3", ".flac"]
         assert suffix in support_file_type, f"Unsupported file format: {path}. It must be wav, mp3, or flac."
-        # if suffix in support_file_type:
-        #     return self._get_audio_info(path)
+        if suffix in support_file_type:
+            return self._get_audio_info(path)
         return 0, 0, 0
 
     def _get_audio_info(self, filepath: str) -> Tuple[int, int, int]:
