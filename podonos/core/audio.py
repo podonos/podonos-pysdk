@@ -19,9 +19,9 @@ class AudioMeta:
     def __init__(self, path: str) -> None:
         log.check_notnone(path)
         self._nchannels, self._framerate, self._duration_in_ms = self._set_audio_meta(path)
-        log.check_gt(self._nchannels, 0)
-        log.check_gt(self._framerate, 0)
-        log.check_gt(self._duration_in_ms, 0)
+        log.check_ge(self._nchannels, 0)
+        log.check_ge(self._framerate, 0)
+        log.check_ge(self._duration_in_ms, 0)
 
     @property
     def nchannels(self) -> int:
@@ -57,8 +57,8 @@ class AudioMeta:
         suffix = Path(path).suffix
         support_file_type = [".wav", ".mp3", ".flac"]
         assert suffix in support_file_type, f"Unsupported file format: {path}. It must be wav, mp3, or flac."
-        if suffix in support_file_type:
-            return self._get_audio_info(path)
+        # if suffix in support_file_type:
+        #     return self._get_audio_info(path)
         return 0, 0, 0
 
     def _get_audio_info(self, filepath: str) -> Tuple[int, int, int]:
