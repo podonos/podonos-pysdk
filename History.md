@@ -1,3 +1,7 @@
+## 0.8.1
+
+- Fix the bug of `get_audio_info` when using `soundfile` library
+
 ## 0.8.0
 
 - Change the API key verification method
