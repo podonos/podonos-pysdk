@@ -1,6 +1,6 @@
 ## 0.8.1
 
-- Fix the bug of `get_audio_info` when using `soundfile` library
+- Handle the error of `get_audio_info` when using `soundfile` library
 
 ## 0.8.0
 
