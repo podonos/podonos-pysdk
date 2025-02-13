@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List
 
 from podonos.common.enum import QuestionFileType
-from podonos.core.base import *
 from podonos.common.util import generate_random_name, process_paths_to_posix
+from podonos.core.base import *
 from podonos.core.file import File
 
 
@@ -56,7 +56,7 @@ class AudioMeta:
         # Check if this is wav or mp3.
         suffix = Path(path).suffix
         support_file_type = [".wav", ".mp3", ".flac"]
-        assert suffix in support_file_type, f"Unsupported file format: {path}. It must be wav or mp3."
+        assert suffix in support_file_type, f"Unsupported file format: {path}. It must be wav, mp3, or flac."
         if suffix in support_file_type:
             return self._get_audio_info(path)
         return 0, 0, 0
@@ -73,20 +73,27 @@ class AudioMeta:
             FileNotFoundError: if the file is not found.
             wave.Error: if the file doesn't read properly.
         """
-        log.check_notnone(filepath)
-        log.check_ne(filepath, "")
+        try:
+            log.check_notnone(filepath)
+            log.check_ne(filepath, "")
 
-        f = sf.SoundFile(filepath)
-        nframes = f.frames
-        nchannels = f.channels
-        framerate = f.samplerate
-        log.check_gt(nframes, 0)
-        log.check_gt(nchannels, 0)
-        log.check_gt(framerate, 0)
+            f = sf.SoundFile(filepath)
+            nframes = f.frames
+            nchannels = f.channels
+            framerate = f.samplerate
+            log.check_gt(nframes, 0)
+            log.check_gt(nchannels, 0)
+            log.check_gt(framerate, 0)
 
-        duration_in_ms = int(nframes * 1000.0 / float(framerate))
-        log.check_gt(duration_in_ms, 0)
-        return nchannels, framerate, duration_in_ms
+            duration_in_ms = int(nframes * 1000.0 / float(framerate))
+            log.check_gt(duration_in_ms, 0)
+            return nchannels, framerate, duration_in_ms
+        except AttributeError as e:
+            log.error(f"Attribute error while getting audio info: {e}")
+            return 0, 0, 0
+        except Exception as e:
+            log.error(f"Error getting audio info: {e}")
+            return 0, 0, 0
 
 
 class Audio(File):
