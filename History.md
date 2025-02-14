@@ -1,3 +1,8 @@
+## 0.9.0
+
+- Create `TemplateService` for interacting template
+- Change interface of JSON used in `create_evaluator_from_template_json`
+
 ## 0.8.1
 
 - Handle the error of `get_audio_info` when using `soundfile` library
