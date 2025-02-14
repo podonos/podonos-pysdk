@@ -116,6 +116,14 @@ class APIClient:
         response = requests.patch(f"{self._api_url}/{endpoint}", headers=request_header, json=data)
         return response
 
+    def delete(self, endpoint: str, headers: Optional[Dict[str, str]] = None) -> Response:
+        log.check_notnone(endpoint)
+        log.check_ne(endpoint, "")
+
+        request_header = self._headers if headers is None else headers
+        response = requests.delete(f"{self._api_url}/{endpoint}", headers=request_header)
+        return response
+
     def _check_minimum_version(self) -> bool:
         response = self.get("version/sdk")
         api_version = APIVersion(**response.json())

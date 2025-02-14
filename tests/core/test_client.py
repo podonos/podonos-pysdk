@@ -108,47 +108,46 @@ class TestEvaluationClient(unittest.TestCase):
         self.valid_api_key = "1234567890"
         # Single stimulus
         self.single_template_json = {
-            "query": [
+            "questions": [
                 {
                     "type": "SCORED",
-                    "title": "Audio Quality Assessment",
+                    "question": "Audio Quality Assessment",
                     "description": "Please evaluate the overall quality of the audio",
                     "options": [
-                        {"value": "1", "label_text": "Very Poor"},
-                        {"value": "2", "label_text": "Poor"},
-                        {"value": "3", "label_text": "Fair"},
-                        {"value": "4", "label_text": "Good"},
-                        {"value": "5", "label_text": "Excellent"},
+                        {"label_text": "Very Poor"},
+                        {"label_text": "Poor"},
+                        {"label_text": "Fair"},
+                        {"label_text": "Good"},
+                        {"label_text": "Excellent"},
                     ],
                 },
                 {
                     "type": "NON_SCORED",
-                    "title": "Audio Characteristics",
+                    "question": "Audio Characteristics",
                     "description": "Please select all audio characteristics that you hear",
-                    "options": [{"value": "Background Noise"}, {"value": "Echo"}, {"value": "Distortion"}],
+                    "options": [{"label_text": "Background Noise"}, {"label_text": "Echo"}, {"label_text": "Distortion"}],
                     "allow_multiple": True,
                     "has_other": True,
                     "has_none": False,
                 },
             ],
-            "guide": [
+            "instructions": [
                 {
-                    "type": "GUIDE",
-                    "title": "Evaluation Guidelines",
+                    "type": "WARNING",
+                    "instruction": "Evaluation Guidelines",
                     "description": "Important points to consider when evaluating audio",
-                    "category": "WARNING",
                 }
             ],
         }
 
         # Double stimulus
         self.double_template_json = {
-            "query": [
+            "questions": [
                 {
                     "type": "COMPARISON",
-                    "title": "Audio Quality Comparison",
+                    "question": "Audio Quality Comparison",
                     "description": "Please compare the quality between two audio samples",
-                    "scale": 7,
+                    "scale": 5,
                 }
             ]
         }
@@ -389,7 +388,7 @@ class TestClient(unittest.TestCase):
             "updated_time": "2024-03-21T06:18:09.659270Z",
         }
 
-        self.template_data = {"query": [{"type": "SCORED", "title": "Test Question", "options": [{"value": "1", "label_text": "Option 1"}]}]}
+        self.template_data = {"questions": [{"type": "SCORED", "question": "Test Question", "options": [{"label_text": "Option 1"}]}]}
 
     def test_create_evaluator_from_json_dict_single(self):
         # Given

@@ -1,6 +1,7 @@
+from typing import Any, Dict
 import unittest
-from podonos.core.query import Question, ScoredQuestion, NonScoredQuestion, ComparisonQuestion, GuideQuestion, Option
-from podonos.common.enum import GuideCategory
+from podonos.core.query import TYPE_OF_QUESTION_KEY, Question, ScoredQuestion, NonScoredQuestion, ComparisonQuestion, Instruction, Option
+from podonos.common.enum import InstructionCategory
 
 
 class TestQuery(unittest.TestCase):
@@ -30,7 +31,7 @@ class TestQuery(unittest.TestCase):
         allow_multiple = True
 
         # When
-        question = NonScoredQuestion(title=title, options=options, description=description, allow_multiple=allow_multiple, has_other=True)
+        question = NonScoredQuestion(question=title, options=options, description=description, allow_multiple=allow_multiple, has_other=True)
         template = question.to_template_question()
 
         # Then
@@ -60,16 +61,16 @@ class TestQuery(unittest.TestCase):
         # Given
         title = "Important guideline"
         description = "Follow this guideline"
-        category = GuideCategory.WARNING
+        category = InstructionCategory.WARNING
 
         # When
-        question = GuideQuestion(title, category, description)
+        question = Instruction(title, category, description)
         template = question.to_template_question()
 
         # Then
         self.assertEqual(question.title, title)
-        self.assertEqual(question.type, "GUIDE")
-        self.assertEqual(question.category, GuideCategory.WARNING)
+        self.assertEqual(question.type, "INSTRUCTION")
+        self.assertEqual(question.category, InstructionCategory.WARNING)
 
     def test_invalid_scored_question(self):
         # Given
@@ -83,11 +84,11 @@ class TestQuery(unittest.TestCase):
 
     def test_question_from_dict(self):
         # Given
-        question_data = {
-            "title": "Test Question",
+        question_data: Dict[TYPE_OF_QUESTION_KEY, Any] = {
+            "question": "Test Question",
             "type": "SCORED",
             "description": "Test Description",
-            "options": [{"value": "1", "label_text": "Option 1"}, {"value": "2", "label_text": "Option 2"}],
+            "options": [{"label_text": "Option 1"}, {"label_text": "Option 2"}],
         }
 
         # When
