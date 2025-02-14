@@ -10,6 +10,7 @@ class TemplateOption:
     label_uri: Optional[str] = None
     order: int = 0
     id: Optional[str] = None
+    reference_file: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {"id": self.id, "value": self.value, "label_text": self.label_text, "label_uri": self.label_uri, "order": self.order}
@@ -26,6 +27,7 @@ class TemplateQuestion:
     has_other: bool = False
     has_none: bool = False
     options: List[TemplateOption] = field(default_factory=list)
+    reference_file: Optional[str] = None
     id: Optional[str] = None
 
     def to_create_dict(self) -> dict:

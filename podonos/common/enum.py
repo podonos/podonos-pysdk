@@ -7,6 +7,7 @@ from typing import List
 
 
 class EvalType(Enum):
+    # Human evaluation types
     NMOS = "NMOS"
     QMOS = "QMOS"
     P808 = "P808"
@@ -16,6 +17,9 @@ class EvalType(Enum):
     DMOS = "DMOS"
     CUSTOM_SINGLE = "CUSTOM_SINGLE"
     CUSTOM_DOUBLE = "CUSTOM_DOUBLE"
+
+    # AI evaluation types
+    ASR = "ASR"
 
     def get_type(self) -> str:
         if self.value in ["CUSTOM_SINGLE", "CUSTOM_DOUBLE"]:
@@ -47,6 +51,14 @@ class EvalType(Enum):
     @staticmethod
     def is_eval_type(eval_type: str) -> bool:
         return any([item for item in EvalType if item.value == eval_type])
+
+    @staticmethod
+    def is_ai_type(eval_type: str) -> bool:
+        return any([item for item in [EvalType.ASR] if item.value == eval_type])
+
+
+class AIEvalType(Enum):
+    ASR = "ASR"
 
 
 class Language(Enum):
@@ -94,7 +106,7 @@ class QuestionUsageType(Enum):
     SCORE = "SCORE"
 
 
-class GuideCategory(Enum):
-    CORRECT = "CORRECT"
+class InstructionCategory(Enum):
+    DO = "DO"
     WARNING = "WARNING"
-    PROHIBIT = "PROHIBIT"
+    DONT = "DONT"

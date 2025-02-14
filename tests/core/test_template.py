@@ -1,9 +1,11 @@
+from typing import Any, Dict
 import unittest
 from datetime import datetime
 
-from podonos.core.template import Template, TemplateValidator
+from podonos.core.template import TYPE_OF_TEMPLATE_KEY, Template, TemplateValidator
 from podonos.common.enum import Language, QuestionResponseCategory, QuestionUsageType
 from podonos.core.types import TemplateOption, TemplateQuestion
+from tests.core.test_audio import TESTDATA_SPEECH_CH1_MP3
 
 
 class TestTemplate(unittest.TestCase):
@@ -140,20 +142,20 @@ class TestTemplateQuestion(unittest.TestCase):
 
 class TestTemplateValidator(unittest.TestCase):
     def setUp(self):
-        self.valid_single_template = {
-            "query": [
+        self.valid_single_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [
                 {
                     "type": "SCORED",
-                    "title": "Audio Quality",
+                    "question": "Audio Quality",
                     "description": "Rate the audio quality",
                     "options": [{"value": "1", "label_text": "Poor"}, {"value": "2", "label_text": "Good"}],
                 }
             ],
-            "guide": [{"type": "GUIDE", "title": "Evaluation Guide", "description": "How to evaluate", "category": "WARNING"}],
+            "instructions": [{"type": "WARNING", "instruction": "Evaluation Guide", "description": "How to evaluate"}],
         }
 
-        self.valid_double_template = {
-            "query": [{"type": "COMPARISON", "title": "Compare Audio", "description": "Compare two audio samples", "scale": 7}]
+        self.valid_double_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [{"type": "COMPARISON", "question": "Compare Audio", "description": "Compare two audio samples", "scale": 7}]
         }
 
     def test_validate_single_stimulus_template(self):
@@ -177,42 +179,75 @@ class TestTemplateValidator(unittest.TestCase):
 
     def test_validate_missing_query(self):
         # Given
-        invalid_template = {"guide": []}
+        invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {"instructions": []}
 
         # When/Then
         with self.assertRaises(ValueError) as context:
             TemplateValidator.validate_and_create_questions(invalid_template, 1)
-        self.assertIn("must contain a 'query' list", str(context.exception))
+        self.assertIn("must contain a 'questions' list", str(context.exception))
 
     def test_validate_empty_query(self):
         # Given
-        invalid_template = {"query": []}
+        invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {"questions": []}
 
         # When/Then
         with self.assertRaises(ValueError) as context:
             TemplateValidator.validate_and_create_questions(invalid_template, 1)
-        self.assertIn("must contain at least one query question", str(context.exception))
+        self.assertIn("must contain between 1 and 9 questions", str(context.exception))
 
-    def test_validate_invalid_guide_question_type(self):
+    def test_validate_invalid_instruction_question_type(self):
         # Given
-        invalid_template = {
-            "query": [{"type": "SCORED", "title": "Test", "options": [{"value": "1"}]}],
-            "guide": [{"type": "SCORED", "title": "Invalid Guide", "options": [{"value": "1"}]}],
+        invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [{"type": "SCORED", "question": "Test", "options": [{"label_text": "Option 1"}]}],
+            "instructions": [{"type": "SCORED", "question": "Invalid Guide", "options": [{"label_text": "Option 1"}]}],
         }
 
         # When/Then
         with self.assertRaises(ValueError) as context:
             TemplateValidator.validate_and_create_questions(invalid_template, 1)
-        self.assertIn("must be of type GUIDE", str(context.exception))
+        self.assertEqual("Question in instructions section must be one of the following types: Instruction, got SCORED", str(context.exception))
 
     def test_validate_comparison_in_single_stimulus(self):
         # Given
-        invalid_template = {"query": [{"type": "COMPARISON", "title": "Compare", "scale": 5}]}
+        invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [{"type": "COMPARISON", "question": "Compare", "scale": 5}],
+        }
 
         # When/Then
         with self.assertRaises(ValueError) as context:
             TemplateValidator.validate_and_create_questions(invalid_template, 1)
         self.assertIn("not allowed in single stimulus evaluation", str(context.exception))
+
+    def test_validate_reference_file(self):
+        # Given
+        valid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [{"type": "SCORED", "question": "Test", "options": [{"label_text": "Option 1"}]}],
+            "instructions": [
+                {"type": "WARNING", "instruction": "Evaluation Guide", "description": "How to evaluate", "reference_file": TESTDATA_SPEECH_CH1_MP3}
+            ],
+        }
+
+        # When
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(valid_template, 1)
+
+        # Then
+        self.assertEqual(len(guide_questions), 1)
+        self.assertEqual(len(core_questions), 1)
+        self.assertEqual(guide_questions[0].usage_type, QuestionUsageType.GUIDELINE_WARNING)
+
+    def test_validate_reference_file_not_found(self):
+        # Given
+        invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [{"type": "SCORED", "question": "Test", "options": [{"label_text": "Option 1"}]}],
+            "instructions": [
+                {"type": "DO", "instruction": "Evaluation Guide", "description": "How to evaluate", "reference_file": "nonexistent.wav"}
+            ],
+        }
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+        self.assertIn("Reference file not found", str(context.exception))
 
 
 if __name__ == "__main__":

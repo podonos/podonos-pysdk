@@ -1,5 +1,3 @@
-import json as json_lib
-from pathlib import Path
 from typing import Any, Dict, Literal, Optional, List, Union
 from requests import HTTPError
 
@@ -11,8 +9,8 @@ from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
 from podonos.core.stimulus_stats import StimulusStats
-from podonos.core.template import TemplateValidator
-from podonos.service.template_service import TemplateService
+from podonos.core.template import TemplateJsonLoader, TemplateValidator
+from podonos.service import TemplateService
 
 
 class Client:
@@ -188,37 +186,20 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        # Validate input parameters
-        if json is None and json_file is None:
-            raise ValueError("Either 'json' or 'json_file' must be provided")
-        if json is not None and json_file is not None:
-            raise ValueError("Only one of 'json' or 'json_file' should be provided")
-
         # Validate custom_type
         if custom_type not in ["SINGLE", "DOUBLE"]:
             raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
 
-        # Get template data
-        if json_file is not None:
-            log.info(f"Reading template from file: {json_file}")
-            json_path = Path(json_file)
-            if not json_path.exists():
-                raise FileNotFoundError(f"JSON file not found: {json_file}")
-
-            with open(json_path, "r", encoding="utf-8") as f:
-                template_data = json_lib.load(f)
-        else:
-            log.info("Using provided template JSON")
-            assert json is not None
-            template_data = json
+        eval_type = EvalType.CUSTOM_SINGLE if custom_type == "SINGLE" else EvalType.CUSTOM_DOUBLE
+        batch_size = 1 if custom_type == "SINGLE" else 2
+        # Load template data
+        template_data = TemplateJsonLoader.load_json(json, json_file)
 
         # Use the validator from template.py
-        batch_size = 1 if custom_type == "SINGLE" else 2
-        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(template_data, batch_size)
+        instructions, core_questions = TemplateValidator.validate_and_create_questions(template_data, batch_size)
         log.info("Template JSON is validated.")
 
         # Create an evaluator
-        eval_type = EvalType.CUSTOM_SINGLE if custom_type == "SINGLE" else EvalType.CUSTOM_DOUBLE
         eval_config = EvalConfig(
             name=name,
             desc=desc,
@@ -241,27 +222,33 @@ class Client:
         template_service = TemplateService(self._api_client)
         evaluator = Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
         try:
-            if guide_questions:
-                log.debug(f"Creating {len(guide_questions)} guide questions...")
-                response = template_service.create_template_questions_by_evaluation_id_and_questions(evaluator.get_evaluation_id(), guide_questions)
-
-                for q_response, question in zip(response, guide_questions):
-                    question.id = q_response["id"]
+            if instructions:
+                log.debug(f"Creating {len(instructions)} instructions...")
+                instructions = template_service.create_template_questions_by_evaluation_id_and_questions(evaluator.get_evaluation_id(), instructions)
+                for instruction in instructions:
+                    if instruction.id and instruction.reference_file:
+                        presigned_url = template_service.get_presigned_url_by_template_question_id(instruction.id)
+                        template_service.upload_reference_file_by_url_and_file_path(
+                            presigned_url, instruction.reference_file, question_id=instruction.id
+                        )
 
             if core_questions:
                 log.debug(f"Creating {len(core_questions)} core questions...")
-                response = template_service.create_template_questions_by_evaluation_id_and_questions(evaluator.get_evaluation_id(), core_questions)
-
-                for q_response, question in zip(response, core_questions):
-                    question.id = q_response["id"]
+                core_questions = template_service.create_template_questions_by_evaluation_id_and_questions(
+                    evaluator.get_evaluation_id(), core_questions
+                )
 
             # Create options for questions that have options
-            questions_with_options = [q for q in (guide_questions + core_questions) if q.options]
+            questions_with_options = [q for q in (instructions + core_questions) if q.options]
             if questions_with_options:
                 log.debug(f"Creating options for {len(questions_with_options)} questions...")
                 for question in questions_with_options:
                     if question.id:
-                        template_service.create_template_options_by_question_id_and_options(question.id, question.options)
+                        options = template_service.create_template_options_by_question_id_and_options(question.id, question.options)
+                        for option in options:
+                            if option.id and option.reference_file:
+                                presigned_url = template_service.get_presigned_url_by_template_option_id(option.id)
+                                template_service.upload_reference_file_by_url_and_file_path(presigned_url, option.reference_file, option_id=option.id)
 
         except Exception as e:
             log.error(f"Failed to create template: {str(e)}")
