@@ -98,7 +98,6 @@ class Client:
         template_id: str,
         num_eval: int,
         desc: Optional[str] = None,
-        use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
@@ -109,8 +108,7 @@ class Client:
             name: This session name. Required.
             desc: Description of this session. Optional.
             template_id: The ID of the template to use for evaluation parameters.
-            num_eval: The number of evaluators per file. Should be >=1.
-            use_annotation: Enable detailed annotation on script for detailed rating reasoning.
+            num_eval: The number of evaluators per file. Should be >= 1.
             use_power_normalization: Enable power normalization for evaluation.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
@@ -133,7 +131,7 @@ class Client:
             name=name,
             desc=desc,
             num_eval=num_eval,
-            use_annotation=use_annotation,
+            use_annotation=template.use_annotation,
             use_power_normalization=use_power_normalization,
             template_id=str(template.id),
             max_upload_workers=max_upload_workers,

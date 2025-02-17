@@ -30,6 +30,7 @@ class TestTemplateService(unittest.TestCase):
             "title": "Test Template",
             "description": "Test Description",
             "batch_size": 1,
+            "use_annotation": False,
             "language": "en-us",  # Language enum value
             "created_time": current_time.isoformat(),
             "updated_time": current_time.isoformat(),
