@@ -3,13 +3,14 @@ import requests
 from requests import Response
 from typing import Any, Dict, List, Optional
 
+from podonos.common.exception import HTTPError
 from podonos.common.util import get_content_type_by_filename
 from podonos.core.audio import Audio, AudioGroup
 from podonos.core.base import log
 from podonos.core.api import APIClient
-from podonos.core.evaluation import Evaluation
 from podonos.core.config import EvalConfig
-from podonos.common.exception import HTTPError
+from podonos.core.stimulus_stats import StimulusStats
+from podonos.entity.evaluation import EvaluationEntity
 
 
 class EvaluationService:
@@ -18,7 +19,7 @@ class EvaluationService:
     def __init__(self, api_client: APIClient):
         self.api_client = api_client
 
-    def create(self, config: EvalConfig) -> Evaluation:
+    def create(self, config: EvalConfig) -> EvaluationEntity:
         """
         Create a new evaluation based on the evaluation configuration
 
@@ -32,13 +33,13 @@ class EvaluationService:
         try:
             response = self.api_client.post("evaluations", data=config.to_create_request_dto())
             response.raise_for_status()
-            evaluation = Evaluation.from_dict(response.json())
+            evaluation = EvaluationEntity.from_dict(response.json())
             log.info(f"Evaluation is generated: {evaluation.id}")
             return evaluation
         except Exception as e:
             raise HTTPError(f"Failed to create the evaluation: {e}")
 
-    def create_from_template(self, config: EvalConfig) -> Evaluation:
+    def create_from_template(self, config: EvalConfig) -> EvaluationEntity:
         """
         Create a new evaluation based on built-in template
 
@@ -52,20 +53,104 @@ class EvaluationService:
         try:
             response = self.api_client.post("evaluations/templates", data=config.to_create_from_template_request_dto())
             response.raise_for_status()
-            evaluation = Evaluation.from_dict(response.json())
+            evaluation = EvaluationEntity.from_dict(response.json())
             log.info(f"Evaluation is generated: {evaluation.id}")
             return evaluation
         except Exception as e:
             raise HTTPError(f"Failed to create the evaluation: {e}")
 
-    def get_evaluation(self, evaluation_id: str) -> Evaluation:
+    def get_evaluation(self, evaluation_id: str) -> EvaluationEntity:
         """Get evaluation by ID"""
         try:
             response = self.api_client.get(f"evaluations/{evaluation_id}")
             response.raise_for_status()
-            return Evaluation.from_dict(response.json())
+            return EvaluationEntity.from_dict(response.json())
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation: {e}")
+
+    def get_evaluation_list(self) -> List[Dict[str, Any]]:
+        """Gets a list of evaluations.
+
+        Args: None
+
+        Returns:
+            Evaluation containing all the evaluation info
+        """
+        try:
+            response = self.api_client.get("evaluations")
+            response.raise_for_status()
+            evaluations = [EvaluationEntity.from_dict(evaluation) for evaluation in response.json()]
+            return [evaluation.to_dict() for evaluation in evaluations]
+        except Exception as e:
+            raise HTTPError(f"Failed to get evaluation list: {e}")
+
+    def get_stats_dict_by_id(self, evaluation_id: str) -> List[Dict[str, Any]]:
+        """Gets a list of evaluation statistics referenced by id.
+
+        Args:
+            evaluation_id: Evaluation id. See get_evaluation_list() above.
+
+        Returns:
+            List of statistics for the evaluation.
+        """
+        try:
+            response = self.api_client.get(f"evaluations/{evaluation_id}/stats")
+            if response.status_code == 400:
+                log.info(f"Bad Request: The {evaluation_id} is an invalid evaluation id")
+                return []
+
+            response.raise_for_status()
+            stats = [StimulusStats.from_dict(stats) for stats in response.json()]
+            return [stat.to_dict() for stat in stats]
+        except Exception as e:
+            raise HTTPError(f"Failed to get evaluation stats: {e}")
+
+    def download_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
+        """Downloads the evaluation statistics into CSV referenced by id.
+
+        Args:
+            evaluation_id: Evaluation id. See get_evaluation_list() above.
+            output_path: Path to the output CSV.
+
+        Returns: None
+        """
+        log.check_ne(evaluation_id, "")
+        log.check_ne(output_path, "")
+        stats = self.get_stats_dict_by_id(evaluation_id)
+
+        with open(output_path, "w") as f:
+            question_headers = ["question_title", "question_order"]
+            file_headers = ["name", "model_tag", "tags", "type"]
+            stat_fields = ["mean", "median", "std", "sem", "ci_95"]
+
+            option_keys = set()
+            for stat in stats:
+                if "options" in stat:
+                    option_keys.update(stat["options"].keys())
+
+            all_headers = question_headers + file_headers + stat_fields + sorted(list(option_keys))
+            f.write(",".join(all_headers) + "\n")
+
+            for stat in stats:
+                question = stat.get("question", {})
+                for file in stat["files"]:
+                    row_data = [
+                        question.get("title", ""),
+                        str(question.get("order", "")),
+                        file["name"],
+                        file["model_tag"],
+                        ";".join(file["tags"]),
+                        file["type"],
+                    ]
+
+                    for field in stat_fields:
+                        row_data.append(str(stat.get(field, "")))
+
+                    options = stat.get("options", {})
+                    for key in sorted(list(option_keys)):
+                        row_data.append(str(options.get(key, "")))
+
+                    f.write(",".join(row_data) + "\n")
 
     def create_evaluation_files(self, evaluation_id: str, audios: List[Audio]):
         try:

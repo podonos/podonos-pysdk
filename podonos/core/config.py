@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 
 from podonos.core.base import *
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
-from podonos.common.enum import EvalType, Language
+from podonos.common.enum import AIEvalType, EvalType, Language
 
 
 class EvalConfigDefault:
@@ -26,6 +26,7 @@ class EvalConfig:
     _eval_creation_timestamp: str  # Create a mission timestamp string. Use this as a prefix of uploaded filenames.
     _eval_description: Optional[str] = None
     _eval_type: EvalType = EvalConfigDefault.TYPE
+    _eval_ai_type: Optional[AIEvalType] = None
     _eval_language: Language = EvalConfigDefault.LAN
     _eval_granularity: float = EvalConfigDefault.GRANULARITY
     _eval_batch_size: int = EvalConfigDefault.BATCH_SIZE
@@ -43,6 +44,7 @@ class EvalConfig:
         desc: Optional[str] = None,
         type: str = EvalConfigDefault.TYPE.value,
         lan: str = EvalConfigDefault.LAN.value,
+        ai_type: Optional[AIEvalType] = None,
         granularity: float = EvalConfigDefault.GRANULARITY,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,  # TODO: allow floating point hours, e.g. 0.5.
@@ -56,6 +58,7 @@ class EvalConfig:
         self._eval_description = desc
         self._eval_type = self._validate_eval_type(type)
         self._eval_language = self._validate_eval_language(lan)
+        self._eval_ai_type = self._validate_eval_ai_type(ai_type)
         self._eval_num = self._validate_eval_num(num_eval)
         self._eval_granularity = self._validate_eval_granularity(granularity)
         self._eval_batch_size = self._validate_eval_batch_size(type)
@@ -75,6 +78,7 @@ class EvalConfig:
         log.debug(f"Desc: {self._eval_description}")
         log.debug(f"Eval type: {self._eval_type}")
         log.debug(f"Language: {self._eval_language}")
+        log.debug(f"AI type: {self._eval_ai_type}")
         log.debug(f"num_eval: {self._eval_num}")
         log.debug(f"Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}")
         log.debug(f"Evaluation ID: {self._eval_id}")
@@ -95,6 +99,10 @@ class EvalConfig:
     @property
     def eval_type(self) -> EvalType:
         return self._eval_type
+
+    @property
+    def eval_ai_type(self) -> Optional[AIEvalType]:
+        return self._eval_ai_type
 
     @property
     def eval_creation_timestamp(self) -> str:
@@ -144,7 +152,7 @@ class EvalConfig:
             EvalType.CUSTOM_DOUBLE.value,
         ]:
             raise ValueError(
-                f'"type" must be one of {{NMOS, QMOS, SMOS, P808}}. \n'
+                f'"type" must be one of {{NMOS, QMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE}}. \n'
                 + f"Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}"
             )
         return EvalType(eval_type)
@@ -172,6 +180,11 @@ class EvalConfig:
                 + f"Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}."
             )
         return Language(eval_language)
+
+    def _validate_eval_ai_type(self, eval_ai_type: Optional[AIEvalType]) -> Optional[AIEvalType]:
+        if eval_ai_type and eval_ai_type not in [AIEvalType.ASR]:
+            raise ValueError(f'"ai_type" must be one of {{ASR}}.')
+        return eval_ai_type
 
     def _validate_eval_num(self, num_eval: int) -> int:
         if num_eval < 1:

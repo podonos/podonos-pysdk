@@ -8,9 +8,9 @@ from podonos.common.enum import EvalType, QuestionFileType
 from podonos.core.api import APIClient
 from podonos.core.audio import Audio, AudioGroup
 from podonos.core.config import EvalConfig
-from podonos.core.evaluation import Evaluation
 from podonos.core.file import File
 from podonos.core.upload_manager import UploadManager
+from podonos.entity.evaluation import EvaluationEntity
 from podonos.service.evaluation_service import EvaluationService
 
 
@@ -19,7 +19,7 @@ class Evaluator:
 
     _api_client: APIClient
     _eval_config: EvalConfig
-    _evaluation: Optional[Evaluation] = None
+    _evaluation: Optional[EvaluationEntity] = None
     _evaluation_service: EvaluationService
     _supported_eval_types: List[EvalType]
     _initialized: bool = False
@@ -143,11 +143,8 @@ class Evaluator:
             raise ValueError("Try to add file once the evaluator is closed.")
 
         self._validate_eval_type("add_file")
-        if self._eval_config.eval_use_annotation and file.script is None:
-            raise ValueError(
-                "Annotation evaluation is enabled (eval_use_annotation=True), "
-                "but no script is provided in File. Please provide a corresponding script."
-            )
+        self._validate_annotation_by_file(file)
+        self._validate_ai_type_by_files([file])
 
         audio = self._create_audio(file=file, group=None, type=QuestionFileType.STIMULUS, order_in_group=0)
         self._ordered_file_groups.append(AudioGroup(group_id=None, audios=[audio], created_at=datetime.now()))
@@ -177,6 +174,7 @@ class Evaluator:
             ValueError: If evaluator not initialized or invalid file configuration
         """
         self._validate_files_input(file0, file1)
+        self._validate_ai_type_by_files([file0, file1])
         group_id = generate_random_group_name()
         audio_pair = self._create_audio_pair(file0=file0, file1=file1, group_id=group_id)
         self._add_audio_group(group_id=group_id, audios=audio_pair)
@@ -193,6 +191,22 @@ class Evaluator:
 
         if self._needs_reference_file() and file0.is_ref == file1.is_ref:
             raise ValueError("One file must be reference, one must be stimulus")
+
+    def _validate_annotation_by_file(self, file: File) -> None:
+        """Validate annotation"""
+        if self._eval_config.eval_use_annotation and file.script is None:
+            raise ValueError(
+                "Annotation evaluation is enabled (eval_use_annotation=True), "
+                "but no script is provided in File. Please provide a corresponding script."
+            )
+
+    def _validate_ai_type_by_files(self, files: List[File]) -> None:
+        """Validate AI type"""
+        for file in files:
+            if self._eval_config.eval_ai_type and file.script is None:
+                raise ValueError(
+                    "ASR evaluation is enabled (eval_ai_type=ASR), " "but no script is provided in File. Please provide a corresponding script."
+                )
 
     def _needs_reference_file(self) -> bool:
         """Check if evaluation type requires reference file"""
@@ -286,7 +300,7 @@ class Evaluator:
         self._initialized = False
         self._ordered_file_groups = []
 
-    def _set_evaluation(self, eval_config: EvalConfig) -> Evaluation:
+    def _set_evaluation(self, eval_config: EvalConfig) -> EvaluationEntity:
         if eval_config.eval_template_id:
             return self._evaluation_service.create_from_template(eval_config)
         return self._evaluation_service.create(eval_config)
