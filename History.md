@@ -1,3 +1,7 @@
+## 0.10.0
+
+- Remove `use_annotation` option in `create_evaluator_from_template`
+
 ## 0.9.0
 
 - Create `TemplateService` for interacting template
