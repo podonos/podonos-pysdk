@@ -1,16 +1,11 @@
 from typing import Any, Dict, Literal, Optional, List, Union
-from requests import HTTPError
 
-from podonos.common.constant import PODONOS_CONTACT_EMAIL
-from podonos.common.enum import EvalType
 from podonos.core.api import APIClient
 from podonos.core.base import *
-from podonos.core.config import EvalConfig, EvalConfigDefault
-from podonos.core.evaluation import Evaluation
+from podonos.core.config import EvalConfigDefault
 from podonos.core.evaluator import Evaluator
-from podonos.core.stimulus_stats import StimulusStats
-from podonos.core.template import TemplateJsonLoader, TemplateValidator
-from podonos.service import TemplateService
+from podonos.evaluation import AIEvaluation, HumanEvaluation
+from podonos.service import EvaluationService, TemplateService
 
 
 class Client:
@@ -19,9 +14,30 @@ class Client:
     _api_client: APIClient
     _initialized: bool = False
 
+    # Services
+    _evaluation_service: EvaluationService
+    _template_service: TemplateService
+
+    # Evaluators
+    _ai_evaluation: AIEvaluation
+    _human_evaluation: HumanEvaluation
+
     def __init__(self, api_client: APIClient):
         self._api_client = api_client
         self._initialized = True
+        self._evaluation_service = EvaluationService(self._api_client)
+        self._template_service = TemplateService(self._api_client)
+
+        self._ai_evaluation = AIEvaluation(self._api_client)
+        self._human_evaluation = HumanEvaluation(self._api_client, self._evaluation_service, self._template_service)
+
+    @property
+    def AI(self) -> AIEvaluation:
+        return self._ai_evaluation
+
+    @property
+    def Human(self) -> HumanEvaluation:
+        return self._human_evaluation
 
     def create_evaluator(
         self,
@@ -63,34 +79,9 @@ class Client:
 
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
-
-        if not EvalType.is_eval_type(type):
-            raise ValueError(
-                "Not supported evaluation types. Use one of the " "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE'}"
-            )
-
-        eval_config = EvalConfig(
-            name=name,
-            desc=desc,
-            type=type,
-            lan=lan,
-            granularity=granularity,
-            num_eval=num_eval,
-            due_hours=due_hours,
-            use_annotation=use_annotation,
-            use_power_normalization=use_power_normalization,
-            auto_start=auto_start,
-            max_upload_workers=max_upload_workers,
+        return self._human_evaluation.create(
+            name, desc, type, lan, granularity, num_eval, due_hours, use_annotation, use_power_normalization, auto_start, max_upload_workers
         )
-
-        if EvalType.is_double(type):
-            supported_types = EvalType.get_double_types()
-        elif EvalType.is_single(type):
-            supported_types = EvalType.get_single_types()
-        else:
-            raise ValueError(f"Invalid evaluation type: {type}")
-
-        return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
 
     def create_evaluator_from_template(
         self,
@@ -121,29 +112,7 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        if not template_id:
-            raise ValueError("Template Id should exist")
-
-        template_service = TemplateService(self._api_client)
-        template = template_service.get_template_by_code(template_id)
-        eval_config = EvalConfig(
-            type=EvalType.CUSTOM_SINGLE.value if template.batch_size == 1 else EvalType.CUSTOM_DOUBLE.value,
-            name=name,
-            desc=desc,
-            num_eval=num_eval,
-            use_annotation=template.use_annotation,
-            use_power_normalization=use_power_normalization,
-            template_id=str(template.id),
-            max_upload_workers=max_upload_workers,
-        )
-
-        if template.batch_size == 1:
-            supported_types = EvalType.get_single_types()
-        elif template.batch_size == 2:
-            supported_types = EvalType.get_double_types()
-        else:
-            raise ValueError(f"Template has invalid type so please contact {PODONOS_CONTACT_EMAIL}")
-        return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
+        return self._human_evaluation.create_from_template(name, template_id, num_eval, desc, use_power_normalization, max_upload_workers)
 
     def create_evaluator_from_template_json(
         self,
@@ -184,76 +153,9 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        # Validate custom_type
-        if custom_type not in ["SINGLE", "DOUBLE"]:
-            raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
-
-        eval_type = EvalType.CUSTOM_SINGLE if custom_type == "SINGLE" else EvalType.CUSTOM_DOUBLE
-        batch_size = 1 if custom_type == "SINGLE" else 2
-        # Load template data
-        template_data = TemplateJsonLoader.load_json(json, json_file)
-
-        # Use the validator from template.py
-        instructions, core_questions = TemplateValidator.validate_and_create_questions(template_data, batch_size)
-        log.info("Template JSON is validated.")
-
-        # Create an evaluator
-        eval_config = EvalConfig(
-            name=name,
-            desc=desc,
-            type=eval_type.value,
-            lan=lan,
-            num_eval=num_eval,
-            use_annotation=use_annotation,
-            use_power_normalization=use_power_normalization,
-            max_upload_workers=max_upload_workers,
+        return self._human_evaluation.create_from_template_json(
+            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_power_normalization, max_upload_workers
         )
-        log.info(f"Created evaluation config with type: {eval_type.value}")
-
-        if custom_type == "SINGLE":
-            supported_types = EvalType.get_single_types()
-        elif custom_type == "DOUBLE":
-            supported_types = EvalType.get_double_types()
-        else:
-            raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
-
-        template_service = TemplateService(self._api_client)
-        evaluator = Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
-        try:
-            if instructions:
-                log.debug(f"Creating {len(instructions)} instructions...")
-                instructions = template_service.create_template_questions_by_evaluation_id_and_questions(evaluator.get_evaluation_id(), instructions)
-                for instruction in instructions:
-                    if instruction.id and instruction.reference_file:
-                        presigned_url = template_service.get_presigned_url_by_template_question_id(instruction.id)
-                        template_service.upload_reference_file_by_url_and_file_path(
-                            presigned_url, instruction.reference_file, question_id=instruction.id
-                        )
-
-            if core_questions:
-                log.debug(f"Creating {len(core_questions)} core questions...")
-                core_questions = template_service.create_template_questions_by_evaluation_id_and_questions(
-                    evaluator.get_evaluation_id(), core_questions
-                )
-
-            # Create options for questions that have options
-            questions_with_options = [q for q in (instructions + core_questions) if q.options]
-            if questions_with_options:
-                log.debug(f"Creating options for {len(questions_with_options)} questions...")
-                for question in questions_with_options:
-                    if question.id:
-                        options = template_service.create_template_options_by_question_id_and_options(question.id, question.options)
-                        for option in options:
-                            if option.id and option.reference_file:
-                                presigned_url = template_service.get_presigned_url_by_template_option_id(option.id)
-                                template_service.upload_reference_file_by_url_and_file_path(presigned_url, option.reference_file, option_id=option.id)
-
-        except Exception as e:
-            log.error(f"Failed to create template: {str(e)}")
-            raise HTTPError(f"Failed to create template questions: {e}")
-
-        log.info("Template creation completed successfully")
-        return evaluator
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
@@ -263,14 +165,7 @@ class Client:
         Returns:
             Evaluation containing all the evaluation info
         """
-        log.check(self._api_client)
-        try:
-            response = self._api_client.get("evaluations")
-            response.raise_for_status()
-            evaluations = [Evaluation.from_dict(evaluation) for evaluation in response.json()]
-            return [evaluation.to_dict() for evaluation in evaluations]
-        except Exception as e:
-            raise HTTPError(f"Failed to get evaluation list: {e}")
+        return self._evaluation_service.get_evaluation_list()
 
     def get_stats_dict_by_id(self, evaluation_id: str) -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
@@ -281,18 +176,7 @@ class Client:
         Returns:
             List of statistics for the evaluation.
         """
-        log.check(self._api_client)
-        try:
-            response = self._api_client.get(f"evaluations/{evaluation_id}/stats")
-            if response.status_code == 400:
-                log.info(f"Bad Request: The {evaluation_id} is an invalid evaluation id")
-                return []
-
-            response.raise_for_status()
-            stats = [StimulusStats.from_dict(stats) for stats in response.json()]
-            return [stat.to_dict() for stat in stats]
-        except Exception as e:
-            raise HTTPError(f"Failed to get evaluation stats: {e}")
+        return self._evaluation_service.get_stats_dict_by_id(evaluation_id)
 
     def download_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
         """Downloads the evaluation statistics into CSV referenced by id.
@@ -303,40 +187,4 @@ class Client:
 
         Returns: None
         """
-        log.check_ne(evaluation_id, "")
-        log.check_ne(output_path, "")
-        stats = self.get_stats_dict_by_id(evaluation_id)
-
-        with open(output_path, "w") as f:
-            question_headers = ["question_title", "question_order"]
-            file_headers = ["name", "model_tag", "tags", "type"]
-            stat_fields = ["mean", "median", "std", "sem", "ci_95"]
-
-            option_keys = set()
-            for stat in stats:
-                if "options" in stat:
-                    option_keys.update(stat["options"].keys())
-
-            all_headers = question_headers + file_headers + stat_fields + sorted(list(option_keys))
-            f.write(",".join(all_headers) + "\n")
-
-            for stat in stats:
-                question = stat.get("question", {})
-                for file in stat["files"]:
-                    row_data = [
-                        question.get("title", ""),
-                        str(question.get("order", "")),
-                        file["name"],
-                        file["model_tag"],
-                        ";".join(file["tags"]),
-                        file["type"],
-                    ]
-
-                    for field in stat_fields:
-                        row_data.append(str(stat.get(field, "")))
-
-                    options = stat.get("options", {})
-                    for key in sorted(list(option_keys)):
-                        row_data.append(str(options.get(key, "")))
-
-                    f.write(",".join(row_data) + "\n")
+        return self._evaluation_service.download_stats_csv_by_id(evaluation_id, output_path)

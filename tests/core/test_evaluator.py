@@ -7,9 +7,9 @@ from podonos.common.enum import QuestionFileType, EvalType
 from podonos.core.api import APIClient
 from podonos.core.audio import Audio, AudioGroup
 from podonos.core.config import EvalConfig
-from podonos.core.evaluation import Evaluation
 from podonos.core.evaluator import Evaluator
 from podonos.core.file import File
+from podonos.entity.evaluation import EvaluationEntity
 from tests.core.test_audio import TESTDATA_SPEECH_TWO_CH1_WAV
 
 
@@ -20,7 +20,7 @@ class TestEvaluator(unittest.TestCase):
 
         # Create mock evaluation
         current_time = datetime.now(timezone.utc)
-        self.mock_evaluation = Evaluation(
+        self.mock_evaluation = EvaluationEntity(
             id="test_id",
             title="test_title",
             internal_name=None,
@@ -70,7 +70,7 @@ class TestEvaluator(unittest.TestCase):
         evaluation = self.evaluator._set_evaluation(self.eval_config)
 
         # Then
-        self.assertIsInstance(evaluation, Evaluation)
+        self.assertIsInstance(evaluation, EvaluationEntity)
         self.assertEqual(evaluation.id, "test_id")
         self.assertEqual(evaluation.status, "DRAFT")
 
@@ -94,7 +94,7 @@ class TestEvaluator(unittest.TestCase):
         evaluation = self.evaluator._set_evaluation(self.eval_config)
 
         # Then
-        self.assertIsInstance(evaluation, Evaluation)
+        self.assertIsInstance(evaluation, EvaluationEntity)
         self.assertEqual(evaluation.id, "test_id")
         self.assertEqual(evaluation.status, "DRAFT")
 

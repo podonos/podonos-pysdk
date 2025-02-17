@@ -153,6 +153,57 @@ class TestEvaluationService(unittest.TestCase):
             self.service.create_evaluation_files(eval_id, [self.test_audio])
         self.assertEqual(context.exception.status_code, 400)
 
+    def test_get_evaluation_list_success(self):
+        # Given
+        expected_evaluations = [
+            {
+                "id": "eval1",
+                "title": "Evaluation 1",
+                "internal_name": "Audio Evaluation",
+                "description": "This is a test evaluation",
+                "batch_size": 10,
+                "status": "ACTIVE",
+                "created_time": "2021-01-01T00:00:00Z",
+                "updated_time": "2021-01-01T00:00:00Z",
+            }
+        ]
+        self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_evaluations)
+
+        # When
+        evaluations = self.service.get_evaluation_list()
+
+        # Then
+        self.mock_api_client.get.assert_called_once_with("evaluations")
+        self.assertEqual(evaluations[0]["id"], "eval1")
+        self.assertEqual(evaluations[0]["title"], "Evaluation 1")
+        self.assertEqual(evaluations[0]["internal_name"], "Audio Evaluation")
+        self.assertEqual(evaluations[0]["description"], "This is a test evaluation")
+        self.assertEqual(evaluations[0]["batch_size"], 10)
+        self.assertEqual(evaluations[0]["status"], "ACTIVE")
+
+    def test_get_stats_dict_by_id_success(self):
+        # Given
+        evaluation_id = "test_evaluation_id"
+        expected_stats = [
+            {
+                "files": [{"name": "file1.wav", "model_tag": "model1", "tags": ["tag1", "tag2"], "type": "A"}],
+                "question": {"title": "question1", "order": 1},
+                "mean": 0.5,
+                "median": 0.5,
+                "std": 0.1,
+                "sem": 0.05,
+                "ci_95": 0.2,
+            }
+        ]
+        self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_stats)
+
+        # When
+        stats = self.service.get_stats_dict_by_id(evaluation_id)
+
+        # Then
+        self.mock_api_client.get.assert_called_once_with(f"evaluations/{evaluation_id}/stats")
+        self.assertEqual(stats, expected_stats)
+
 
 if __name__ == "__main__":
     unittest.main()

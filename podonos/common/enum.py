@@ -52,13 +52,20 @@ class EvalType(Enum):
     def is_eval_type(eval_type: str) -> bool:
         return any([item for item in EvalType if item.value == eval_type])
 
-    @staticmethod
-    def is_ai_type(eval_type: str) -> bool:
-        return any([item for item in [EvalType.ASR] if item.value == eval_type])
-
 
 class AIEvalType(Enum):
     ASR = "ASR"
+
+    @classmethod
+    def from_value(cls, value):
+        for member in cls:
+            if member.value == value:
+                return member
+        raise ValueError(f"{value} is not a valid value for {cls.__name__}")
+
+    @staticmethod
+    def is_ai_type(eval_type: "AIEvalType") -> bool:
+        return any([item for item in AIEvalType if item == eval_type])
 
 
 class Language(Enum):
