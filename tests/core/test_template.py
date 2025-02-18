@@ -4,7 +4,7 @@ from datetime import datetime
 
 from podonos.core.template import TYPE_OF_TEMPLATE_KEY, Template, TemplateValidator
 from podonos.common.enum import Language, QuestionResponseCategory, QuestionUsageType
-from podonos.core.types import TemplateOption, TemplateQuestion
+from podonos.core.types import QuestionMetadataColumn, QuestionMetadataLinearScale, QuestionMetadataPosition, TemplateOption, TemplateQuestion
 from tests.core.test_audio import TESTDATA_SPEECH_CH1_MP3
 
 
@@ -89,6 +89,12 @@ class TestTemplateQuestion(unittest.TestCase):
             scale=5,
             has_other=True,
             has_none=False,
+            meta_data=QuestionMetadataColumn(
+                linear_scale=QuestionMetadataLinearScale(
+                    title="Preference",
+                    label_text=QuestionMetadataPosition(left="Better", right="Better"),
+                )
+            ),
             options=self.sample_options,
         )
 
@@ -105,8 +111,21 @@ class TestTemplateQuestion(unittest.TestCase):
             "order": 1,
             "has_other": True,
             "has_none": False,
+            "meta_data": {
+                "linear_scale": {
+                    "title": "Preference",
+                    "label_text": {"left": "Better", "right": "Better"},
+                }
+            },
         }
-        self.assertEqual(result, expected)
+        self.assertEqual(result["title"], expected["title"])
+        self.assertEqual(result["description"], expected["description"])
+        self.assertEqual(result["response_category"], expected["response_category"])
+        self.assertEqual(result["usage_type"], expected["usage_type"])
+        self.assertEqual(result["scale"], expected["scale"])
+        self.assertEqual(result["order"], expected["order"])
+        self.assertEqual(result["has_other"], expected["has_other"])
+        self.assertEqual(result["has_none"], expected["has_none"])
 
     def test_template_question_to_option_bulk_request(self):
         # Given
@@ -157,7 +176,27 @@ class TestTemplateValidator(unittest.TestCase):
         }
 
         self.valid_double_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
-            "questions": [{"type": "COMPARISON", "question": "Compare Audio", "description": "Compare two audio samples", "scale": 7}]
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "Compare Audio",
+                    "description": "Compare two audio samples",
+                    "scale": 5,
+                    "anchor_label": {"label_text": {"left": "Option A", "right": "Option B"}},
+                }
+            ]
+        }
+
+        self.valid_comparison_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "Compare A and B",
+                    "description": "Compare two audio samples",
+                    "scale": 5,
+                    "anchor_label": {"label_text": {"left": "Option A", "right": "Option B"}},
+                }
+            ]
         }
 
     def test_validate_single_stimulus_template(self):
@@ -212,9 +251,15 @@ class TestTemplateValidator(unittest.TestCase):
     def test_validate_comparison_in_single_stimulus(self):
         # Given
         invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
-            "questions": [{"type": "COMPARISON", "question": "Compare", "scale": 5}],
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "Compare",
+                    "scale": 5,
+                    "anchor_label": {"title": "Preference", "label_text": {"left": "Better", "right": "Better"}},
+                }
+            ],
         }
-
         # When/Then
         with self.assertRaises(ValueError) as context:
             TemplateValidator.validate_and_create_questions(invalid_template, 1)
@@ -250,6 +295,59 @@ class TestTemplateValidator(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             TemplateValidator.validate_and_create_questions(invalid_template, 1)
         self.assertIn("Reference file not found", str(context.exception))
+
+    def test_validate_comparison_question_success(self):
+        # When
+        result = TemplateValidator.validate_and_create_questions(self.valid_comparison_template, 2)
+
+        # Then
+        self.assertEqual(len(result[0]), 0)
+        self.assertEqual(len(result[1]), 1)
+
+    def test_validate_comparison_question_missing_anchor_label(self):
+        # Given
+        invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "Compare A and B",
+                    "scale": 5,
+                }
+            ]
+        }
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+        self.assertIn(
+            "COMPARISON question must have 'anchor_label' in the format: {'anchor_label': {'title': optional string, 'label_text': {'left': string, 'right': string}}}",
+            str(context.exception),
+        )
+
+    def test_validate_comparison_question_invalid_anchor_label_format(self):
+        # Given
+        invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "Compare A and B",
+                    "anchor_label": {
+                        "label_text": {
+                            "left": "Option A"
+                            # Missing right text
+                        }
+                    },
+                }
+            ]
+        }
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+        self.assertIn(
+            "COMPARISON question must have 'anchor_label' in the format: {'anchor_label': {'title': optional string, 'label_text': {'left': string, 'right': string}}}",
+            str(context.exception),
+        )
 
 
 if __name__ == "__main__":

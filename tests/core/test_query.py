@@ -2,6 +2,7 @@ from typing import Any, Dict
 import unittest
 from podonos.core.query import TYPE_OF_QUESTION_KEY, Question, ScoredQuestion, NonScoredQuestion, ComparisonQuestion, Instruction, Option
 from podonos.common.enum import InstructionCategory
+from podonos.core.types import QuestionMetadataColumn, QuestionMetadataLinearScale, QuestionMetadataPosition
 
 
 class TestQuery(unittest.TestCase):
@@ -44,11 +45,17 @@ class TestQuery(unittest.TestCase):
     def test_comparison_question(self):
         # Given
         title = "Compare importance"
+        meta_data = QuestionMetadataColumn(
+            linear_scale=QuestionMetadataLinearScale(
+                title="Importance",
+                label_text=QuestionMetadataPosition(left="Not important", right="Very important"),
+            )
+        )
         description = "Rate from 1-7"
         scale = 7
 
         # When
-        question = ComparisonQuestion(title, scale, description)
+        question = ComparisonQuestion(title, meta_data, scale, description)
         template = question.to_template_question()
 
         # Then

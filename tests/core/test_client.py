@@ -148,6 +148,7 @@ class TestEvaluationClient(unittest.TestCase):
                     "question": "Audio Quality Comparison",
                     "description": "Please compare the quality between two audio samples",
                     "scale": 5,
+                    "anchor_label": {"title": "Preference", "label_text": {"left": "Better", "right": "Better"}},
                 }
             ]
         }
