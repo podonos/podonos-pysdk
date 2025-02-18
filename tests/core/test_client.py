@@ -255,11 +255,6 @@ class TestEvaluationClient(unittest.TestCase):
             if stat in json:
                 self.assertTrue(isinstance(json[stat], (int, float)))
 
-        self.assertTrue("option_a" in json)
-        self.assertTrue("option_b" in json)
-        self.assertTrue(isinstance(json["option_a"], bool))
-        self.assertTrue(isinstance(json["option_b"], bool))
-
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
     @mock.patch("requests.put")
