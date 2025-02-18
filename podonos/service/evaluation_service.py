@@ -148,7 +148,10 @@ class EvaluationService:
 
                     options = stat.get("options", {})
                     for key in sorted(list(option_keys)):
-                        row_data.append(str(options.get(key, "")))
+                        if isinstance(options.get(key), list):
+                            row_data.append(";".join(options.get(key, "")))
+                        else:
+                            row_data.append(str(options.get(key, "")))
 
                     f.write(",".join(row_data) + "\n")
 
