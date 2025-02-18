@@ -70,7 +70,7 @@ class StimulusStats:
 
         extra_fields = {k: v for k, v in data.items() if k not in required_keys + optional_fields}
         if extra_fields:
-            stats.options = extra_fields
+            stats.options.update(extra_fields)
 
         return stats
 
@@ -87,6 +87,6 @@ class StimulusStats:
                 result[field] = value
 
         if self.options:
-            result.update(self.options)
+            result.update({"options": self.options})
 
         return result
