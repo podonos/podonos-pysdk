@@ -224,7 +224,7 @@ class ComparisonQuestion(Question):
             meta_data=QuestionMetadataColumn(
                 linear_scale=QuestionMetadataLinearScale(
                     title=data.get("anchor_label", {}).get("title", None),
-                    label_text=QuestionMetadataPosition(left=f"A is {label_text['left']}", right=f"B is {label_text['right']}"),
+                    label_text=QuestionMetadataPosition(left=f"A {label_text['left']}", right=f"B {label_text['right']}"),
                 )
             ),
             order=data.get("order", 0),

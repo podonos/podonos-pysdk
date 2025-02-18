@@ -1,3 +1,8 @@
+## 0.11.0
+
+- Fix the bug of `get_stats_by_evaluator` (`OTHER` is not included in the stats)
+- Add `anchor_label` in `create_evaluator_from_template_json`
+
 ## 0.10.0
 
 - Remove `use_annotation` option in `create_evaluator_from_template`
