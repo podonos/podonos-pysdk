@@ -92,7 +92,7 @@ class TemplateValidator:
             batch_size: Number of stimuli to compare (1 for single, 2 for double, etc.)
 
         Returns:
-            Tuple of (guide_template_questions, core_template_questions)
+            Tuple of (instructions, questions)
 
         Raises:
             ValueError: If template structure is invalid or contains incompatible questions
@@ -147,7 +147,7 @@ class TemplateValidator:
                     types = ", ".join([expected_type.__name__ for expected_type in expected_types])
                     raise ValueError(f"Question in {key} section must be one of the following types: {types}, got {q_data.get('type')}")
 
-                if batch_size == 1 and isinstance(question, ComparisonQuestion):
+                if isinstance(question, ComparisonQuestion) and batch_size == 1:
                     raise ValueError(
                         "COMPARISON type questions are not allowed in single stimulus evaluation. "
                         "Please use batch_size=2 for comparison questions."

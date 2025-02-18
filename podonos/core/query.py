@@ -3,11 +3,22 @@ from dataclasses import dataclass
 from typing import Literal, Optional, List, Dict, Any
 
 from podonos.common.enum import QuestionResponseCategory, QuestionUsageType, InstructionCategory
-from podonos.core.types import TemplateQuestion, TemplateOption
+from podonos.core.types import QuestionMetadataColumn, QuestionMetadataLinearScale, QuestionMetadataPosition, TemplateQuestion, TemplateOption
 
 TYPE_OF_OPTION_KEY = Literal["score", "label_text", "reference_file"]
 TYPE_OF_QUESTION_KEY = Literal[
-    "type", "question", "instruction", "description", "scale", "allow_multiple", "has_other", "has_none", "order", "options", "reference_file"
+    "type",
+    "question",
+    "instruction",
+    "description",
+    "scale",
+    "allow_multiple",
+    "has_other",
+    "has_none",
+    "order",
+    "options",
+    "reference_file",
+    "anchor_label",
 ]
 
 
@@ -175,9 +186,10 @@ class NonScoredQuestion(Question):
 
 
 class ComparisonQuestion(Question):
-    def __init__(self, question: str, scale: int = 5, description: Optional[str] = None, order: int = 0):
+    def __init__(self, question: str, meta_data: QuestionMetadataColumn, scale: int = 5, description: Optional[str] = None, order: int = 0):
         super().__init__(question, "COMPARISON", description, order)
         self.scale = scale
+        self.meta_data = meta_data
 
     def validate(self) -> None:
         super().validate()
@@ -192,11 +204,31 @@ class ComparisonQuestion(Question):
             usage_type=QuestionUsageType.SCORE,
             order=self.order,
             scale=self.scale,
+            meta_data=self.meta_data,
         )
 
     @classmethod
     def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any]) -> "ComparisonQuestion":
-        return cls(question=data["question"], description=data.get("description"), scale=data.get("scale", 5), order=data.get("order", 0))
+        error_message = "COMPARISON question must have 'anchor_label' in the format: {'anchor_label': {'title': optional string, 'label_text': {'left': string, 'right': string}}}"
+        if "anchor_label" not in data or "label_text" not in data["anchor_label"]:
+            raise ValueError(error_message)
+
+        label_text = data["anchor_label"]["label_text"]
+        if "left" not in label_text or "right" not in label_text:
+            raise ValueError(error_message)
+
+        return cls(
+            question=data["question"],
+            description=data.get("description"),
+            scale=data.get("scale", 5),
+            meta_data=QuestionMetadataColumn(
+                linear_scale=QuestionMetadataLinearScale(
+                    title=data.get("anchor_label", {}).get("title", None),
+                    label_text=QuestionMetadataPosition(left=f"A is {label_text['left']}", right=f"B is {label_text['right']}"),
+                )
+            ),
+            order=data.get("order", 0),
+        )
 
 
 class Instruction(Question):
