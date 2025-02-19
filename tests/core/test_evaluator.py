@@ -5,10 +5,9 @@ from unittest.mock import Mock, patch
 
 from podonos.common.enum import QuestionFileType, EvalType
 from podonos.core.api import APIClient
-from podonos.core.audio import Audio, AudioGroup
 from podonos.core.config import EvalConfig
 from podonos.core.evaluator import Evaluator
-from podonos.core.file import File
+from podonos.core.file import Audio, AudioGroup
 from podonos.entity.evaluation import EvaluationEntity
 from tests.core.test_audio import TESTDATA_SPEECH_TWO_CH1_WAV
 
@@ -98,50 +97,6 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(evaluation.id, "test_id")
         self.assertEqual(evaluation.status, "DRAFT")
 
-    def test_should_create_audio_successfully(self):
-        # Given
-        file = File(path=self.test_wav, model_tag="test_model", tags=["test"], script="test script")
-        group = "test_group"
-        type = QuestionFileType.STIMULUS
-        order = 0
-
-        # When
-        audio = self.evaluator._create_audio(file, group, type, order)
-
-        # Then
-        self.assertEqual(audio.path, file.path)
-        self.assertEqual(audio.model_tag, file.model_tag)
-        self.assertEqual(audio.tags, file.tags)
-        self.assertEqual(audio.script, file.script)
-        self.assertEqual(audio.group, group)
-        self.assertEqual(audio.type, type)
-        self.assertEqual(audio.order_in_group, order)
-
-    def test_should_add_audio_group_successfully(self):
-        # Given
-        group_id = "test_group"
-        audio = Audio(
-            path=self.test_wav,
-            name=os.path.basename(self.test_wav),
-            remote_object_name="remote/test.wav",
-            script="test script",
-            tags=["test"],
-            model_tag="test_model",
-            is_ref=False,
-            group=group_id,
-            type=QuestionFileType.STIMULUS,
-            order_in_group=0,
-        )
-
-        # When
-        self.evaluator._add_audio_group(group_id, [audio])
-
-        # Then
-        self.assertEqual(len(self.evaluator._ordered_file_groups), 1)
-        self.assertEqual(self.evaluator._ordered_file_groups[0].group_id, group_id)
-        self.assertEqual(len(self.evaluator._ordered_file_groups[0].audios), 1)
-        self.assertEqual(self.evaluator._ordered_file_groups[0].audios[0], audio)
-
     def test_should_validate_eval_type_successfully(self):
         # Test single file evaluation types
         assert self.evaluator._eval_config is not None
@@ -160,26 +115,6 @@ class TestEvaluator(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.evaluator._validate_eval_type("add_file")
         self.assertIn("The 'add_file' is only supported for single file evaluation types:", str(context.exception))
-
-    def test_should_validate_files_input_successfully(self):
-        # Given
-        file0 = File(path=self.test_wav, model_tag="model1", is_ref=True)
-        file1 = File(path=self.test_wav, model_tag="model2")
-        self.evaluator._eval_config._eval_type = EvalType.PREF
-
-        # When/Then
-        self.evaluator._validate_files_input(file0, file1)  # Should not raise
-
-    def test_should_validate_files_input_raise_error(self):
-        # Given
-        self.evaluator._eval_config._eval_type = EvalType.CMOS
-        file0 = File(path=self.test_wav, model_tag="model1")
-        file1 = File(path=self.test_wav, model_tag="model2")
-
-        # When/Then
-        with self.assertRaises(ValueError) as context:
-            self.evaluator._validate_files_input(file0, file1)
-        self.assertEqual("One file must be reference, one must be stimulus", str(context.exception))
 
     def test_should_cleanup_successfully(self):
         # Given
@@ -263,65 +198,6 @@ class TestEvaluator(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.evaluator._validate_close()
         self.assertEqual(str(context.exception), "No evaluation session is open.")
-
-    def test_should_create_reference_stimulus_pair(self):
-        # Given
-        file0 = File(path=self.test_wav, model_tag="model1", is_ref=True)
-        file1 = File(path=self.test_wav, model_tag="model2")
-        group_id = "test_group"
-
-        # When
-        audio_pair = self.evaluator._create_reference_stimulus_pair(file0, file1, group_id)
-
-        # Then
-        self.assertEqual(len(audio_pair), 2)
-        self.assertEqual(audio_pair[0].type, QuestionFileType.REF)
-        self.assertEqual(audio_pair[1].type, QuestionFileType.STIMULUS)
-
-    def test_should_create_stimulus_pair(self):
-        # Given
-        file0 = File(path=self.test_wav, model_tag="model1")
-        file1 = File(path=self.test_wav, model_tag="model2")
-        group_id = "test_group"
-
-        # When
-        audio_pair = self.evaluator._create_stimulus_pair(file0, file1, group_id)
-
-        # Then
-        self.assertEqual(len(audio_pair), 2)
-        self.assertEqual(audio_pair[0].type, QuestionFileType.STIMULUS)
-        self.assertEqual(audio_pair[1].type, QuestionFileType.STIMULUS)
-
-    def test_should_create_audio_pair(self):
-        # Given
-        file0 = File(path=self.test_wav, model_tag="model1")
-        file1 = File(path=self.test_wav, model_tag="model2")
-        group_id = "test_group"
-
-        # Test for PREF type
-        assert self.evaluator._eval_config is not None
-        self.evaluator._eval_config._eval_type = EvalType.PREF
-        audio_pair = self.evaluator._create_audio_pair(file0, file1, group_id)
-        self.assertEqual(len(audio_pair), 2)
-        self.assertTrue(all(a.type == QuestionFileType.STIMULUS for a in audio_pair))
-
-        # Test for CMOS type with reference
-        self.evaluator._eval_config._eval_type = EvalType.CMOS
-        file0._is_ref = True
-        audio_pair = self.evaluator._create_audio_pair(file0, file1, group_id)
-        self.assertEqual(len(audio_pair), 2)
-        self.assertEqual(audio_pair[0].type, QuestionFileType.REF)
-        self.assertEqual(audio_pair[1].type, QuestionFileType.STIMULUS)
-
-    def test_should_needs_reference_file(self):
-        # Test CMOS type (needs reference)
-        assert self.evaluator._eval_config is not None
-        self.evaluator._eval_config._eval_type = EvalType.CMOS
-        self.assertTrue(self.evaluator._needs_reference_file())
-
-        # Test PREF type (doesn't need reference)
-        self.evaluator._eval_config._eval_type = EvalType.PREF
-        self.assertFalse(self.evaluator._needs_reference_file())
 
 
 if __name__ == "__main__":

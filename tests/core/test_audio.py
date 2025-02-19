@@ -3,8 +3,7 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch
 
-from podonos.core.audio import AudioMeta, Audio, AudioGroup
-from podonos.core.file import File
+from podonos.core.file import File, Audio, AudioGroup, AudioMeta
 from podonos.common.enum import QuestionFileType
 
 TESTDATA_SPEECH_TWO_CH1_M4A = os.path.join(os.path.dirname(__file__), "speech_two_ch1.m4a")

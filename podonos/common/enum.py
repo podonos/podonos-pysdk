@@ -15,6 +15,7 @@ class EvalType(Enum):
     PREF = "PREF"
     CMOS = "CMOS"
     DMOS = "DMOS"
+    CSMOS = "CSMOS"
     CUSTOM_SINGLE = "CUSTOM_SINGLE"
     CUSTOM_DOUBLE = "CUSTOM_DOUBLE"
 
@@ -39,6 +40,11 @@ class EvalType(Enum):
         return [EvalType.PREF, EvalType.SMOS, EvalType.CUSTOM_DOUBLE]
 
     @staticmethod
+    def get_triple_types() -> List["EvalType"]:
+        """Get all triple stimuli evaluation types"""
+        return [EvalType.CSMOS]
+
+    @staticmethod
     def is_single(type_str: str) -> bool:
         """Check if type is single stimulus"""
         return EvalType(type_str) in EvalType.get_single_types()
@@ -47,6 +53,11 @@ class EvalType(Enum):
     def is_double(type_str: str) -> bool:
         """Check if type is double stimuli"""
         return EvalType(type_str) in EvalType.get_double_types()
+
+    @staticmethod
+    def is_triple(type_str: str) -> bool:
+        """Check if type is triple stimuli"""
+        return EvalType(type_str) in EvalType.get_triple_types()
 
     @staticmethod
     def is_eval_type(eval_type: str) -> bool:

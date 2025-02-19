@@ -83,6 +83,8 @@ class HumanEvaluation:
             supported_types = EvalType.get_double_types()
         elif EvalType.is_single(type):
             supported_types = EvalType.get_single_types()
+        elif EvalType.is_triple(type):
+            supported_types = EvalType.get_triple_types()
         else:
             raise ValueError(f"Invalid evaluation type: {type}")
 
@@ -133,6 +135,8 @@ class HumanEvaluation:
             supported_types = EvalType.get_single_types()
         elif template.batch_size == 2:
             supported_types = EvalType.get_double_types()
+        elif template.batch_size == 3:
+            supported_types = EvalType.get_triple_types()
         else:
             raise ValueError(f"Template has invalid type so please contact {PODONOS_CONTACT_EMAIL}")
         return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
