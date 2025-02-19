@@ -5,10 +5,10 @@ from typing import Any, Dict, List, Optional
 
 from podonos.common.exception import HTTPError
 from podonos.common.util import get_content_type_by_filename
-from podonos.core.audio import Audio, AudioGroup
 from podonos.core.base import log
 from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig
+from podonos.core.file import Audio, AudioGroup
 from podonos.core.stimulus_stats import StimulusStats
 from podonos.entity.evaluation import EvaluationEntity
 

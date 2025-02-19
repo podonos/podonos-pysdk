@@ -148,6 +148,7 @@ class EvalConfig:
             EvalType.SMOS.value,
             EvalType.P808.value,
             EvalType.PREF.value,
+            EvalType.CSMOS.value,
             EvalType.CUSTOM_SINGLE.value,
             EvalType.CUSTOM_DOUBLE.value,
         ]:
@@ -199,7 +200,12 @@ class EvalConfig:
     def _validate_eval_batch_size(self, eval_type: str) -> int:
         if EvalType.is_single(eval_type):
             return 1
-        return 2
+        elif EvalType.is_double(eval_type):
+            return 2
+        elif EvalType.is_triple(eval_type):
+            return 3
+        else:
+            raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}}.')
 
     # TODO: allow floating point hours, e.g. 0.5.
     def _validate_eval_expected_due(self, due_hours: int) -> str:

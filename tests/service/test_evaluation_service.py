@@ -2,12 +2,14 @@ import unittest
 from unittest.mock import Mock
 from datetime import datetime, timezone
 
-from podonos.service.evaluation_service import EvaluationService
-from podonos.core.api import APIClient
-from podonos.core.config import EvalConfig
+
 from podonos.common.enum import EvalType, Language, QuestionFileType
 from podonos.common.exception import HTTPError
-from podonos.core.audio import Audio
+from podonos.core.api import APIClient
+from podonos.core.config import EvalConfig
+from podonos.core.file import Audio
+from podonos.service.evaluation_service import EvaluationService
+
 from tests.core.test_audio import TESTDATA_SPEECH_TWO_CH1_WAV
 
 

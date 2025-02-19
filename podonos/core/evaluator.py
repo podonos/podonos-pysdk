@@ -1,14 +1,11 @@
-from datetime import datetime
 from typing import Dict, List, Optional
 
-from podonos.common.util import generate_random_group_name
-from podonos.core.base import *
-from podonos.common.constant import *
-from podonos.common.enum import EvalType, QuestionFileType
+
+from podonos.common.enum import EvalType
 from podonos.core.api import APIClient
-from podonos.core.audio import Audio, AudioGroup
+from podonos.core.base import log
 from podonos.core.config import EvalConfig
-from podonos.core.file import File
+from podonos.core.file import File, Audio, AudioGroup, FileTransformer, FileValidator
 from podonos.core.upload_manager import UploadManager
 from podonos.entity.evaluation import EvaluationEntity
 from podonos.service.evaluation_service import EvaluationService
@@ -21,6 +18,8 @@ class Evaluator:
     _eval_config: EvalConfig
     _evaluation: Optional[EvaluationEntity] = None
     _evaluation_service: EvaluationService
+    _file_transformer: FileTransformer
+    _file_validator: FileValidator
     _supported_eval_types: List[EvalType]
     _initialized: bool = False
     _upload_manager: Optional[UploadManager] = None  # Upload manager. Lazy initialization when used for saving resources.
@@ -66,6 +65,8 @@ class Evaluator:
         self._eval_config = eval_config
         self._evaluation_service = EvaluationService(api_client)
         self._evaluation = self._set_evaluation(eval_config)
+        self._file_transformer = FileTransformer(eval_config)
+        self._file_validator = FileValidator(eval_config)
         self._supported_eval_types = supported_eval_types
         self._ordered_file_groups = []
         self._upload_manager = None
@@ -83,7 +84,7 @@ class Evaluator:
             supported_types = [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]
             error_msg = f"The '{method_name}' is only supported for single file evaluation types: " f"{supported_types}"
         else:  # add_files
-            supported_types = [EvalType.CMOS, EvalType.DMOS, EvalType.PREF, EvalType.SMOS, EvalType.CUSTOM_DOUBLE]
+            supported_types = [EvalType.CMOS, EvalType.DMOS, EvalType.PREF, EvalType.SMOS, EvalType.CSMOS, EvalType.CUSTOM_DOUBLE]
             error_msg = f"The '{method_name}' is only supported for comparison evaluation types: " f"{supported_types}"
 
         if self._eval_config.eval_type not in supported_types:
@@ -136,31 +137,32 @@ class Evaluator:
             ValueError: if this function is called before calling init()
             FileNotFoundError: if a given file is not found.
         """
-
-        log.check(file, "file is not set")
-
         if not self._initialized:
             raise ValueError("Try to add file once the evaluator is closed.")
 
         self._validate_eval_type("add_file")
-        self._validate_annotation_by_file(file)
-        self._validate_ai_type_by_files([file])
 
-        audio = self._create_audio(file=file, group=None, type=QuestionFileType.STIMULUS, order_in_group=0)
-        self._ordered_file_groups.append(AudioGroup(group_id=None, audios=[audio], created_at=datetime.now()))
-        self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio.remote_object_name, path=audio.path)
+        file = self._file_validator.validate_file(file)
+        audio_group = self._file_transformer.transform_into_audio_group([file])
+        self._ordered_file_groups.append(audio_group)
+        self._upload_one_file(
+            evaluation_id=self.get_evaluation_id(), remote_object_name=audio_group.audios[0].remote_object_name, path=audio_group.audios[0].path
+        )
 
-    def add_files(self, file0: File, file1: File) -> None:
+    def add_files(self, file0: File, file1: File, file2: Optional[File] = None) -> None:
         """Add two files for speech evaluation. The files will be securely uploaded to Podonos service system.
 
         The order of files is maintained based on evaluation type:
         - PREF, CUSTOM_DOUBLE: Files are ordered stimulus
         - SMOS: Files are unordered stimulus
         - CMOS, DMOS: One file must be reference, one must be stimulus
+        - CSMOS: One file must be reference, two must be stimulus
+        - CUSTOM_TRIPLE: Three files are ordered stimulus
 
         Args:
             file0: First audio file
             file1: Second audio file
+            file2: Third audio file
 
         Example:
         If you want to evaluate audio files together (e.g., Comparative MOS):
@@ -168,81 +170,28 @@ class Evaluator:
             f1 = File(path="/path/to/original.wav", model_tag='my_new_model2', tags=['male', 'english', 'param1'])
             add_files(file0=f0, file1=f1)
 
+        If you want to evaluate two stimuli with a reference:
+            ref = File(path="/path/to/reference.wav", model_tag='my_new_model3', tags=['male', 'english'], is_ref=True)
+            add_files(file0=f0, file1=f1, file2=ref)
+
+        If you want to evaluate three stimuli:
+            f2 = File(path="/path/to/original.wav", model_tag='my_new_model2', tags=['male', 'english', 'param1'])
+            add_files(file0=f0, file1=f1, file2=f2)
+
         Returns: None
 
         Raises:
             ValueError: If evaluator not initialized or invalid file configuration
         """
-        self._validate_files_input(file0, file1)
-        self._validate_ai_type_by_files([file0, file1])
-        group_id = generate_random_group_name()
-        audio_pair = self._create_audio_pair(file0=file0, file1=file1, group_id=group_id)
-        self._add_audio_group(group_id=group_id, audios=audio_pair)
-        self._upload_audio_pair(audio_pair)
-
-    def _validate_files_input(self, file0: File, file1: File) -> None:
-        """Validate input files"""
-        log.check(file0, "file0 is not set")
-        log.check(file1, "file1 is not set")
-        self._validate_eval_type("add_files")
-
         if not self._initialized:
             raise ValueError("Evaluator is not initialized")
 
-        if self._needs_reference_file() and file0.is_ref == file1.is_ref:
-            raise ValueError("One file must be reference, one must be stimulus")
+        self._validate_eval_type("add_files")
 
-    def _validate_annotation_by_file(self, file: File) -> None:
-        """Validate annotation"""
-        if self._eval_config.eval_use_annotation and file.script is None:
-            raise ValueError(
-                "Annotation evaluation is enabled (eval_use_annotation=True), "
-                "but no script is provided in File. Please provide a corresponding script."
-            )
-
-    def _validate_ai_type_by_files(self, files: List[File]) -> None:
-        """Validate AI type"""
-        for file in files:
-            if self._eval_config.eval_ai_type and file.script is None:
-                raise ValueError(
-                    "ASR evaluation is enabled (eval_ai_type=ASR), " "but no script is provided in File. Please provide a corresponding script."
-                )
-
-    def _needs_reference_file(self) -> bool:
-        """Check if evaluation type requires reference file"""
-        return self._eval_config.eval_type in [EvalType.CMOS, EvalType.DMOS]
-
-    def _create_audio_pair(self, file0: File, file1: File, group_id: str) -> List[Audio]:
-        """Create pair of audio objects based on evaluation type"""
-        if self._eval_config.eval_type in [EvalType.PREF, EvalType.CUSTOM_DOUBLE, EvalType.SMOS]:
-            return self._create_stimulus_pair(file0, file1, group_id)
-        else:  # CMOS, DMOS
-            return self._create_reference_stimulus_pair(file0, file1, group_id)
-
-    def _create_stimulus_pair(self, file0: File, file1: File, group_id: str) -> List[Audio]:
-        """Create pair of stimulus audio objects"""
-        return [
-            self._create_audio(file=file0, group=group_id, type=QuestionFileType.STIMULUS, order_in_group=0),
-            self._create_audio(file=file1, group=group_id, type=QuestionFileType.STIMULUS, order_in_group=1),
-        ]
-
-    def _create_reference_stimulus_pair(self, file0: File, file1: File, group_id: str) -> List[Audio]:
-        """Create reference-stimulus audio pair"""
-        audio0_type = QuestionFileType.REF if file0.is_ref else QuestionFileType.STIMULUS
-        audio1_type = QuestionFileType.REF if file1.is_ref else QuestionFileType.STIMULUS
-
-        return [
-            self._create_audio(file=file0, group=group_id, type=audio0_type, order_in_group=0),
-            self._create_audio(file=file1, group=group_id, type=audio1_type, order_in_group=1),
-        ]
-
-    def _add_audio_group(self, group_id: str, audios: List[Audio]) -> None:
-        """Add new audio group to ordered groups"""
-        self._ordered_file_groups.append(AudioGroup(group_id=group_id, audios=audios, created_at=datetime.now()))
-
-    def _upload_audio_pair(self, audios: List[Audio]) -> None:
-        """Upload pair of audio files"""
-        for audio in audios:
+        files = self._file_validator.validate_files([file0, file1, file2])
+        audio_group = self._file_transformer.transform_into_audio_group(files)
+        self._ordered_file_groups.append(audio_group)
+        for audio in audio_group.audios:
             self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio.remote_object_name, path=audio.path)
 
     def _validate_close(self) -> None:
@@ -344,14 +293,3 @@ class Evaluator:
         if self._upload_manager:
             self._upload_manager.add_file_to_queue(evaluation_id, remote_object_name, path)
         return
-
-    def _create_audio(
-        self,
-        file: File,
-        group: Optional[str],
-        type: QuestionFileType,
-        order_in_group: int = 0,
-    ) -> Audio:
-        return Audio.from_file(
-            file=file, creation_timestamp=self._eval_config.eval_creation_timestamp, group=group, type=type, order_in_group=order_in_group
-        )
