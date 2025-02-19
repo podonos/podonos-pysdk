@@ -157,7 +157,6 @@ class Evaluator:
         - SMOS: Files are unordered stimulus
         - CMOS, DMOS: One file must be reference, one must be stimulus
         - CSMOS: One file must be reference, two must be stimulus
-        - CUSTOM_TRIPLE: Three files are ordered stimulus
 
         Args:
             file0: First audio file
@@ -173,10 +172,6 @@ class Evaluator:
         If you want to evaluate two stimuli with a reference:
             ref = File(path="/path/to/reference.wav", model_tag='my_new_model3', tags=['male', 'english'], is_ref=True)
             add_files(file0=f0, file1=f1, file2=ref)
-
-        If you want to evaluate three stimuli:
-            f2 = File(path="/path/to/original.wav", model_tag='my_new_model2', tags=['male', 'english', 'param1'])
-            add_files(file0=f0, file1=f1, file2=f2)
 
         Returns: None
 
