@@ -87,7 +87,7 @@ class Client:
         self,
         name: str,
         template_id: str,
-        num_eval: int,
+        num_eval: int = EvalConfigDefault.NUM_EVAL,
         desc: Optional[str] = None,
         use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
