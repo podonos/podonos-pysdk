@@ -99,7 +99,7 @@ class Client:
             name: This session name. Required.
             desc: Description of this session. Optional.
             template_id: The ID of the template to use for evaluation parameters.
-            num_eval: The number of evaluators per file. Should be >= 1.
+            num_eval: The number of evaluators per file. Should be >= 1. Default: 10
             use_power_normalization: Enable power normalization for evaluation.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
