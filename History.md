@@ -1,3 +1,9 @@
+## 0.12.0
+
+- Support `CSMOS` for evaluation
+- Add `num_eval`'s default value in `create_evaluator_from_template`
+
+
 ## 0.11.0
 
 - Fix the bug of `get_stats_by_evaluator` (`OTHER` is not included in the stats)
