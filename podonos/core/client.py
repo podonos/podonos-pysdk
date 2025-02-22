@@ -172,7 +172,8 @@ class Client:
 
         Args:
             evaluation_id: Evaluation id. See get_evaluation_list() above.
-            group_by: Group by question or script. Default: "question". "script" is only available for single-question evaluation.
+            group_by: Group by question or script. Default: "question". 
+                      "script" and "model" are only available for single-question evaluation.
 
         Returns:
             List of statistics for the evaluation.
