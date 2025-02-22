@@ -1,7 +1,8 @@
+import csv
 import os
 import requests
 from requests import Response
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from podonos.common.exception import HTTPError
 from podonos.common.util import get_content_type_by_filename
@@ -84,24 +85,24 @@ class EvaluationService:
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
 
-    def get_stats_dict_by_id(self, evaluation_id: str) -> List[Dict[str, Any]]:
+    def get_stats_dict_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
         Args:
             evaluation_id: Evaluation id. See get_evaluation_list() above.
+            group_by: Group by question or script. Default: "question". "script" is only available for single-question evaluation.
 
         Returns:
             List of statistics for the evaluation.
         """
         try:
-            response = self.api_client.get(f"evaluations/{evaluation_id}/stats")
+            response = self.api_client.get(f"evaluations/{evaluation_id}/stats?group-by={group_by}")
             if response.status_code == 400:
                 log.info(f"Bad Request: The {evaluation_id} is an invalid evaluation id")
                 return []
 
             response.raise_for_status()
-            stats = [StimulusStats.from_dict(stats) for stats in response.json()]
-            return [stat.to_dict() for stat in stats]
+            return response.json()
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation stats: {e}")
 
@@ -116,44 +117,67 @@ class EvaluationService:
         """
         log.check_ne(evaluation_id, "")
         log.check_ne(output_path, "")
+
+        # Fetch stats using the existing method
         stats = self.get_stats_dict_by_id(evaluation_id)
 
-        with open(output_path, "w") as f:
-            question_headers = ["question_title", "question_order"]
-            file_headers = ["name", "model_tag", "tags", "type"]
-            stat_fields = ["mean", "median", "std", "sem", "ci_95"]
+        # Open the output file for writing
+        with open(output_path, "w", newline='') as csvfile:
+            writer = csv.writer(csvfile)
 
-            option_keys = set()
-            for stat in stats:
-                if "options" in stat:
-                    option_keys.update(stat["options"].keys())
+            # Write header
+            header = [
+                "question", "description", "order", "name", "tags", "type", "script", "model_tag",
+                "mean", "median", "std", "sem", "ci_95", "other_options"
+            ]
+            writer.writerow(header)
 
-            all_headers = question_headers + file_headers + stat_fields + sorted(list(option_keys))
-            f.write(",".join(all_headers) + "\n")
+            # Process each item in stats
+            for item in stats:
+                question = item.get("question")
+                description = item.get("description")
+                order = item.get("order")
 
-            for stat in stats:
-                question = stat.get("question", {})
-                for file in stat["files"]:
-                    row_data = [
-                        question.get("title", ""),
-                        str(question.get("order", "")),
-                        file["name"],
-                        file["model_tag"],
-                        ";".join(file["tags"]),
-                        file["type"],
-                    ]
-
-                    for field in stat_fields:
-                        row_data.append(str(stat.get(field, "")))
-
-                    options = stat.get("options", {})
-                    for key in sorted(list(option_keys)):
-                        if isinstance(options.get(key), list):
-                            row_data.append(";".join(options.get(key, "")))
-                        else:
-                            row_data.append(str(options.get(key, "")))
-
-                    f.write(",".join(row_data) + "\n")
+                for response in item.get("responses", []):
+                    # Check if 'targets' key exists
+                    if "targets" in response:
+                        for target in response["targets"]:
+                            row = [
+                                question,
+                                description,
+                                order,
+                                target.get("name"),
+                                ", ".join(target.get("tags", [])),
+                                target.get("type"),
+                                target.get("script"),
+                                target.get("model_tag"),
+                                response.get("mean"),
+                                response.get("median"),
+                                response.get("std"),
+                                response.get("sem"),
+                                response.get("ci_95"),
+                                {k: v for k, v in response.items() if k not in ["targets", "mean", "median", "std", "sem", "ci_95"]}
+                            ]
+                            writer.writerow(row)
+                    else:
+                        # Handle single target format
+                        row = [
+                            question,
+                            description,
+                            order,
+                            response.get("name"),
+                            ", ".join(response.get("tags", [])),
+                            response.get("type"),
+                            response.get("script"),
+                            response.get("model_tag"),
+                            response.get("mean"),
+                            response.get("median"),
+                            response.get("std"),
+                            response.get("sem"),
+                            response.get("ci_95"),
+                            {k: v for k, v in response.items() if k not in ["name", "tags", "type", "script", "model_tag", "mean", "median", "std", "sem", "ci_95"]}
+                        ]
+                        writer.writerow(row)
 
     def create_evaluation_files(self, evaluation_id: str, audios: List[Audio]):
         try:

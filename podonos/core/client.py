@@ -167,19 +167,21 @@ class Client:
         """
         return self._evaluation_service.get_evaluation_list()
 
-    def get_stats_dict_by_id(self, evaluation_id: str) -> List[Dict[str, Any]]:
+    def get_stats_dict_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
         Args:
             evaluation_id: Evaluation id. See get_evaluation_list() above.
+            group_by: Group by question or script. Default: "question". 
+                      "script" and "model" are only available for single-question evaluation.
 
         Returns:
             List of statistics for the evaluation.
         """
-        return self._evaluation_service.get_stats_dict_by_id(evaluation_id)
+        return self._evaluation_service.get_stats_dict_by_id(evaluation_id, group_by)
 
     def download_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
-        """Downloads the evaluation statistics into CSV referenced by id.
+        """Downloads the evaluation statistics into CSV referenced by id group by "question".
 
         Args:
             evaluation_id: Evaluation id. See get_evaluation_list() above.

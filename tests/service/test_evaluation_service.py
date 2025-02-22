@@ -203,7 +203,7 @@ class TestEvaluationService(unittest.TestCase):
         stats = self.service.get_stats_dict_by_id(evaluation_id)
 
         # Then
-        self.mock_api_client.get.assert_called_once_with(f"evaluations/{evaluation_id}/stats")
+        self.mock_api_client.get.assert_called_once_with(f"evaluations/{evaluation_id}/stats?group-by=question")
         self.assertEqual(stats, expected_stats)
 
 

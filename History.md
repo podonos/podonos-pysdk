@@ -1,3 +1,7 @@
+## 0.13.0
+
+- Add `group_by` option in `get_stats_dict_by_id`
+
 ## 0.12.0
 
 - Support `CSMOS` for evaluation
