@@ -167,7 +167,7 @@ class Client:
         """
         return self._evaluation_service.get_evaluation_list()
 
-    def get_stats_dict_by_id(self, evaluation_id: str, group_by: Literal["question", "script"] = "question") -> List[Dict[str, Any]]:
+    def get_stats_dict_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
         Args:

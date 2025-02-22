@@ -96,7 +96,7 @@ class EvaluationService:
             List of statistics for the evaluation.
         """
         try:
-            response = self.api_client.get(f"evaluations/{evaluation_id}/stats?group_by={group_by}")
+            response = self.api_client.get(f"evaluations/{evaluation_id}/stats?group-by={group_by}")
             if response.status_code == 400:
                 log.info(f"Bad Request: The {evaluation_id} is an invalid evaluation id")
                 return []
