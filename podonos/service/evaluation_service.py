@@ -85,7 +85,7 @@ class EvaluationService:
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
 
-    def get_stats_dict_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
+    def get_stats_json_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
         Args:
@@ -105,80 +105,7 @@ class EvaluationService:
             return response.json()
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation stats: {e}")
-
-    def download_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
-        """Downloads the evaluation statistics into CSV referenced by id.
-
-        Args:
-            evaluation_id: Evaluation id. See get_evaluation_list() above.
-            output_path: Path to the output CSV.
-
-        Returns: None
-        """
-        log.check_ne(evaluation_id, "")
-        log.check_ne(output_path, "")
-
-        # Fetch stats using the existing method
-        stats = self.get_stats_dict_by_id(evaluation_id)
-
-        # Open the output file for writing
-        with open(output_path, "w", newline='') as csvfile:
-            writer = csv.writer(csvfile)
-
-            # Write header
-            header = [
-                "question", "description", "order", "name", "tags", "type", "script", "model_tag",
-                "mean", "median", "std", "sem", "ci_95", "other_options"
-            ]
-            writer.writerow(header)
-
-            # Process each item in stats
-            for item in stats:
-                question = item.get("question")
-                description = item.get("description")
-                order = item.get("order")
-
-                for response in item.get("responses", []):
-                    # Check if 'targets' key exists
-                    if "targets" in response:
-                        for target in response["targets"]:
-                            row = [
-                                question,
-                                description,
-                                order,
-                                target.get("name"),
-                                ", ".join(target.get("tags", [])),
-                                target.get("type"),
-                                target.get("script"),
-                                target.get("model_tag"),
-                                response.get("mean"),
-                                response.get("median"),
-                                response.get("std"),
-                                response.get("sem"),
-                                response.get("ci_95"),
-                                {k: v for k, v in response.items() if k not in ["targets", "mean", "median", "std", "sem", "ci_95"]}
-                            ]
-                            writer.writerow(row)
-                    else:
-                        # Handle single target format
-                        row = [
-                            question,
-                            description,
-                            order,
-                            response.get("name"),
-                            ", ".join(response.get("tags", [])),
-                            response.get("type"),
-                            response.get("script"),
-                            response.get("model_tag"),
-                            response.get("mean"),
-                            response.get("median"),
-                            response.get("std"),
-                            response.get("sem"),
-                            response.get("ci_95"),
-                            {k: v for k, v in response.items() if k not in ["name", "tags", "type", "script", "model_tag", "mean", "median", "std", "sem", "ci_95"]}
-                        ]
-                        writer.writerow(row)
-
+        
     def create_evaluation_files(self, evaluation_id: str, audios: List[Audio]):
         try:
             response = self.api_client.put(

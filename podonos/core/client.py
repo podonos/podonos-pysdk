@@ -167,7 +167,7 @@ class Client:
         """
         return self._evaluation_service.get_evaluation_list()
 
-    def get_stats_dict_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
+    def get_stats_json_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
         Args:
@@ -178,15 +178,4 @@ class Client:
         Returns:
             List of statistics for the evaluation.
         """
-        return self._evaluation_service.get_stats_dict_by_id(evaluation_id, group_by)
-
-    def download_stats_csv_by_id(self, evaluation_id: str, output_path: str) -> None:
-        """Downloads the evaluation statistics into CSV referenced by id group by "question".
-
-        Args:
-            evaluation_id: Evaluation id. See get_evaluation_list() above.
-            output_path: Path to the output CSV.
-
-        Returns: None
-        """
-        return self._evaluation_service.download_stats_csv_by_id(evaluation_id, output_path)
+        return self._evaluation_service.get_stats_json_by_id(evaluation_id, group_by)
