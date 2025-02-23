@@ -228,7 +228,7 @@ class TestEvaluationClient(unittest.TestCase):
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     def test_stimulus_stats_by_id(self, mock_get):
         self._mock_client = podonos.init(api_key=self.valid_api_key)
-        response = self._mock_client.get_stats_dict_by_id(evaluation_id="mock_id")
+        response = self._mock_client.get_stats_json_by_id(evaluation_id="mock_id")
         self.assertTrue(isinstance(response, list))
         self.assertTrue(len(response) > 0)
 

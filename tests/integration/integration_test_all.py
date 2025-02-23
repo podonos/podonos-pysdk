@@ -73,9 +73,8 @@ def main():
     etor.add_file(File(path=f"tests/speech_two_ch2.wav", model_tag='my_new_model2'))
     etor.close()
 
-    stats = client.get_stats_dict_by_id(evaluation_id)
+    stats = client.get_stats_json_by_id(evaluation_id)
     log.debug(stats)
-    client.download_stats_csv_by_id(evaluation_id, f"./eval_stats_{evaluation_id}.csv")
 
     log.info(f"Evaluation id list")
     evaluations = client.get_evaluation_list()

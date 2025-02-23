@@ -200,7 +200,7 @@ class TestEvaluationService(unittest.TestCase):
         self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_stats)
 
         # When
-        stats = self.service.get_stats_dict_by_id(evaluation_id)
+        stats = self.service.get_stats_json_by_id(evaluation_id)
 
         # Then
         self.mock_api_client.get.assert_called_once_with(f"evaluations/{evaluation_id}/stats?group-by=question")
