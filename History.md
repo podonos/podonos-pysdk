@@ -1,3 +1,9 @@
+
+## 0.14.0
+
+- Remove `download_stats_csv_by_id`
+- Rename `get_stats_dict_by_id` into `get_stats_json_by_id`
+
 ## 0.13.0
 
 - Add `group_by` option in `get_stats_dict_by_id`
