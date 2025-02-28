@@ -1,7 +1,7 @@
 from typing import Any, Dict
 import unittest
 from podonos.core.query import TYPE_OF_QUESTION_KEY, Question, ScoredQuestion, NonScoredQuestion, ComparisonQuestion, Instruction, Option
-from podonos.common.enum import InstructionCategory
+from podonos.common.enum import InstructionCategory, QuestionRelatedModel
 from podonos.core.types import QuestionMetadataColumn, QuestionMetadataLinearScale, QuestionMetadataPosition
 
 
@@ -11,9 +11,9 @@ class TestQuery(unittest.TestCase):
         title = "Rate your experience"
         description = "Please rate your overall experience"
         options = [Option("1", "Poor"), Option("2", "Fair"), Option("3", "Good")]
-
+        batch_size = 1
         # When
-        question = ScoredQuestion(title, options, description)
+        question = ScoredQuestion(title, options, QuestionRelatedModel.ALL, batch_size, description)
         template = question.to_template_question()
 
         # Then
@@ -30,9 +30,19 @@ class TestQuery(unittest.TestCase):
         description = "Choose all that apply"
         options = [Option("reading", "Reading"), Option("sports", "Sports")]
         allow_multiple = True
+        batch_size = 1
+        related_model = QuestionRelatedModel.ALL
 
         # When
-        question = NonScoredQuestion(question=title, options=options, description=description, allow_multiple=allow_multiple, has_other=True)
+        question = NonScoredQuestion(
+            question=title,
+            options=options,
+            description=description,
+            allow_multiple=allow_multiple,
+            has_other=True,
+            related_model=related_model,
+            batch_size=batch_size,
+        )
         template = question.to_template_question()
 
         # Then
@@ -53,9 +63,11 @@ class TestQuery(unittest.TestCase):
         )
         description = "Rate from 1-7"
         scale = 7
+        batch_size = 1
+        related_model = QuestionRelatedModel.ALL
 
         # When
-        question = ComparisonQuestion(title, meta_data, scale, description)
+        question = ComparisonQuestion(title, meta_data, related_model, batch_size, scale, description)
         template = question.to_template_question()
 
         # Then
@@ -69,9 +81,10 @@ class TestQuery(unittest.TestCase):
         title = "Important guideline"
         description = "Follow this guideline"
         category = InstructionCategory.WARNING
+        batch_size = 1
 
         # When
-        question = Instruction(title, category, description)
+        question = Instruction(title, category, batch_size, description)
         template = question.to_template_question()
 
         # Then
@@ -83,10 +96,11 @@ class TestQuery(unittest.TestCase):
         # Given
         title = "Invalid question"
         options = []  # Empty options
+        batch_size = 1
 
         # When/Then
         with self.assertRaises(ValueError):
-            question = ScoredQuestion(title, options)
+            question = ScoredQuestion(title, options, QuestionRelatedModel.ALL, batch_size)
             question.validate()
 
     def test_question_from_dict(self):
@@ -97,9 +111,10 @@ class TestQuery(unittest.TestCase):
             "description": "Test Description",
             "options": [{"label_text": "Option 1"}, {"label_text": "Option 2"}],
         }
+        batch_size = 1
 
         # When
-        question = Question.from_dict(question_data)
+        question = Question.from_dict(question_data, batch_size)
 
         # Then
         assert isinstance(question, ScoredQuestion)

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional, List
-from podonos.common.enum import QuestionResponseCategory, QuestionUsageType
+from podonos.common.enum import QuestionResponseCategory, QuestionUsageType, QuestionRelatedModel
 
 
 @dataclass
@@ -56,6 +56,7 @@ class TemplateQuestion:
     scale: int = 0
     has_other: bool = False
     has_none: bool = False
+    related_model: Optional[QuestionRelatedModel] = None
     meta_data: Optional[QuestionMetadataColumn] = None
     options: List[TemplateOption] = field(default_factory=list)
     reference_file: Optional[str] = None
@@ -71,6 +72,7 @@ class TemplateQuestion:
             "order": self.order,
             "has_other": self.has_other,
             "has_none": self.has_none,
+            "related_model": self.related_model.value if self.related_model else None,
             "meta_data": self.meta_data.to_dict() if self.meta_data else None,
         }
 
