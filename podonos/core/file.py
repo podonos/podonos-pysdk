@@ -162,6 +162,7 @@ class File:
 class FileValidator:
     def __init__(self, eval_config):
         self._eval_config = eval_config
+        self._stimulus_model_tags = set()
 
     def validate_file(self, file: File) -> File:
         """Validate file based on evaluation type"""
@@ -186,7 +187,8 @@ class FileValidator:
         valid_files = [self._validate_file_common(file) for file in files if file is not None and file.is_ref == False]
         if len(valid_files) != 2:
             raise ValueError("Stimulus evaluations require exactly two files")
-        return valid_files
+
+        return self._validate_double_stimulus_model_tags(valid_files[0], valid_files[1])
 
     def _validate_one_stimulus_and_one_ref_files(self, files: List[Optional[File]]) -> List[File]:
         """Validate files for reference-stimulus evaluations"""
@@ -217,7 +219,7 @@ class FileValidator:
         if len(stimuli) != 2 or len(ref) != 1:
             raise ValueError("Two-stimulus-one-reference evaluations require exactly two stimuli and one reference")
 
-        return stimuli + ref
+        return self._validate_double_stimulus_model_tags(stimuli[0], stimuli[1]) + ref
 
     def _validate_file_common(self, file: File) -> File:
         """Common file validation logic"""
@@ -235,6 +237,24 @@ class FileValidator:
             )
 
         return file
+
+    def _validate_double_stimulus_model_tags(self, file0: File, file1: File) -> List[File]:
+        """
+        The number of model tags should be 2 if the batch size is over 2.
+        """
+        if file0.model_tag == file1.model_tag:
+            raise ValueError("The model tags should be different in `add_files` for double stimulus evaluations")
+
+        if len(self._stimulus_model_tags) == 0:
+            self._stimulus_model_tags.add(file0.model_tag)
+            self._stimulus_model_tags.add(file1.model_tag)
+        else:
+            message = f"The number of model tags should be 2 in `add_files` for double stimulus evaluations"
+            if file0.model_tag not in self._stimulus_model_tags:
+                raise ValueError(message)
+            if file1.model_tag not in self._stimulus_model_tags:
+                raise ValueError(message)
+        return [file0, file1]
 
 
 class AudioMeta:
