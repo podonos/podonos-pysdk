@@ -105,7 +105,7 @@ class TemplateValidator:
         if question_length < 1 or question_length > 9:
             raise ValueError("Template must contain between 1 and 9 questions")
 
-        instructions = TemplateValidator.process_questions(data, "instructions", [Instruction])
+        instructions = TemplateValidator.process_questions(data, "instructions", [Instruction], batch_size)
         core_questions = TemplateValidator.process_questions(data, "questions", [ScoredQuestion, NonScoredQuestion, ComparisonQuestion], batch_size)
 
         log.debug(f"Processed {len(instructions)} instructions and {len(core_questions)} questions")
@@ -113,7 +113,7 @@ class TemplateValidator:
         return instructions, core_questions
 
     @staticmethod
-    def process_questions(data: dict, key: str, expected_types: List[type], batch_size: Optional[int] = None) -> List[TemplateQuestion]:
+    def process_questions(data: dict, key: str, expected_types: List[type], batch_size: int) -> List[TemplateQuestion]:
         """
         Process questions from the given data dictionary.
 
@@ -140,7 +140,7 @@ class TemplateValidator:
         questions = []
         for i, q_data in enumerate(data[key]):
             try:
-                question = Question.from_dict(q_data)
+                question = Question.from_dict(q_data, batch_size)
                 question.validate()
 
                 if not any(isinstance(question, expected_type) for expected_type in expected_types):

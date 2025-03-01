@@ -123,8 +123,29 @@ class QuestionUsageType(Enum):
     GUIDELINE_PROHIBIT = "GUIDELINE_PROHIBIT"
     SCORE = "SCORE"
 
+    @staticmethod
+    def is_score(usage_type: "QuestionUsageType") -> bool:
+        return usage_type == QuestionUsageType.SCORE
+
 
 class InstructionCategory(Enum):
     DO = "DO"
     WARNING = "WARNING"
     DONT = "DONT"
+
+
+class QuestionRelatedModel(Enum):
+    ALL = "ALL"
+    MODEL_A = "MODEL_A"
+    MODEL_B = "MODEL_B"
+
+    @staticmethod
+    def from_value(value: str) -> "QuestionRelatedModel":
+        for member in QuestionRelatedModel:
+            if member.value == value:
+                return member
+        raise ValueError(f"Invalid related model: {value}. Use one of the following: {', '.join([item.value for item in QuestionRelatedModel])}")
+
+    @staticmethod
+    def is_member(value: str) -> bool:
+        return value in [item.value for item in QuestionRelatedModel]
