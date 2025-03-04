@@ -1,4 +1,8 @@
 
+## 0.15.0
+
+- Select the `related_model` when creating `Evaluation` in `template`
+
 ## 0.14.0
 
 - Remove `download_stats_csv_by_id`
