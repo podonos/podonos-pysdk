@@ -231,7 +231,7 @@ class EvaluationService:
                     f.write(file_response.content)
                 
                 file_mata_json["files"].append({
-                    "file_name": file_name,
+                    "file_path": file_path,
                     "original_name": file_original_name,
                     "model_tag": file["model_tag"],
                     "tags": file["tags"],
