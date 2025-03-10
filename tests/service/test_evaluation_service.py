@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from datetime import datetime, timezone
 
 
@@ -206,6 +206,46 @@ class TestEvaluationService(unittest.TestCase):
         self.mock_api_client.get.assert_called_once_with(f"evaluations/{evaluation_id}/stats?group-by=question")
         self.assertEqual(stats, expected_stats)
 
+    @patch('requests.get')
+    def test_download_evaluation_files_by_evaluation_id_success(self, mock_requests_get):
+        # Given
+        evaluation_id = "test_evaluation_id"
+        output_dir = "./output"
+        expected_response = {
+            "evaluation_id": evaluation_id,
+            "cookie": {
+                "CloudFront-Policy": "test_policy",
+                "CloudFront-Signature": "test_signature",
+                "CloudFront-Key-Pair-Id": "test_key_pair_id"
+            },
+            "files": [
+                {
+                    "evaluation_file_id": "file1_id",
+                    "file_meta_id": "meta1_id",
+                    "original_name": "file1.wav",
+                    "original_url": "https://example.com/file1.wav",
+                    "model_tag": "model1",
+                    "tags": ["tag1", "tag2"]
+                },
+                {
+                    "evaluation_file_id": "file2_id",
+                    "file_meta_id": "meta2_id",
+                    "original_name": "file2.wav",
+                    "original_url": "https://example.com/file2.wav",
+                    "model_tag": "model2",
+                    "tags": ["tag3", "tag4"]
+                }
+            ]
+        }
+        self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_response)
+        mock_requests_get.return_value = Mock(status_code=200, content=b"test_content", headers={"Content-Type": "audio/wav"})
+
+        # When
+        result = self.service.download_evaluation_files_by_evaluation_id(evaluation_id, output_dir)
+
+        # Then
+        self.mock_api_client.get.assert_called_once_with(f"evaluation-files/download?evaluation-id={evaluation_id}")
+        self.assertEqual(result, "Files downloaded successfully.")
 
 if __name__ == "__main__":
     unittest.main()

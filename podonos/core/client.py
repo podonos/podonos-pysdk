@@ -179,3 +179,7 @@ class Client:
             List of statistics for the evaluation.
         """
         return self._evaluation_service.get_stats_json_by_id(evaluation_id, group_by)
+    
+    def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
+        """Download evaluation files"""
+        return self._evaluation_service.download_evaluation_files_by_evaluation_id(evaluation_id, output_dir)

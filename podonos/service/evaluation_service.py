@@ -1,16 +1,18 @@
-import csv
+import json
 import os
 import requests
 from requests import Response
 from typing import Any, Dict, List, Literal, Optional
+import hashlib
+from tqdm import tqdm
 
+from podonos.common.constant import CONTENT_TYPE_TO_EXTENSION
 from podonos.common.exception import HTTPError
 from podonos.common.util import get_content_type_by_filename
 from podonos.core.base import log
 from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig
 from podonos.core.file import Audio, AudioGroup
-from podonos.core.stimulus_stats import StimulusStats
 from podonos.entity.evaluation import EvaluationEntity
 
 
@@ -187,3 +189,62 @@ class EvaluationService:
                 f"Failed to Upload JSON {data}: {e}",
                 status_code=e.response.status_code if e.response else None,
             )
+
+    def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
+        """Download evaluation files using CloudFront cookies."""
+        try:
+            # Get the response from the API
+            log.debug(f"Download evaluation files for evaluation {evaluation_id}")
+            file_mata_json = {"files": []}
+            response = self.api_client.get(f"evaluation-files/download?evaluation-id={evaluation_id}")
+            response.raise_for_status()
+
+            # Parse the response using EvaluationFileDownloadResponseDto
+            download_response = response.json()
+
+            # Ensure the output directory exists
+            os.makedirs(output_dir, exist_ok=True)
+
+            # Download each file using the original URL and cookies
+            for file in tqdm(download_response["files"], desc="Downloading files", unit="file"):
+                # Download the file using the original URL and cookies
+                file_response = requests.get(file["original_url"], cookies=download_response["cookie"])
+                file_response.raise_for_status()
+
+                content_type = file_response.headers.get('Content-Type')
+                file_extension = CONTENT_TYPE_TO_EXTENSION[content_type] if content_type else ".flac"
+
+                # Generate a hash for the original file name
+                file_original_name = file["original_name"]
+                hash_object = hashlib.md5(file_original_name.encode())
+                hashed_file_name = hash_object.hexdigest()
+
+                # Construct the file path using the model tag and hashed file name
+                file_name = f"{file['model_tag']}/{hashed_file_name}{file_extension}"
+                file_path = os.path.join(output_dir, file_name)
+
+                # Ensure the directory for the model tag exists
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+                # Save the file locally
+                with open(file_path, "wb") as f:
+                    f.write(file_response.content)
+                
+                file_mata_json["files"].append({
+                    "file_name": file_name,
+                    "original_name": file_original_name,
+                    "model_tag": file["model_tag"],
+                    "tags": file["tags"],
+                })
+
+            log.info(f"Downloaded {len(file_mata_json['files'])} files")
+
+            # Save the file metadata to a JSON file
+            metadata_file_path = os.path.join(output_dir, "metadata.json")
+            with open(metadata_file_path, "w") as f:
+                json.dump(file_mata_json, f)
+            log.info(f"File metadata saved to {metadata_file_path}")
+
+            return "Files downloaded successfully."
+        except Exception as e:
+            raise HTTPError(f"Failed to download evaluation files: {e}")
