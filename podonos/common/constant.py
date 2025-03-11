@@ -29,3 +29,11 @@ PODONOS_API_BASE_URL = "https://prod.podonosapi.com"
 
 # Contact email
 PODONOS_CONTACT_EMAIL = "hello@podonos.com"
+
+CONTENT_TYPE_TO_EXTENSION = {
+    "audio/mpeg": ".mp3",
+    "audio/wav": ".wav",
+    "audio/mp3": ".mp3",
+    "audio/flac": ".flac",
+    "audio/mp4": ".mp4",
+}
