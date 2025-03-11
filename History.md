@@ -1,3 +1,6 @@
+## 0.16.0
+
+- Get evaluation files by `download_evaluation_files_by_evaluation_id`
 
 ## 0.15.0
 
