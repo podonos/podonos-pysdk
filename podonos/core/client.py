@@ -5,8 +5,7 @@ from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 from podonos.evaluation import AIEvaluation, HumanEvaluation
-from podonos.service import EvaluationService, TemplateService
-from podonos.service.collection_service import CollectionService
+from podonos.service import CollectionService, EvaluationService, ScriptService, TemplateService
 
 
 class Client:
@@ -18,6 +17,7 @@ class Client:
     # Services
     _collection_service: CollectionService
     _evaluation_service: EvaluationService
+    _script_service: ScriptService
     _template_service: TemplateService
 
     # Evaluators
@@ -29,6 +29,7 @@ class Client:
         self._initialized = True
         self._collection_service = CollectionService(self._api_client)
         self._evaluation_service = EvaluationService(self._api_client)
+        self._script_service = ScriptService(self._api_client)
         self._template_service = TemplateService(self._api_client)
 
         self._ai_evaluation = AIEvaluation(self._api_client)
@@ -37,6 +38,10 @@ class Client:
     @property
     def collection(self) -> CollectionService:
         return self._collection_service
+
+    @property
+    def script(self) -> ScriptService:
+        return self._script_service
 
     @property
     def AI(self) -> AIEvaluation:
