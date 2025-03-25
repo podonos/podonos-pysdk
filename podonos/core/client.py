@@ -6,6 +6,7 @@ from podonos.core.config import EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 from podonos.evaluation import AIEvaluation, HumanEvaluation
 from podonos.service import EvaluationService, TemplateService
+from podonos.service.collection_service import CollectionService
 
 
 class Client:
@@ -15,6 +16,7 @@ class Client:
     _initialized: bool = False
 
     # Services
+    _collection_service: CollectionService
     _evaluation_service: EvaluationService
     _template_service: TemplateService
 
@@ -25,11 +27,16 @@ class Client:
     def __init__(self, api_client: APIClient):
         self._api_client = api_client
         self._initialized = True
+        self._collection_service = CollectionService(self._api_client)
         self._evaluation_service = EvaluationService(self._api_client)
         self._template_service = TemplateService(self._api_client)
 
         self._ai_evaluation = AIEvaluation(self._api_client)
         self._human_evaluation = HumanEvaluation(self._api_client, self._evaluation_service, self._template_service)
+
+    @property
+    def collection(self) -> CollectionService:
+        return self._collection_service
 
     @property
     def AI(self) -> AIEvaluation:
@@ -172,14 +179,14 @@ class Client:
 
         Args:
             evaluation_id: Evaluation id. See get_evaluation_list() above.
-            group_by: Group by question or script. Default: "question". 
+            group_by: Group by question or script. Default: "question".
                       "script" and "model" are only available for single-question evaluation.
 
         Returns:
             List of statistics for the evaluation.
         """
         return self._evaluation_service.get_stats_json_by_id(evaluation_id, group_by)
-    
+
     def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
         """Download evaluation files"""
         return self._evaluation_service.download_evaluation_files_by_evaluation_id(evaluation_id, output_dir)

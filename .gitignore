@@ -167,3 +167,8 @@ audio
 forms.py
 
 *.env
+*.csv
+aws
+openai
+template_double.json
+template_single.json
