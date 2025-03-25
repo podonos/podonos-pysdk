@@ -37,7 +37,7 @@ class CollectionService:
         Raises:
             HTTPError: If the request fails
         """
-        log.debug(f"Create collection: {name}")
+        log.info(f"Create collection: {name}")
         log.check_notnone(name, "The name of the collection is required")
 
         try:

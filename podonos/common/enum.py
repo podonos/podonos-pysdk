@@ -167,3 +167,35 @@ class CollectionCustomerStatus(Enum):
     ACTIVE = "ACTIVE"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
+
+
+class SpeechStyle(str, Enum):
+    NONE = "NONE"
+    NARRATIVE = "NARRATIVE"
+    CONVERSATION = "CONVERSATION"
+    POEM = "POEM"
+    STORY = "STORY"
+    NEWS = "NEWS"
+    ADVERTISEMENT = "ADVERTISEMENT"
+
+
+class SpeechEmotion(str, Enum):
+    NONE = "NONE"
+    NEUTRAL = "NEUTRAL"
+    HAPPY = "HAPPY"
+    SAD = "SAD"
+    ANGRY = "ANGRY"
+    SURPRISED = "SURPRISED"
+    DISGUSTED = "DISGUSTED"
+    FEARFUL = "FEARFUL"
+    EXCITED = "EXCITED"
+    SARCASTIC = "SARCASTIC"
+    ENCOURAGING = "ENCOURAGING"
+    PLAYFUL = "PLAYFUL"
+    SERIOUS = "SERIOUS"
+
+
+class SpeechSpeed(str, Enum):
+    SLOW = "SLOW"
+    NORMAL = "NORMAL"
+    FAST = "FAST"
