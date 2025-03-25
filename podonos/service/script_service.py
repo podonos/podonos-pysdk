@@ -19,6 +19,7 @@ class ScriptService:
         Args:
             collection_id: The ID of the collection
             texts: List of texts to create scripts for
+                - The length of text must be over 1 character
 
         Returns:
             List of created scripts
