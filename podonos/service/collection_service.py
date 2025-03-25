@@ -16,8 +16,8 @@ class CollectionService:
     def create(
         self,
         name: str,
-        description: Optional[str] = None,
-        language: str = Language.ENGLISH_AMERICAN.value,
+        desc: Optional[str] = None,
+        lan: str = Language.ENGLISH_AMERICAN.value,
         num_required_people: int = 10,
         target: str = CollectionTarget.AUDIO.value,
     ) -> CollectionEntity:
@@ -26,8 +26,8 @@ class CollectionService:
 
         Args:
             name: The name of the collection
-            description: The description of the collection
-            language: The language of the collection. Default: en-us
+            desc: The description of the collection
+            lan: The language of the collection. Default: en-us
             num_required_people: The number of required people for the collection. Default: 10
             target: The target of the collection. Default: AUDIO
 
@@ -41,7 +41,7 @@ class CollectionService:
         log.check_notnone(name, "The name of the collection is required")
 
         try:
-            request = CollectionCreateRequestDto.from_dict(name, description, language, num_required_people, target)
+            request = CollectionCreateRequestDto.from_dict(name, desc, lan, num_required_people, target)
             response = self.api_client.post("collections", data=request.to_create_request_dto())
             response.raise_for_status()
             collection = CollectionEntity.from_dict(response.json())
@@ -55,7 +55,7 @@ class CollectionService:
         Get the list of collections
 
         Returns:
-            The list of collections
+            The list of collections ordered by created_time
 
         Raises:
             HTTPError: If the request fails
