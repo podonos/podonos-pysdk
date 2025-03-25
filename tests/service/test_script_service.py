@@ -38,7 +38,7 @@ class TestScriptService(unittest.TestCase):
         self.mock_api_client.post.return_value = Mock(status_code=200, json=lambda: mock_response)
 
         # When
-        scripts = self.service.create(collection_id=collection_id, texts=texts)
+        scripts = self.service.create_all(collection_id=collection_id, texts=texts)
 
         # Then
         self.mock_api_client.post.assert_called_once()
@@ -57,7 +57,7 @@ class TestScriptService(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(HTTPError) as context:
-            self.service.create(collection_id=collection_id, texts=texts)
+            self.service.create_all(collection_id=collection_id, texts=texts)
         self.assertIn("The collection_id is required", str(context.exception))
 
     def test_should_raise_error_when_create_scripts_with_empty_texts(self):
@@ -67,7 +67,7 @@ class TestScriptService(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(HTTPError) as context:
-            self.service.create(collection_id=collection_id, texts=texts)
+            self.service.create_all(collection_id=collection_id, texts=texts)
         self.assertIn("At least one text is required", str(context.exception))
 
     def test_should_raise_error_when_create_scripts_fails(self):
@@ -78,7 +78,7 @@ class TestScriptService(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(HTTPError):
-            self.service.create(collection_id=collection_id, texts=texts)
+            self.service.create_all(collection_id=collection_id, texts=texts)
 
     def test_should_list_scripts_successfully(self):
         # Given

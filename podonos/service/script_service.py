@@ -12,7 +12,7 @@ class ScriptService:
     def __init__(self, api_client: APIClient):
         self.api_client = api_client
 
-    def create(self, collection_id: str, texts: List[str]) -> List[ScriptEntity]:
+    def create_all(self, collection_id: str, texts: List[str]) -> List[ScriptEntity]:
         """
         Create new scripts for a collection
 
