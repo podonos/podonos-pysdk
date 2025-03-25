@@ -149,3 +149,21 @@ class QuestionRelatedModel(Enum):
     @staticmethod
     def is_member(value: str) -> bool:
         return value in [item.value for item in QuestionRelatedModel]
+
+
+class CollectionTarget(Enum):
+    AUDIO = "AUDIO"
+
+    @staticmethod
+    def from_value(value: str) -> "CollectionTarget":
+        for member in CollectionTarget:
+            if member.value == value:
+                return member
+        raise ValueError(f"Invalid collection target: {value}. Use one of the following: {', '.join([item.value for item in CollectionTarget])}")
+
+
+class CollectionCustomerStatus(Enum):
+    DRAFT = "DRAFT"
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
