@@ -243,13 +243,13 @@ class FileValidator:
         The number of model tags should be 2 if the batch size is over 2.
         """
         if file0.model_tag == file1.model_tag:
-            raise ValueError("The model tags should be different in `add_files` for double stimulus evaluations")
+            raise ValueError("The model tags should be different in `add_files` for double (or more) stimulus evaluations")
 
         if len(self._stimulus_model_tags) == 0:
             self._stimulus_model_tags.add(file0.model_tag)
             self._stimulus_model_tags.add(file1.model_tag)
         else:
-            message = f"The number of model tags should be 2 in `add_files` for double stimulus evaluations"
+            message = f"The number of model tags should be 2 in `add_files` for double (or more) stimulus evaluations"
             if file0.model_tag not in self._stimulus_model_tags:
                 raise ValueError(message)
             if file1.model_tag not in self._stimulus_model_tags:

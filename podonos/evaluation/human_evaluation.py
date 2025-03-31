@@ -120,8 +120,11 @@ class HumanEvaluation:
             raise ValueError("Template Id should exist")
 
         template = self._template_service.get_template_by_code(template_id)
+        if template.batch_size is None:
+            raise ValueError(f"Template with id {template_id} has no batch size")
+
         eval_config = EvalConfig(
-            type=EvalType.CUSTOM_SINGLE.value if template.batch_size == 1 else EvalType.CUSTOM_DOUBLE.value,
+            type=EvalType.get_type_by_batch_size(template.batch_size).value,
             name=name,
             desc=desc,
             num_eval=num_eval,
