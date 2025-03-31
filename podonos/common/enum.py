@@ -30,6 +30,17 @@ class EvalType(Enum):
         return f"SPEECH_{self.value}"
 
     @staticmethod
+    def get_type_by_batch_size(batch_size: int) -> "EvalType":
+        if batch_size == 1:
+            return EvalType.CUSTOM_SINGLE
+        elif batch_size == 2:
+            return EvalType.CUSTOM_DOUBLE
+        elif batch_size == 3:
+            return EvalType.CSMOS
+        else:
+            raise ValueError(f"Invalid batch size: {batch_size}. Use one of the following: {', '.join([item.value for item in EvalType])}")
+
+    @staticmethod
     def get_single_types() -> List["EvalType"]:
         """Get all single stimulus evaluation types"""
         return [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]
