@@ -1,3 +1,7 @@
+## 0.18.0
+
+- Support `use_auto_analysis` option in evaluator
+
 ## 0.17.0
 
 - Implement data collection feature
