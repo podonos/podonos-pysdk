@@ -24,7 +24,7 @@ class AIEvaluation:
         desc: Optional[str] = None,
         type: str = EvalType.CUSTOM_SINGLE.value,
         lan: str = EvalConfigDefault.LAN.value,
-        ai_type: AIEvalType = AIEvalType.ASR,
+        ai_type: AIEvalType = AIEvalType.ALL,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """
@@ -39,16 +39,16 @@ class AIEvaluation:
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
         """
         if not AIEvalType.is_ai_type(ai_type):
-            raise ValueError(f'"type" must be one of {{ASR}}. \n' + f"Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}")
+            raise ValueError(f'"type" must be one of {{ALL}}. \n' + f"Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}")
 
         evaluator = Evaluator(
             self._api_client,
             EvalConfig(name=name, desc=desc, type=type, lan=lan, max_upload_workers=max_upload_workers, ai_type=ai_type),
             [EvalType(type)],
         )
-        if ai_type == AIEvalType.ASR:
-            log.info(f"Creating AI evaluation for {evaluator.get_evaluation_id()} with {AIEvalType.ASR}")
-            self._ai_evaluation_service.create(evaluator.get_evaluation_id(), AIEvalType.ASR)
+        if ai_type == AIEvalType.ALL:
+            log.info(f"Creating AI evaluation for {evaluator.get_evaluation_id()} with {AIEvalType.ALL}")
+            self._ai_evaluation_service.create(evaluator.get_evaluation_id(), AIEvalType.ALL)
         return evaluator
 
     def asr(

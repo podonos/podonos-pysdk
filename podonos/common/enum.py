@@ -77,6 +77,7 @@ class EvalType(Enum):
 
 class AIEvalType(Enum):
     ASR = "ASR"
+    ALL = "ALL"
 
     @classmethod
     def from_value(cls, value):

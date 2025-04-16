@@ -33,6 +33,7 @@ class HumanEvaluation:
         due_hours: int = EvalConfigDefault.DUE_HOURS,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
+        use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
@@ -50,6 +51,7 @@ class HumanEvaluation:
                         Must be >= 12. Default: 12.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
             use_power_normalization: Enable power normalization for evaluation.
+            use_auto_analysis: Enable auto analysis for evaluation.
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
@@ -75,6 +77,7 @@ class HumanEvaluation:
             due_hours=due_hours,
             use_annotation=use_annotation,
             use_power_normalization=use_power_normalization,
+            use_auto_analysis=use_auto_analysis,
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
@@ -96,7 +99,6 @@ class HumanEvaluation:
         template_id: str,
         num_eval: int,
         desc: Optional[str] = None,
-        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """
@@ -107,7 +109,6 @@ class HumanEvaluation:
             desc: Description of this session. Optional.
             template_id: The ID of the template to use for evaluation parameters.
             num_eval: The number of evaluators per file. Should be >= 1.
-            use_power_normalization: Enable power normalization for evaluation.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -129,7 +130,8 @@ class HumanEvaluation:
             desc=desc,
             num_eval=num_eval,
             use_annotation=template.use_annotation,
-            use_power_normalization=use_power_normalization,
+            use_power_normalization=template.use_power_normalization,
+            use_auto_analysis=template.use_auto_analysis,
             template_id=str(template.id),
             max_upload_workers=max_upload_workers,
         )
@@ -155,6 +157,7 @@ class HumanEvaluation:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
+        use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
@@ -169,6 +172,7 @@ class HumanEvaluation:
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
             use_power_normalization: Enable power normalization for evaluation. Default: False
+            use_auto_analysis: Enable auto analysis for evaluation. Default: False
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -202,6 +206,7 @@ class HumanEvaluation:
             num_eval=num_eval,
             use_annotation=use_annotation,
             use_power_normalization=use_power_normalization,
+            use_auto_analysis=use_auto_analysis,
             max_upload_workers=max_upload_workers,
         )
         log.info(f"Created evaluation config with type: {eval_type.value}")

@@ -25,13 +25,26 @@ class Template:
     language: Optional[Language] = None
     batch_size: Optional[int] = None
     use_annotation: bool = field(default=EvalConfigDefault.USE_ANNOTATION)
+    use_power_normalization: bool = field(default=EvalConfigDefault.USE_POWER_NORMALIZATION)
+    use_auto_analysis: bool = field(default=EvalConfigDefault.USE_AUTO_ANALYSIS)
     created_time: Optional[datetime] = None
     updated_time: Optional[datetime] = None
 
     @staticmethod
     def from_api_response(data: dict) -> "Template":
         """Create Template instance from API response."""
-        required_keys = ["id", "code", "title", "batch_size", "use_annotation", "language", "created_time", "updated_time"]
+        required_keys = [
+            "id",
+            "code",
+            "title",
+            "batch_size",
+            "use_annotation",
+            "use_power_normalization",
+            "use_auto_analysis",
+            "language",
+            "created_time",
+            "updated_time",
+        ]
         for key in required_keys:
             if key not in data:
                 raise ValueError(f"Invalid data format for Evaluation: {data}")
@@ -43,6 +56,8 @@ class Template:
             description=data["description"],
             batch_size=data["batch_size"],
             use_annotation=data["use_annotation"],
+            use_power_normalization=data["use_power_normalization"],
+            use_auto_analysis=data["use_auto_analysis"],
             language=Language.from_value(data["language"]),
             created_time=datetime.fromisoformat(data["created_time"].replace("Z", "+00:00")),
             updated_time=datetime.fromisoformat(data["updated_time"].replace("Z", "+00:00")),
