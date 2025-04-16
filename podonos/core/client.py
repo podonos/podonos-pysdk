@@ -43,14 +43,6 @@ class Client:
     def script(self) -> ScriptService:
         return self._script_service
 
-    @property
-    def AI(self) -> AIEvaluation:
-        return self._ai_evaluation
-
-    @property
-    def Human(self) -> HumanEvaluation:
-        return self._human_evaluation
-
     def create_evaluator(
         self,
         name: Optional[str] = None,
@@ -62,6 +54,7 @@ class Client:
         due_hours: int = EvalConfigDefault.DUE_HOURS,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
+        use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
@@ -79,6 +72,7 @@ class Client:
                         Must be >= 12. Default: 12.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
             use_power_normalization: Enable power normalization for evaluation.
+            use_auto_analysis: Enable auto analysis for evaluation. Script is required.
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
@@ -92,7 +86,18 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
         return self._human_evaluation.create(
-            name, desc, type, lan, granularity, num_eval, due_hours, use_annotation, use_power_normalization, auto_start, max_upload_workers
+            name,
+            desc,
+            type,
+            lan,
+            granularity,
+            num_eval,
+            due_hours,
+            use_annotation,
+            use_power_normalization,
+            use_auto_analysis,
+            auto_start,
+            max_upload_workers,
         )
 
     def create_evaluator_from_template(
@@ -101,7 +106,6 @@ class Client:
         template_id: str,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         desc: Optional[str] = None,
-        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """
@@ -112,7 +116,6 @@ class Client:
             desc: Description of this session. Optional.
             template_id: The ID of the template to use for evaluation parameters.
             num_eval: The number of evaluators per file. Should be >= 1. Default: 10
-            use_power_normalization: Enable power normalization for evaluation.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -124,7 +127,7 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        return self._human_evaluation.create_from_template(name, template_id, num_eval, desc, use_power_normalization, max_upload_workers)
+        return self._human_evaluation.create_from_template(name, template_id, num_eval, desc, max_upload_workers)
 
     def create_evaluator_from_template_json(
         self,
@@ -137,6 +140,7 @@ class Client:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
+        use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
@@ -151,6 +155,7 @@ class Client:
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
             use_power_normalization: Enable power normalization for evaluation. Default: False
+            use_auto_analysis: Enable auto analysis for evaluation. Default: False Script is required.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -166,7 +171,7 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         return self._human_evaluation.create_from_template_json(
-            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_power_normalization, max_upload_workers
+            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_power_normalization, use_auto_analysis, max_upload_workers
         )
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:

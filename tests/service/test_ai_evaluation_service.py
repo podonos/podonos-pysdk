@@ -11,7 +11,7 @@ class TestAIEvaluationService(unittest.TestCase):
         self.mock_api_client = Mock(spec=APIClient)
         self.service = AIEvaluationService(self.mock_api_client)
         self.evaluation_id = "test_evaluation_id"
-        self.ai_eval_type = AIEvalType.ASR
+        self.ai_eval_type = AIEvalType.ALL
 
     def test_create_ai_evaluation_success(self):
         # Given
