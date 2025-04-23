@@ -48,7 +48,7 @@ class EvalType(Enum):
     @staticmethod
     def get_double_types() -> List["EvalType"]:
         """Get all double stimuli evaluation types"""
-        return [EvalType.PREF, EvalType.SMOS, EvalType.CUSTOM_DOUBLE]
+        return [EvalType.PREF, EvalType.SMOS, EvalType.CMOS, EvalType.CUSTOM_DOUBLE]
 
     @staticmethod
     def get_triple_types() -> List["EvalType"]:

@@ -174,21 +174,21 @@ class FileValidator:
     def validate_files(self, files: List[Optional[File]]) -> List[File]:
         """Main method to validate files based on evaluation type"""
         if self._eval_config.eval_type in [EvalType.PREF, EvalType.CUSTOM_DOUBLE, EvalType.SMOS]:
-            return self._validate_double_stimulus_files(files)
+            return self._validate_double_stimuli_files(files)
         elif self._eval_config.eval_type in [EvalType.CMOS, EvalType.DMOS]:
             return self._validate_one_stimulus_and_one_ref_files(files)
         elif self._eval_config.eval_type in [EvalType.CSMOS]:
-            return self._validate_two_stimulus_and_one_ref_files(files)
+            return self._validate_two_stimuli_and_one_ref_files(files)
         else:
             raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
 
-    def _validate_double_stimulus_files(self, files: List[Optional[File]]) -> List[File]:
-        """Validate files for stimulus-based evaluations"""
+    def _validate_double_stimuli_files(self, files: List[Optional[File]]) -> List[File]:
+        """Validate files for stimuli-based evaluations"""
         valid_files = [self._validate_file_common(file) for file in files if file is not None and file.is_ref == False]
         if len(valid_files) != 2:
-            raise ValueError("Stimulus evaluations require exactly two files")
+            raise ValueError("Stimuli evaluations require exactly two files")
 
-        return self._validate_double_stimulus_model_tags(valid_files[0], valid_files[1])
+        return self._validate_double_stimuli_model_tags(valid_files[0], valid_files[1])
 
     def _validate_one_stimulus_and_one_ref_files(self, files: List[Optional[File]]) -> List[File]:
         """Validate files for reference-stimulus evaluations"""
@@ -201,11 +201,11 @@ class FileValidator:
 
         return valid_files
 
-    def _validate_two_stimulus_and_one_ref_files(self, files: List[Optional[File]]) -> List[File]:
-        """Validate files for two-stimulus-one-reference evaluations"""
+    def _validate_two_stimuli_and_one_ref_files(self, files: List[Optional[File]]) -> List[File]:
+        """Validate files for two-stimuli-one-reference evaluations"""
         valid_files = [self._validate_file_common(file) for file in files if file is not None]
         if len(valid_files) != 3:
-            raise ValueError("Two-stimulus-one-reference evaluations require exactly three files")
+            raise ValueError("Two-stimuli-one-reference evaluations require exactly three files")
 
         if valid_files[2].is_ref == False:
             raise ValueError("Reference file must be at the third position in add_files")
@@ -217,9 +217,9 @@ class FileValidator:
         ref = [file for file in valid_files if file.is_ref == True]
 
         if len(stimuli) != 2 or len(ref) != 1:
-            raise ValueError("Two-stimulus-one-reference evaluations require exactly two stimuli and one reference")
+            raise ValueError("Two-stimuli-one-reference evaluations require exactly two stimuli and one reference")
 
-        return self._validate_double_stimulus_model_tags(stimuli[0], stimuli[1]) + ref
+        return self._validate_double_stimuli_model_tags(stimuli[0], stimuli[1]) + ref
 
     def _validate_file_common(self, file: File) -> File:
         """Common file validation logic"""
@@ -242,18 +242,18 @@ class FileValidator:
 
         return file
 
-    def _validate_double_stimulus_model_tags(self, file0: File, file1: File) -> List[File]:
+    def _validate_double_stimuli_model_tags(self, file0: File, file1: File) -> List[File]:
         """
         The number of model tags should be 2 if the batch size is over 2.
         """
         if file0.model_tag == file1.model_tag:
-            raise ValueError("The model tags should be different in `add_files` for double (or more) stimulus evaluations")
+            raise ValueError("The model tags should be different in `add_files` for double (or more) stimuli evaluations")
 
         if len(self._stimulus_model_tags) == 0:
             self._stimulus_model_tags.add(file0.model_tag)
             self._stimulus_model_tags.add(file1.model_tag)
         else:
-            message = f"The number of model tags should be 2 in `add_files` for double (or more) stimulus evaluations"
+            message = f"The number of model tags should be 2 in `add_files` for double (or more) stimuli evaluations"
             if file0.model_tag not in self._stimulus_model_tags:
                 raise ValueError(message)
             if file1.model_tag not in self._stimulus_model_tags:
@@ -520,8 +520,10 @@ class FileTransformer:
             return self._transform_one_stimulus_and_one_ref_files(files)
         elif self._eval_config.eval_type in [EvalType.PREF, EvalType.SMOS, EvalType.CUSTOM_DOUBLE]:
             return self._transform_double_stimuli_files(files)
+        elif self._eval_config.eval_type in [EvalType.CMOS]:
+            return self._transform_one_stimulus_and_one_ref_files(files)
         elif self._eval_config.eval_type in [EvalType.CSMOS]:
-            return self._transform_two_stimulus_and_one_ref_files(files)
+            return self._transform_two_stimuli_and_one_ref_files(files)
         else:
             raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
 
@@ -554,7 +556,7 @@ class FileTransformer:
             created_at=datetime.now(),
         )
 
-    def _transform_two_stimulus_and_one_ref_files(self, files: List[File]) -> AudioGroup:
+    def _transform_two_stimuli_and_one_ref_files(self, files: List[File]) -> AudioGroup:
         group_id = generate_random_group_name()
         return AudioGroup(
             group_id=group_id,
