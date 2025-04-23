@@ -64,7 +64,7 @@ class HumanEvaluation:
 
         if not EvalType.is_eval_type(type):
             raise ValueError(
-                "Not supported evaluation types. Use one of the " "{'NMOS', 'QMOS', 'P808', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE'}"
+                "Not supported evaluation types. Use one of the " "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE'}"
             )
 
         eval_config = EvalConfig(
@@ -139,7 +139,8 @@ class HumanEvaluation:
         if template.batch_size == 1:
             supported_types = EvalType.get_single_types()
         elif template.batch_size == 2:
-            supported_types = EvalType.get_double_types()
+            # CMOS isn't supported in create_from_template
+            supported_types = [EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE]
         elif template.batch_size == 3:
             supported_types = EvalType.get_triple_types()
         else:
@@ -214,7 +215,8 @@ class HumanEvaluation:
         if custom_type == "SINGLE":
             supported_types = EvalType.get_single_types()
         elif custom_type == "DOUBLE":
-            supported_types = EvalType.get_double_types()
+            # CMOS isn't supported in create_from_template_json
+            supported_types = [EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE]
         else:
             raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
 

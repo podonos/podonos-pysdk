@@ -154,6 +154,7 @@ class EvalConfig:
         if eval_type not in [
             EvalType.NMOS.value,
             EvalType.QMOS.value,
+            EvalType.CMOS.value,
             EvalType.SMOS.value,
             EvalType.P808.value,
             EvalType.PREF.value,
