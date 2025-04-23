@@ -1,3 +1,7 @@
+## 0.19.0
+
+- Support `CMOS` evaluation type
+
 ## 0.18.0
 
 - Support `use_auto_analysis` option in evaluator
