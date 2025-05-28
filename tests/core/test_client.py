@@ -34,8 +34,8 @@ def mocked_requests_post(*args, **kwargs):
             batch_size=1,
             description="mock_desc",
             status="mock_status",
-            created_time="2024-05-21T06:18:09.659270Z",
-            updated_time="2024-05-21T06:18:09.659270Z",
+            created_time="2024-05-21T06:18:09.659Z",
+            updated_time="2024-05-21T06:18:09.659Z",
         )
         return MockResponse(None, evaluation_list, 200)
 
@@ -94,8 +94,8 @@ def mocked_requests_get(*args, **kwargs):
                 description="mock_desc",
                 batch_size=1,
                 status="mock_status",
-                created_time="2024-05-21T06:18:09.659270Z",
-                updated_time="2024-05-21T06:18:09.659270Z",
+                created_time="2024-05-21T06:18:09.659Z",
+                updated_time="2024-05-21T06:18:09.659Z",
             )
         ]
         return MockResponse(None, evaluation_list, 200)
@@ -414,8 +414,8 @@ class TestClient(unittest.TestCase):
             "batch_size": 1,
             "description": "mock_desc",
             "status": "mock_status",
-            "created_time": "2024-03-21T06:18:09.659270Z",
-            "updated_time": "2024-03-21T06:18:09.659270Z",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
         }
 
         self.template_data = {"questions": [{"type": "SCORED", "question": "Test Question", "options": [{"label_text": "Option 1"}]}]}
