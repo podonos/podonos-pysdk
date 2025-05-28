@@ -1,6 +1,6 @@
 from .core.file import File
 from .sdk import Podonos, Client
 
-__version__ = "0.19.0"
+__version__ = "0.20.0"
 
 init = Podonos.init
