@@ -127,8 +127,7 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        return self._human_evaluation.create_from_template(name, template_id, num_eval,
-                                                           desc, auto_start,max_upload_workers)
+        return self._human_evaluation.create_from_template(name, template_id, num_eval, desc, auto_start, max_upload_workers)
 
     def create_evaluator_from_template_json(
         self,
@@ -141,6 +140,7 @@ class Client:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
+        auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
@@ -155,6 +155,7 @@ class Client:
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
             use_loudness_normalization: Enable loudness normalization for evaluation. Default: False
+            auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -170,7 +171,7 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         return self._human_evaluation.create_from_template_json(
-            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_loudness_normalization, max_upload_workers
+            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_loudness_normalization, auto_start, max_upload_workers
         )
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
@@ -200,7 +201,7 @@ class Client:
         """Download evaluation files"""
         return self._evaluation_service.download_evaluation_files_by_evaluation_id(evaluation_id, output_dir)
 
-    def get_eval_template_info(self, template_id: str) -> List[Dict[str, Any]]:
+    def get_eval_template_info(self, template_id: str) -> Dict[str, Any]:
         """Gets detailed information on the evaluation template by id.
 
         Args:
@@ -218,22 +219,22 @@ class Client:
         except:
             raise ValueError(f"Cannot find the template. Please check the id {template_id}.")
         json = {
-            'id': template.id,
-            'code': template.code,
-            'title': template.title,
-            'description': template.description,
-            'language': template.language,
-            'use_annotation': template.use_annotation,
-            'use_loudness_normalization': template.use_loudness_normalization,
-            'created_time': template.created_time,
-            'updated_time': template.updated_time
+            "id": template.id,
+            "code": template.code,
+            "title": template.title,
+            "description": template.description,
+            "language": template.language,
+            "use_annotation": template.use_annotation,
+            "use_loudness_normalization": template.use_loudness_normalization,
+            "created_time": template.created_time,
+            "updated_time": template.updated_time,
         }
         if template.batch_size == 1:
-            json['eval_type'] = 'Single'
+            json["eval_type"] = "Single"
         elif template.batch_size == 2:
-            json['eval_type'] = 'Double'
+            json["eval_type"] = "Double"
         elif template.batch_size == 3:
-            json['eval_type'] = 'Triple'
+            json["eval_type"] = "Triple"
         else:
             ValueError(f"Unknown eval type (batch_size): {template.batch_size}.")
 

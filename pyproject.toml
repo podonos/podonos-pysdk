@@ -10,7 +10,7 @@ name = "podonos"
 version = "0.19.0"
 description = "Managed evaluation for audio & speech"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
 authors = [
     {name = "David Anderson", email = "david@podonos.com"}
 ]
@@ -39,3 +39,7 @@ classifiers = [
 [project.urls]
 Homepage="https://www.podonos.com"
 Repository="https://github.com/podonos/podonos-pysdk"
+
+[tool.setuptools.packages.find]
+include = ["podonos*"]
+exclude = ["aws*", "openai*", "output*", "tests*"]
