@@ -228,11 +228,11 @@ class Client:
             'created_time': template.created_time,
             'updated_time': template.updated_time
         }
-        if template.batch_size is 1:
+        if template.batch_size == 1:
             json['eval_type'] = 'Single'
-        elif template.batch_size is 2:
+        elif template.batch_size == 2:
             json['eval_type'] = 'Double'
-        elif template.batch_size is 3:
+        elif template.batch_size == 3:
             json['eval_type'] = 'Triple'
         else:
             ValueError(f"Unknown eval type (batch_size): {template.batch_size}.")
