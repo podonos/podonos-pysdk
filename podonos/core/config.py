@@ -12,7 +12,7 @@ class EvalConfigDefault:
     NUM_EVAL = 10
     DUE_HOURS = 12
     USE_ANNOTATION = False
-    USE_LOUDNESS_NORMALIZATION = False
+    USE_LOUDNESS_NORMALIZATION = True
     USE_AUTO_ANALYSIS = False
     AUTO_START = False
     GRANULARITY = 1.0
