@@ -53,7 +53,7 @@ class Client:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
-        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
@@ -71,7 +71,7 @@ class Client:
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
                         Must be >= 12. Default: 12.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
-            use_power_normalization: Enable power normalization for evaluation.
+            use_loudness_normalization: Enable power normalization for evaluation.
             use_auto_analysis: Enable auto analysis for evaluation. Script is required.
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
@@ -94,7 +94,7 @@ class Client:
             num_eval,
             due_hours,
             use_annotation,
-            use_power_normalization,
+            use_loudness_normalization,
             use_auto_analysis,
             auto_start,
             max_upload_workers,
@@ -139,7 +139,7 @@ class Client:
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
-        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
@@ -154,7 +154,7 @@ class Client:
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
-            use_power_normalization: Enable power normalization for evaluation. Default: False
+            use_loudness_normalization: Enable power normalization for evaluation. Default: False
             use_auto_analysis: Enable auto analysis for evaluation. Default: False Script is required.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
@@ -171,7 +171,7 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         return self._human_evaluation.create_from_template_json(
-            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_power_normalization, use_auto_analysis, max_upload_workers
+            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_loudness_normalization, use_auto_analysis, max_upload_workers
         )
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:

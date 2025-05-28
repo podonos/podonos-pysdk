@@ -12,7 +12,7 @@ class EvalConfigDefault:
     NUM_EVAL = 10
     DUE_HOURS = 12
     USE_ANNOTATION = False
-    USE_POWER_NORMALIZATION = False
+    USE_LOUDNESS_NORMALIZATION = False
     USE_AUTO_ANALYSIS = False
     AUTO_START = False
     GRANULARITY = 1.0
@@ -34,7 +34,7 @@ class EvalConfig:
     _eval_num: int = EvalConfigDefault.NUM_EVAL
     _eval_expected_due_tzname: Optional[str] = None
     _eval_use_annotation: bool = False
-    _eval_use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION
+    _eval_use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION
     _eval_use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS
     _eval_auto_start: bool = False
     _eval_template_id: Optional[str] = None
@@ -51,7 +51,7 @@ class EvalConfig:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,  # TODO: allow floating point hours, e.g. 0.5.
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
-        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         template_id: Optional[str] = None,
@@ -70,7 +70,7 @@ class EvalConfig:
         self._eval_creation_timestamp = self._validate_eval_creation_timestamp()
         self._eval_id = self._eval_creation_timestamp
         self._eval_use_annotation = self._validate_eval_use_annotation(use_annotation, type)
-        self._eval_use_power_normalization = use_power_normalization
+        self._eval_use_loudness_normalization = use_loudness_normalization
         self._eval_use_auto_analysis = use_auto_analysis
         self._eval_auto_start = auto_start
         self._eval_template_id = template_id
@@ -87,7 +87,7 @@ class EvalConfig:
         log.debug(f"Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}")
         log.debug(f"Evaluation ID: {self._eval_id}")
         log.debug(f"Evaluation use annotation: {self._eval_use_annotation}")
-        log.debug(f"Evaluation use power normalization: {self._eval_use_power_normalization}")
+        log.debug(f"Evaluation use power normalization: {self._eval_use_loudness_normalization}")
         log.debug(f"Evaluation use auto analysis: {self._eval_use_auto_analysis}")
         log.debug(f"Evaluation auto start: {self._eval_auto_start}")
         log.debug(f"Evaluation Template ID: {self._eval_template_id}")
@@ -126,8 +126,8 @@ class EvalConfig:
         return self._eval_template_id
 
     @property
-    def use_power_normalization(self) -> bool:
-        return self._eval_use_power_normalization
+    def use_loudness_normalization(self) -> bool:
+        return self._eval_use_loudness_normalization
 
     @property
     def use_auto_analysis(self) -> bool:
@@ -254,7 +254,7 @@ class EvalConfig:
             "eval_use_annotation": self._eval_use_annotation,
             "eval_auto_start": self._eval_auto_start,
             "eval_template_id": self._eval_template_id,
-            "use_power_normalization": self._eval_use_power_normalization,
+            "use_loudness_normalization": self._eval_use_loudness_normalization,
             "use_auto_analysis": self._eval_use_auto_analysis,
             "max_upload_workers": self._max_upload_workers,
         }
@@ -270,7 +270,7 @@ class EvalConfig:
             "evaluation_type": self._eval_type.get_type(),
             "batch_size": self._eval_batch_size,
             "use_annotation": self._eval_use_annotation,
-            "use_power_normalization": self._eval_use_power_normalization,
+            "use_loudness_normalization": self._eval_use_loudness_normalization,
             "use_auto_analysis": self._eval_use_auto_analysis,
             "auto_start": self._eval_auto_start,
         }

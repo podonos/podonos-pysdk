@@ -12,7 +12,7 @@ class TestEvalConfig(unittest.TestCase):
         self.assertEqual(self.eval_config.eval_type, EvalConfigDefault.TYPE)
         self.assertEqual(self.eval_config.eval_language, EvalConfigDefault.LAN)
         self.assertEqual(self.eval_config.eval_use_annotation, EvalConfigDefault.USE_ANNOTATION)
-        self.assertEqual(self.eval_config.use_power_normalization, EvalConfigDefault.USE_POWER_NORMALIZATION)
+        self.assertEqual(self.eval_config.use_loudness_normalization, EvalConfigDefault.USE_LOUDNESS_NORMALIZATION)
         self.assertEqual(self.eval_config.use_auto_analysis, EvalConfigDefault.USE_AUTO_ANALYSIS)
         self.assertEqual(self.eval_config.eval_auto_start, EvalConfigDefault.AUTO_START)
         self.assertEqual(self.eval_config.max_upload_workers, EvalConfigDefault.MAX_UPLOAD_WORKERS)
@@ -149,7 +149,7 @@ class TestEvalConfig(unittest.TestCase):
         self.assertIn("evaluation_type", request_dto)
         self.assertIn("batch_size", request_dto)
         self.assertIn("use_annotation", request_dto)
-        self.assertIn("use_power_normalization", request_dto)
+        self.assertIn("use_loudness_normalization", request_dto)
         self.assertIn("use_auto_analysis", request_dto)
         self.assertIn("auto_start", request_dto)
 

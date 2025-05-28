@@ -31,7 +31,7 @@ class TestTemplateService(unittest.TestCase):
             "description": "Test Description",
             "batch_size": 1,
             "use_annotation": False,
-            "use_power_normalization": False,
+            "use_loudness_normalization": False,
             "use_auto_analysis": False,
             "language": "en-us",  # Language enum value
             "created_time": current_time.isoformat(),
