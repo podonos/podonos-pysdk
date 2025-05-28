@@ -18,7 +18,7 @@ class TestTemplate(unittest.TestCase):
             "description": "Test Description",
             "batch_size": 1,
             "use_annotation": True,
-            "use_loudness_normalization": True,
+            "use_power_normalization": True,
             "language": "en-us",
             "created_time": "2024-03-20T10:00:00Z",
             "updated_time": "2024-03-20T10:30:00Z",
