@@ -230,11 +230,6 @@ class FileValidator:
                 "Annotation evaluation is enabled (use_annotation=True), " "but no script is provided in File. Please provide a corresponding script."
             )
 
-        if self._eval_config.use_auto_analysis and file.script is None:
-            raise ValueError(
-                "Auto analysis is enabled (use_auto_analysis=True), " "but no script is provided in File. Please provide a corresponding script."
-            )
-
         if self._eval_config.eval_ai_type and file.script is None:
             raise ValueError(
                 "ASR evaluation is enabled (eval_ai_type=ASR), " "but no script is provided in File. Please provide a corresponding script."
