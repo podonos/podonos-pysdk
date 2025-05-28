@@ -58,7 +58,7 @@ class Client:
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
-        For the language code, see https://docs.dyspatch.io/localization/supported_languages/
+        For the language code, see https://www.podonos.com/docs/reference#param-lan
 
         Args:
             name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
