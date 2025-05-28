@@ -36,6 +36,7 @@ class Template:
             "id",
             "code",
             "title",
+            "description",
             "batch_size",
             "use_annotation",
             "use_loudness_normalization",
@@ -45,7 +46,7 @@ class Template:
         ]
         for key in required_keys:
             if key not in data:
-                raise ValueError(f"Invalid data format for Evaluation: {data}")
+                raise ValueError(f"Missing {key} in {data}")
 
         return Template(
             id=data["id"],

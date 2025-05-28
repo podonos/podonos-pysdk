@@ -4,6 +4,7 @@ from podonos.core.api import APIClient
 from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
 from podonos.core.evaluator import Evaluator
+from podonos.core.template import Template
 from podonos.evaluation import AIEvaluation, HumanEvaluation
 from podonos.service import CollectionService, EvaluationService, ScriptService, TemplateService
 
@@ -198,3 +199,42 @@ class Client:
     def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
         """Download evaluation files"""
         return self._evaluation_service.download_evaluation_files_by_evaluation_id(evaluation_id, output_dir)
+
+    def get_eval_template_info(self, template_id: str) -> List[Dict[str, Any]]:
+        """Gets detailed information on the evaluation template by id.
+
+        Args:
+            template_id: Evaluation template ID.
+
+        Returns:
+            JSON containing the evaluation template info.
+
+        Raises:
+
+
+        """
+        try:
+            template = self._template_service.get_template_by_code(template_id)
+        except:
+            raise ValueError(f"Cannot find the template. Please check the id {template_id}.")
+        json = {
+            'id': template.id,
+            'code': template.code,
+            'title': template.title,
+            'description': template.description,
+            'language': template.language,
+            'use_annotation': template.use_annotation,
+            'use_loudness_normalization': template.use_loudness_normalization,
+            'created_time': template.created_time,
+            'updated_time': template.updated_time
+        }
+        if template.batch_size is 1:
+            json['eval_type'] = 'Single'
+        elif template.batch_size is 2:
+            json['eval_type'] = 'Double'
+        elif template.batch_size is 3:
+            json['eval_type'] = 'Triple'
+        else:
+            ValueError(f"Unknown eval type (batch_size): {template.batch_size}.")
+
+        return json
