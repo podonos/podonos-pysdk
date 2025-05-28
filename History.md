@@ -1,3 +1,7 @@
+## 0.20.0
+- Add `auto_start` to create_from_template
+- Add `get_eval_template_info()`
+
 ## 0.19.0
 
 - Support `CMOS` evaluation type
@@ -61,7 +65,7 @@
 ## 0.7.0
 
 - Fix the bug of `get_stats_dict_by_id` and `download_stats_csv_by_id`
-- Add `use_power_normalization` option in `create_evaluator` and `create_evaluator_from_template`
+- Add `use_loudness_normalization` option in `create_evaluator` and `create_evaluator_from_template`
 - Create evaluator from template JSON `create_evaluator_from_template_json`
 
 ## 0.6.0

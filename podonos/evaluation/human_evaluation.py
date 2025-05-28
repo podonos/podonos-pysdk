@@ -32,13 +32,12 @@ class HumanEvaluation:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
-        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
-        use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
-        For the language code, see https://docs.dyspatch.io/localization/supported_languages/
+        For the language code, see https://www.podonos.com/docs/reference#param-lan
 
         Args:
             name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
@@ -50,8 +49,7 @@ class HumanEvaluation:
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
                         Must be >= 12. Default: 12.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
-            use_power_normalization: Enable power normalization for evaluation.
-            use_auto_analysis: Enable auto analysis for evaluation.
+            use_loudness_normalization: Enable loudness normalization for evaluation.
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
@@ -76,8 +74,7 @@ class HumanEvaluation:
             num_eval=num_eval,
             due_hours=due_hours,
             use_annotation=use_annotation,
-            use_power_normalization=use_power_normalization,
-            use_auto_analysis=use_auto_analysis,
+            use_loudness_normalization=use_loudness_normalization,
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
@@ -99,6 +96,7 @@ class HumanEvaluation:
         template_id: str,
         num_eval: int,
         desc: Optional[str] = None,
+        auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """
@@ -109,6 +107,7 @@ class HumanEvaluation:
             desc: Description of this session. Optional.
             template_id: The ID of the template to use for evaluation parameters.
             num_eval: The number of evaluators per file. Should be >= 1.
+            auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -130,8 +129,7 @@ class HumanEvaluation:
             desc=desc,
             num_eval=num_eval,
             use_annotation=template.use_annotation,
-            use_power_normalization=template.use_power_normalization,
-            use_auto_analysis=template.use_auto_analysis,
+            auto_start=auto_start,
             template_id=str(template.id),
             max_upload_workers=max_upload_workers,
         )
@@ -157,8 +155,8 @@ class HumanEvaluation:
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
-        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
-        use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
+        auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
@@ -172,8 +170,8 @@ class HumanEvaluation:
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
-            use_power_normalization: Enable power normalization for evaluation. Default: False
-            use_auto_analysis: Enable auto analysis for evaluation. Default: False
+            use_loudness_normalization: Enable loudness normalization for evaluation. Default: False
+            auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -206,8 +204,8 @@ class HumanEvaluation:
             lan=lan,
             num_eval=num_eval,
             use_annotation=use_annotation,
-            use_power_normalization=use_power_normalization,
-            use_auto_analysis=use_auto_analysis,
+            use_loudness_normalization=use_loudness_normalization,
+            auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
         log.info(f"Created evaluation config with type: {eval_type.value}")

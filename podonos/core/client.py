@@ -4,6 +4,7 @@ from podonos.core.api import APIClient
 from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
 from podonos.core.evaluator import Evaluator
+from podonos.core.template import Template
 from podonos.evaluation import AIEvaluation, HumanEvaluation
 from podonos.service import CollectionService, EvaluationService, ScriptService, TemplateService
 
@@ -53,13 +54,12 @@ class Client:
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         due_hours: int = EvalConfigDefault.DUE_HOURS,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
-        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
-        use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
-        For the language code, see https://docs.dyspatch.io/localization/supported_languages/
+        For the language code, see https://www.podonos.com/docs/reference#param-lan
 
         Args:
             name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
@@ -70,9 +70,8 @@ class Client:
             num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 10.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.
                         Must be >= 12. Default: 12.
-            use_annotation: Enable detailed annotation on script for detailed rating reasoning.
-            use_power_normalization: Enable power normalization for evaluation.
-            use_auto_analysis: Enable auto analysis for evaluation. Script is required.
+            use_annotation: Enable detailed annotation on script for detailed comments.
+            use_loudness_normalization: Enable loudness normalization for evaluation.
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
@@ -94,8 +93,7 @@ class Client:
             num_eval,
             due_hours,
             use_annotation,
-            use_power_normalization,
-            use_auto_analysis,
+            use_loudness_normalization,
             auto_start,
             max_upload_workers,
         )
@@ -106,6 +104,7 @@ class Client:
         template_id: str,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         desc: Optional[str] = None,
+        auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """
@@ -116,6 +115,7 @@ class Client:
             desc: Description of this session. Optional.
             template_id: The ID of the template to use for evaluation parameters.
             num_eval: The number of evaluators per file. Should be >= 1. Default: 10
+            auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -127,7 +127,7 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        return self._human_evaluation.create_from_template(name, template_id, num_eval, desc, max_upload_workers)
+        return self._human_evaluation.create_from_template(name, template_id, num_eval, desc, auto_start, max_upload_workers)
 
     def create_evaluator_from_template_json(
         self,
@@ -139,8 +139,8 @@ class Client:
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
-        use_power_normalization: bool = EvalConfigDefault.USE_POWER_NORMALIZATION,
-        use_auto_analysis: bool = EvalConfigDefault.USE_AUTO_ANALYSIS,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
+        auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
@@ -154,8 +154,8 @@ class Client:
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
-            use_power_normalization: Enable power normalization for evaluation. Default: False
-            use_auto_analysis: Enable auto analysis for evaluation. Default: False Script is required.
+            use_loudness_normalization: Enable loudness normalization for evaluation. Default: False
+            auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
 
         Returns:
@@ -171,7 +171,7 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         return self._human_evaluation.create_from_template_json(
-            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_power_normalization, use_auto_analysis, max_upload_workers
+            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_loudness_normalization, auto_start, max_upload_workers
         )
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
@@ -200,3 +200,42 @@ class Client:
     def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
         """Download evaluation files"""
         return self._evaluation_service.download_evaluation_files_by_evaluation_id(evaluation_id, output_dir)
+
+    def get_eval_template_info(self, template_id: str) -> Dict[str, Any]:
+        """Gets detailed information on the evaluation template by id.
+
+        Args:
+            template_id: Evaluation template ID.
+
+        Returns:
+            JSON containing the evaluation template info.
+
+        Raises:
+
+
+        """
+        try:
+            template = self._template_service.get_template_by_code(template_id)
+        except:
+            raise ValueError(f"Cannot find the template. Please check the id {template_id}.")
+        json = {
+            "id": template.id,
+            "code": template.code,
+            "title": template.title,
+            "description": template.description,
+            "language": template.language,
+            "use_annotation": template.use_annotation,
+            "use_loudness_normalization": template.use_loudness_normalization,
+            "created_time": template.created_time,
+            "updated_time": template.updated_time,
+        }
+        if template.batch_size == 1:
+            json["eval_type"] = "Single"
+        elif template.batch_size == 2:
+            json["eval_type"] = "Double"
+        elif template.batch_size == 3:
+            json["eval_type"] = "Triple"
+        else:
+            ValueError(f"Unknown eval type (batch_size): {template.batch_size}.")
+
+        return json

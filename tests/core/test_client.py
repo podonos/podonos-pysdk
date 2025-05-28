@@ -34,8 +34,8 @@ def mocked_requests_post(*args, **kwargs):
             batch_size=1,
             description="mock_desc",
             status="mock_status",
-            created_time="2024-05-21T06:18:09.659270Z",
-            updated_time="2024-05-21T06:18:09.659270Z",
+            created_time="2024-05-21T06:18:09.659Z",
+            updated_time="2024-05-21T06:18:09.659Z",
         )
         return MockResponse(None, evaluation_list, 200)
 
@@ -71,7 +71,8 @@ def mocked_requests_get(*args, **kwargs):
             dict(
                 files=[{"name": "tr16.wav", "model_tag": "my_model", "tags": ["generated"], "type": "A"}],
                 question={
-                    "title": "Attending **ONLY to the BACKGROUND (noise or other speakers' voices)**, select the category which best describes the sample you just heard.",
+                    "title": "Attending **ONLY to the BACKGROUND (noise or other speakers' voices)**, "
+                    "select the category which best describes the sample you just heard.",
                     "order": 0,
                 },
                 mean=3.4,
@@ -93,11 +94,26 @@ def mocked_requests_get(*args, **kwargs):
                 description="mock_desc",
                 batch_size=1,
                 status="mock_status",
-                created_time="2024-05-21T06:18:09.659270Z",
-                updated_time="2024-05-21T06:18:09.659270Z",
+                created_time="2024-05-21T06:18:09.659Z",
+                updated_time="2024-05-21T06:18:09.659Z",
             )
         ]
         return MockResponse(None, evaluation_list, 200)
+
+    if "/templates" in args[0]:
+        eval_template_info = dict(
+            id="abc123",
+            code="mock_code",
+            title="mock_title",
+            description="mock_description",
+            batch_size=1,
+            use_annotation=False,
+            use_power_normalization=True,
+            language="en-us",
+            created_time="2025-05-21T06:18:09.659Z",
+            updated_time="2025-05-28T13:59:12.123Z",
+        )
+        return MockResponse(None, eval_template_info, 200)
 
     return MockResponse(None, None, 404)
 
@@ -256,6 +272,24 @@ class TestEvaluationClient(unittest.TestCase):
                 self.assertTrue(isinstance(json[stat], (int, float)))
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
+    def test_eval_template_info(self, mock_get):
+        self._mock_client = podonos.init(api_key=self.valid_api_key)
+        response = self._mock_client.get_eval_template_info("mock_id")
+
+        json = response
+
+        self.assertTrue("id" in json)
+        self.assertTrue("title" in json)
+        self.assertTrue("description" in json)
+        self.assertTrue("eval_type" in json)
+        self.assertTrue(json["eval_type"] in ["Single", "Double", "Triple"])
+        self.assertTrue("use_annotation" in json)
+        self.assertTrue("use_loudness_normalization" in json)
+        self.assertTrue("language" in json)
+        self.assertTrue("created_time" in json)
+        self.assertTrue("updated_time" in json)
+
+    @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
     @mock.patch("requests.put")
     def test_create_evaluator_from_template_json_single(self, mock_put, mock_post, mock_get):
@@ -380,8 +414,8 @@ class TestClient(unittest.TestCase):
             "batch_size": 1,
             "description": "mock_desc",
             "status": "mock_status",
-            "created_time": "2024-03-21T06:18:09.659270Z",
-            "updated_time": "2024-03-21T06:18:09.659270Z",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
         }
 
         self.template_data = {"questions": [{"type": "SCORED", "question": "Test Question", "options": [{"label_text": "Option 1"}]}]}

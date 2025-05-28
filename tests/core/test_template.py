@@ -19,7 +19,6 @@ class TestTemplate(unittest.TestCase):
             "batch_size": 1,
             "use_annotation": True,
             "use_power_normalization": True,
-            "use_auto_analysis": True,
             "language": "en-us",
             "created_time": "2024-03-20T10:00:00Z",
             "updated_time": "2024-03-20T10:30:00Z",
@@ -36,8 +35,7 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template.batch_size, 1)
         self.assertEqual(template.language, Language.ENGLISH_AMERICAN)
         self.assertEqual(template.use_annotation, True)
-        self.assertEqual(template.use_power_normalization, True)
-        self.assertEqual(template.use_auto_analysis, True)
+        self.assertEqual(template.use_loudness_normalization, True)
         self.assertIsInstance(template.created_time, datetime)
         self.assertIsInstance(template.updated_time, datetime)
 

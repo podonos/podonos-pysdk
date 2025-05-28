@@ -25,8 +25,7 @@ class Template:
     language: Optional[Language] = None
     batch_size: Optional[int] = None
     use_annotation: bool = field(default=EvalConfigDefault.USE_ANNOTATION)
-    use_power_normalization: bool = field(default=EvalConfigDefault.USE_POWER_NORMALIZATION)
-    use_auto_analysis: bool = field(default=EvalConfigDefault.USE_AUTO_ANALYSIS)
+    use_loudness_normalization: bool = field(default=EvalConfigDefault.USE_LOUDNESS_NORMALIZATION)
     created_time: Optional[datetime] = None
     updated_time: Optional[datetime] = None
 
@@ -37,17 +36,17 @@ class Template:
             "id",
             "code",
             "title",
+            "description",
             "batch_size",
             "use_annotation",
             "use_power_normalization",
-            "use_auto_analysis",
             "language",
             "created_time",
             "updated_time",
         ]
         for key in required_keys:
             if key not in data:
-                raise ValueError(f"Invalid data format for Evaluation: {data}")
+                raise ValueError(f"Missing {key} in {data}")
 
         return Template(
             id=data["id"],
@@ -56,8 +55,7 @@ class Template:
             description=data["description"],
             batch_size=data["batch_size"],
             use_annotation=data["use_annotation"],
-            use_power_normalization=data["use_power_normalization"],
-            use_auto_analysis=data["use_auto_analysis"],
+            use_loudness_normalization=data["use_power_normalization"],
             language=Language.from_value(data["language"]),
             created_time=datetime.fromisoformat(data["created_time"].replace("Z", "+00:00")),
             updated_time=datetime.fromisoformat(data["updated_time"].replace("Z", "+00:00")),
