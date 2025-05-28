@@ -126,7 +126,8 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        return self._human_evaluation.create_from_template(name, template_id, num_eval, desc, max_upload_workers)
+        return self._human_evaluation.create_from_template(name, template_id, num_eval,
+                                                           desc, auto_start,max_upload_workers)
 
     def create_evaluator_from_template_json(
         self,
