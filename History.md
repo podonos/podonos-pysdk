@@ -1,3 +1,7 @@
+## 0.20.0
+- Add `auto_start` to create_from_template
+- Add `get_eval_template_info()`
+
 ## 0.19.0
 
 - Support `CMOS` evaluation type
