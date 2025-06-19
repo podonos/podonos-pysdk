@@ -222,7 +222,7 @@ class TestFile(unittest.TestCase):
         # When/Then
         with self.assertRaises(ValueError) as context:
             file_validator._validate_double_stimuli_model_tags(file0, file1)
-        self.assertIn("model tags should be different", str(context.exception))
+        self.assertIn("model tags must differ", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_raise_error_for_case_insensitive_same_model_tags(self):
         """Test that _validate_double_stimuli_model_tags raises error when model tags are same but different case"""
@@ -235,7 +235,7 @@ class TestFile(unittest.TestCase):
         # When/Then
         with self.assertRaises(ValueError) as context:
             file_validator._validate_double_stimuli_model_tags(file0, file1)
-        self.assertIn("model tags should be different", str(context.exception))
+        self.assertIn("model tags must differ", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_sort_alphabetically_ascending(self):
         """Test that _validate_double_stimuli_model_tags sorts files by model tag alphabetically"""
@@ -298,9 +298,8 @@ class TestFile(unittest.TestCase):
 
         # Then
         self.assertEqual(len(result), 2)
-        # String comparison: "Model10" comes before "Model2" alphabetically
-        self.assertEqual(result[0].model_tag, "Model10")
-        self.assertEqual(result[1].model_tag, "Model2")
+        self.assertEqual(result[0].model_tag, "Model2")
+        self.assertEqual(result[1].model_tag, "Model10")
 
     def test_validate_double_stimuli_model_tags_should_handle_special_characters(self):
         """Test that _validate_double_stimuli_model_tags works with special characters"""
@@ -414,7 +413,7 @@ class TestFile(unittest.TestCase):
         file0 = File(path=self.test_wav, model_tag="100")
         file1 = File(path=self.test_wav, model_tag="2")
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-        self.assertEqual([f.model_tag for f in result], ["100", "2"])
+        self.assertEqual([f.model_tag for f in result], ["2", "100"])
 
     def test_validate_double_stimuli_model_tags_should_handle_special_symbols(self):
         """Test that _validate_double_stimuli_model_tags works with special symbols in model_tags"""

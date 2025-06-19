@@ -1,10 +1,10 @@
 import os
 import soundfile as sf
-import locale
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from natsort import natsorted, ns
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.util import generate_random_group_name, generate_random_name, process_paths_to_posix
@@ -243,28 +243,31 @@ class FileValidator:
 
         return file
 
-    def _validate_double_stimuli_model_tags(self, file0: File, file1: File) -> List[File]:
+    def _validate_double_stimuli_model_tags(
+        self,
+        file0: File,
+        file1: File,
+    ) -> List[File]:
         """
-        The number of model tags should be 2 if the batch size is over 2.
+        Validate & return the two files sorted by model_tag
+        (numeric‑aware, case‑insensitive).  Locale handling is NOT applied.
 
         WARNING:
-            Only use this method for SMOS, PREF, CSMOS, CUSTOM_DOUBLE, CUSTOM_TRIPLE.
-
-        Example:
-            Multi pairs:
-            - The order of file0 and file1 will be sorted by model_tag alphabetically ascending.
-            - Some languages like Korean, Chinese, Japanese, etc. have different character order.
-            - So, we need to use locale.strxfrm to sort the model tags correctly.
+            Use only for SMOS, PREF, CSMOS, CUSTOM_DOUBLE, CUSTOM_TRIPLE.
         """
-        if not file0.model_tag or not file1.model_tag:
-            raise ValueError("model_tag is required")
+        for f in (file0, file1):
+            if not getattr(f, "model_tag", None):
+                raise ValueError("model_tag is required")
 
-        normalized_file0_model_tag = locale.strxfrm(file0.model_tag.casefold())
-        normalized_file1_model_tag = locale.strxfrm(file1.model_tag.casefold())
+        if file0.model_tag.casefold() == file1.model_tag.casefold():
+            raise ValueError("The model tags must differ in `add_files` " "for double (or more) stimuli evaluations")
 
-        if normalized_file0_model_tag == normalized_file1_model_tag:
-            raise ValueError("The model tags should be different in `add_files` for double (or more) stimuli evaluations")
-        return sorted([file0, file1], key=lambda x: locale.strxfrm(x.model_tag.casefold()))
+        sorted_files = natsorted(
+            [file0, file1],
+            key=lambda f: f.model_tag,
+            alg=ns.IGNORECASE,
+        )
+        return sorted_files
 
 
 class AudioMeta:
