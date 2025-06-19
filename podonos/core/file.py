@@ -1,5 +1,6 @@
 import os
 import soundfile as sf
+import locale
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -95,7 +96,7 @@ class File:
             raise ValueError(f"model_tag must be a string, got {type(model_tag)}")
         if not model_tag:
             raise ValueError("model_tag cannot be empty")
-        return model_tag
+        return model_tag.strip()
 
     def _validate_script(self, script: Optional[str]) -> Optional[str]:
         """Validate script is either None or a string.
@@ -235,25 +236,33 @@ class FileValidator:
                 "ASR evaluation is enabled (eval_ai_type=ASR), " "but no script is provided in File. Please provide a corresponding script."
             )
 
+        if not file.model_tag or len(file.model_tag.strip()) == 0:
+            raise ValueError("model_tag is required")
+
         return file
 
     def _validate_double_stimuli_model_tags(self, file0: File, file1: File) -> List[File]:
         """
         The number of model tags should be 2 if the batch size is over 2.
-        """
-        if file0.model_tag == file1.model_tag:
-            raise ValueError("The model tags should be different in `add_files` for double (or more) stimuli evaluations")
 
-        if len(self._stimulus_model_tags) == 0:
-            self._stimulus_model_tags.add(file0.model_tag)
-            self._stimulus_model_tags.add(file1.model_tag)
-        else:
-            message = f"The number of model tags should be 2 in `add_files` for double (or more) stimuli evaluations"
-            if file0.model_tag not in self._stimulus_model_tags:
-                raise ValueError(message)
-            if file1.model_tag not in self._stimulus_model_tags:
-                raise ValueError(message)
-        return [file0, file1]
+        WARNING:
+            Only use this method for SMOS, PREP, CSMOS, CUSTOM_DOUBLE, CUSTOM_TRIPLE.
+
+        Example:
+            Multi pairs:
+            - The order of file0 and file1 will be sorted by model_tag alphabetically ascending.
+            - Some languages like Korean, Chinese, Japanese, etc. have different character order.
+            - So, we need to use locale.strxfrm to sort the model tags correctly.
+        """
+        if not file0.model_tag or not file1.model_tag:
+            raise ValueError("model_tag is required")
+
+        normalized_file0_model_tag = locale.strxfrm(file0.model_tag.casefold())
+        normalized_file1_model_tag = locale.strxfrm(file1.model_tag.casefold())
+
+        if normalized_file0_model_tag == normalized_file1_model_tag:
+            raise ValueError("The model tags should be different in `add_files` for double (or more) stimuli evaluations")
+        return sorted([file0, file1], key=lambda x: locale.strxfrm(x.model_tag.casefold()))
 
 
 class AudioMeta:
