@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from natsort import natsorted, ns
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.util import generate_random_group_name, generate_random_name, process_paths_to_posix
@@ -80,7 +81,7 @@ class File:
         return path
 
     def _validate_model_tag(self, model_tag: str) -> str:
-        """Validate model_tag is a non-empty string.
+        """Validate model_tag is a non-empty string with allowed characters only.
 
         Args:
             model_tag: Model tag to validate
@@ -89,13 +90,30 @@ class File:
             Validated model tag
 
         Raises:
-            ValueError: If model_tag is not a string or is empty
+            ValueError: If model_tag is not a string, is empty, or contains invalid characters
         """
         if not isinstance(model_tag, str):
             raise ValueError(f"model_tag must be a string, got {type(model_tag)}")
-        if not model_tag:
+
+        processed_model_tag = model_tag.strip()
+        if not processed_model_tag:
             raise ValueError("model_tag cannot be empty")
-        return model_tag
+
+        # Check for invalid characters (allow Unicode letters, numbers, -, and _)
+        import re
+
+        if not re.match(r"^[\w\-]+$", processed_model_tag, re.UNICODE):
+            invalid_chars = []
+            for char in processed_model_tag:
+                # Check if character is not a Unicode letter, not a digit, and not - or _
+                if not (char.isalpha() or char.isdigit() or char in ["-", "_"]):
+                    invalid_chars.append(char)
+            if invalid_chars:
+                raise ValueError(
+                    f"model_tag contains invalid characters: {invalid_chars}. Only letters, numbers, hyphens (-), and underscores (_) are allowed."
+                )
+
+        return processed_model_tag
 
     def _validate_script(self, script: Optional[str]) -> Optional[str]:
         """Validate script is either None or a string.
@@ -235,25 +253,36 @@ class FileValidator:
                 "ASR evaluation is enabled (eval_ai_type=ASR), " "but no script is provided in File. Please provide a corresponding script."
             )
 
+        if not file.model_tag or len(file.model_tag.strip()) == 0:
+            raise ValueError("model_tag is required")
+
         return file
 
-    def _validate_double_stimuli_model_tags(self, file0: File, file1: File) -> List[File]:
+    def _validate_double_stimuli_model_tags(
+        self,
+        file0: File,
+        file1: File,
+    ) -> List[File]:
         """
-        The number of model tags should be 2 if the batch size is over 2.
-        """
-        if file0.model_tag == file1.model_tag:
-            raise ValueError("The model tags should be different in `add_files` for double (or more) stimuli evaluations")
+        Validate & return the two files sorted by model_tag
+        (numeric‑aware, case‑insensitive).  Locale handling is NOT applied.
 
-        if len(self._stimulus_model_tags) == 0:
-            self._stimulus_model_tags.add(file0.model_tag)
-            self._stimulus_model_tags.add(file1.model_tag)
-        else:
-            message = f"The number of model tags should be 2 in `add_files` for double (or more) stimuli evaluations"
-            if file0.model_tag not in self._stimulus_model_tags:
-                raise ValueError(message)
-            if file1.model_tag not in self._stimulus_model_tags:
-                raise ValueError(message)
-        return [file0, file1]
+        WARNING:
+            Use only for SMOS, PREF, CSMOS, CUSTOM_DOUBLE, CUSTOM_TRIPLE.
+        """
+        for f in (file0, file1):
+            if not getattr(f, "model_tag", None):
+                raise ValueError("model_tag is required")
+
+        if file0.model_tag.casefold() == file1.model_tag.casefold():
+            raise ValueError("The model tags must differ in `add_files` " "for double (or more) stimuli evaluations")
+
+        sorted_files = natsorted(
+            [file0, file1],
+            key=lambda f: f.model_tag,
+            alg=ns.IGNORECASE,
+        )
+        return sorted_files
 
 
 class AudioMeta:
