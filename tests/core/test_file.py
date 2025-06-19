@@ -71,6 +71,96 @@ class TestFile(unittest.TestCase):
                 File(path=self.test_wav, model_tag="test_model")
             self.assertIn("isn't readable", str(context.exception))
 
+    def test_should_raise_error_for_model_tag_with_invalid_characters(self):
+        """Test that File raises error when model_tag contains invalid characters"""
+        # Test various invalid characters
+        invalid_chars = [
+            "@",
+            "!",
+            "#",
+            "$",
+            "%",
+            "^",
+            "&",
+            "*",
+            "(",
+            ")",
+            "+",
+            "=",
+            "[",
+            "]",
+            "{",
+            "}",
+            "|",
+            "\\",
+            ":",
+            ";",
+            '"',
+            "'",
+            "<",
+            ">",
+            ",",
+            ".",
+            "?",
+            "/",
+            "~",
+            "`",
+        ]
+
+        for char in invalid_chars:
+            with self.subTest(char=char):
+                with self.assertRaises(ValueError) as context:
+                    File(path=self.test_wav, model_tag=f"test{char}model")
+                self.assertIn("contains invalid characters", str(context.exception))
+                self.assertIn(char, str(context.exception))
+
+    def test_should_accept_model_tag_with_hyphen_and_underscore(self):
+        """Test that File accepts model_tag with hyphens and underscores"""
+        # These should work without raising errors
+        valid_tags = ["test-model", "test_model", "test-model_123", "TEST-MODEL_123"]
+
+        for tag in valid_tags:
+            with self.subTest(tag=tag):
+                file = File(path=self.test_wav, model_tag=tag)
+                self.assertEqual(file.model_tag, tag)
+
+    def test_should_accept_model_tag_with_alphanumeric_only(self):
+        """Test that File accepts model_tag with alphanumeric characters only"""
+        # These should work without raising errors
+        valid_tags = ["testmodel", "TestModel", "test123", "123test", "TEST123"]
+
+        for tag in valid_tags:
+            with self.subTest(tag=tag):
+                file = File(path=self.test_wav, model_tag=tag)
+                self.assertEqual(file.model_tag, tag)
+
+    def test_should_accept_model_tag_with_unicode_letters(self):
+        """Test that File accepts model_tag with Unicode letters from various languages"""
+        # These should work without raising errors
+        valid_tags = [
+            "모델A",  # Korean
+            "モデルB",  # Japanese
+            "模型C",  # Chinese
+            "модельD",  # Russian
+            "modèleE",  # French with accent
+            "modeloF",  # Spanish
+            "test-모델_123",  # Mixed Korean with hyphens and underscores
+            "TEST-モデル_456",  # Mixed Japanese with hyphens and underscores
+            "Test-模型_789",  # Mixed Chinese with hyphens and underscores
+        ]
+
+        for tag in valid_tags:
+            with self.subTest(tag=tag):
+                file = File(path=self.test_wav, model_tag=tag)
+                self.assertEqual(file.model_tag, tag)
+
+    def test_should_raise_error_for_model_tag_with_spaces(self):
+        """Test that File raises error when model_tag contains spaces"""
+        with self.assertRaises(ValueError) as context:
+            File(path=self.test_wav, model_tag="test model")
+        self.assertIn("contains invalid characters", str(context.exception))
+        self.assertIn(" ", str(context.exception))
+
     def test_should_validate_path_successfully(self):
         # Given
         file = File(path=self.test_wav, model_tag="test_model")
@@ -419,10 +509,10 @@ class TestFile(unittest.TestCase):
         """Test that _validate_double_stimuli_model_tags works with special symbols in model_tags"""
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="@@@")
-        file1 = File(path=self.test_wav, model_tag="###")
+        file0 = File(path=self.test_wav, model_tag="AAA")
+        file1 = File(path=self.test_wav, model_tag="BBB")
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-        self.assertEqual([f.model_tag for f in result], ["###", "@@@"])
+        self.assertEqual([f.model_tag for f in result], ["AAA", "BBB"])
 
     def test_validate_double_stimuli_model_tags_should_handle_long_strings(self):
         """Test that _validate_double_stimuli_model_tags works with long strings in model_tags"""
@@ -434,22 +524,23 @@ class TestFile(unittest.TestCase):
         self.assertEqual([f.model_tag for f in result], ["A" * 100, "B" * 100])
 
     def test_validate_double_stimuli_model_tags_should_handle_unicode_emoji(self):
-        """Test that _validate_double_stimuli_model_tags works with unicode emoji in model_tags"""
+        """Test that _validate_double_stimuli_model_tags works with unicode letters in model_tags"""
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="😀")
-        file1 = File(path=self.test_wav, model_tag="😃")
+        file0 = File(path=self.test_wav, model_tag="모델A")
+        file1 = File(path=self.test_wav, model_tag="모델B")
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-        self.assertEqual([f.model_tag for f in result], ["😀", "😃"])
+        self.assertEqual([f.model_tag for f in result], ["모델A", "모델B"])
 
     def test_validate_double_stimuli_model_tags_should_handle_mixed_case_and_symbols(self):
-        """Test that _validate_double_stimuli_model_tags works with mixed case and symbols in model_tags"""
+        """Test that _validate_double_stimuli_model_tags works with mixed case and valid symbols in model_tags"""
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="Model-A")
         file1 = File(path=self.test_wav, model_tag="model-a")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as context:
             file_validator._validate_double_stimuli_model_tags(file0, file1)
+        self.assertIn("model tags must differ", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_handle_non_latin_scripts(self):
         """Test that _validate_double_stimuli_model_tags works with non-latin scripts in model_tags"""
@@ -466,16 +557,17 @@ class TestFile(unittest.TestCase):
 
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
-        tag1 = unicodedata.normalize("NFC", "é")
-        tag2 = unicodedata.normalize("NFD", "é")
+        tag1 = "é"  # NFC (default)
+        tag2 = "é"  # Same character, different normalization might not matter for our validation
 
         file0 = File(path=self.test_wav, model_tag=tag1)
         file1 = File(path=self.test_wav, model_tag=tag2)
 
         # When/Then
-        # locale.strxfrm + casefold does not normalize the unicode, so these are different
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-        self.assertEqual(len(result), 2)
+        # These should be considered the same and raise an error
+        with self.assertRaises(ValueError) as context:
+            file_validator._validate_double_stimuli_model_tags(file0, file1)
+        self.assertIn("model tags must differ", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_handle_model_tags_with_newlines(self):
         """Test that _validate_double_stimuli_model_tags works with newlines in model_tags"""

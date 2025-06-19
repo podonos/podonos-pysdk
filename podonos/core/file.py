@@ -81,7 +81,7 @@ class File:
         return path
 
     def _validate_model_tag(self, model_tag: str) -> str:
-        """Validate model_tag is a non-empty string.
+        """Validate model_tag is a non-empty string with allowed characters only.
 
         Args:
             model_tag: Model tag to validate
@@ -90,7 +90,7 @@ class File:
             Validated model tag
 
         Raises:
-            ValueError: If model_tag is not a string or is empty
+            ValueError: If model_tag is not a string, is empty, or contains invalid characters
         """
         if not isinstance(model_tag, str):
             raise ValueError(f"model_tag must be a string, got {type(model_tag)}")
@@ -98,6 +98,21 @@ class File:
         processed_model_tag = model_tag.strip()
         if not processed_model_tag:
             raise ValueError("model_tag cannot be empty")
+
+        # Check for invalid characters (allow Unicode letters, numbers, -, and _)
+        import re
+
+        if not re.match(r"^[\w\-]+$", processed_model_tag, re.UNICODE):
+            invalid_chars = []
+            for char in processed_model_tag:
+                # Check if character is not a Unicode letter, not a digit, and not - or _
+                if not (char.isalpha() or char.isdigit() or char in ["-", "_"]):
+                    invalid_chars.append(char)
+            if invalid_chars:
+                raise ValueError(
+                    f"model_tag contains invalid characters: {invalid_chars}. Only letters, numbers, hyphens (-), and underscores (_) are allowed."
+                )
+
         return processed_model_tag
 
     def _validate_script(self, script: Optional[str]) -> Optional[str]:
