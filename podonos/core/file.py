@@ -248,7 +248,7 @@ class FileValidator:
         The number of model tags should be 2 if the batch size is over 2.
 
         WARNING:
-            Only use this method for SMOS, PREP, CSMOS, CUSTOM_DOUBLE, CUSTOM_TRIPLE.
+            Only use this method for SMOS, PREF, CSMOS, CUSTOM_DOUBLE, CUSTOM_TRIPLE.
 
         Example:
             Multi pairs:
