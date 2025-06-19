@@ -94,9 +94,11 @@ class File:
         """
         if not isinstance(model_tag, str):
             raise ValueError(f"model_tag must be a string, got {type(model_tag)}")
-        if not model_tag:
+
+        processed_model_tag = model_tag.strip()
+        if not processed_model_tag:
             raise ValueError("model_tag cannot be empty")
-        return model_tag.strip()
+        return processed_model_tag
 
     def _validate_script(self, script: Optional[str]) -> Optional[str]:
         """Validate script is either None or a string.
