@@ -327,139 +327,129 @@ class TestFile(unittest.TestCase):
             file_validator._validate_double_stimuli_model_tags(file0, file1)
         self.assertIn("model tags must differ", str(context.exception))
 
-    def test_validate_double_stimuli_model_tags_should_sort_alphabetically_ascending(self):
-        """Test that _validate_double_stimuli_model_tags sorts files by model tag alphabetically"""
+    def test_validate_double_stimuli_model_tags_should_allow_first_pair(self):
+        """Test that _validate_double_stimuli_model_tags allows the first occurrence of a pair"""
         # Given
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="ModelB")
-        file1 = File(path=self.test_wav, model_tag="ModelA")
+        file0 = File(path=self.test_wav, model_tag="google")
+        file1 = File(path=self.test_wav, model_tag="openai")
 
         # When
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)
 
         # Then
         self.assertEqual(len(result), 2)
-        self.assertEqual(result[0].model_tag, "ModelA")
-        self.assertEqual(result[1].model_tag, "ModelB")
+        self.assertEqual(result[0].model_tag, "google")
+        self.assertEqual(result[1].model_tag, "openai")
 
-    def test_validate_double_stimuli_model_tags_should_sort_case_insensitive(self):
-        """Test that _validate_double_stimuli_model_tags sorts case-insensitively"""
+    def test_validate_double_stimuli_model_tags_should_allow_consistent_pair_order(self):
+        """Test that _validate_double_stimuli_model_tags allows consistent pair ordering"""
         # Given
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="modelb")
-        file1 = File(path=self.test_wav, model_tag="ModelA")
+
+        # First pair: google -> openai
+        file0 = File(path=self.test_wav, model_tag="google")
+        file1 = File(path=self.test_wav, model_tag="openai")
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+
+        # Second pair: same order google -> openai
+        file2 = File(path=self.test_wav, model_tag="google")
+        file3 = File(path=self.test_wav, model_tag="openai")
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+
+        # Then
+        self.assertEqual(len(result1), 2)
+        self.assertEqual(len(result2), 2)
+        self.assertEqual(result1[0].model_tag, "google")
+        self.assertEqual(result1[1].model_tag, "openai")
+        self.assertEqual(result2[0].model_tag, "google")
+        self.assertEqual(result2[1].model_tag, "openai")
+
+    def test_validate_double_stimuli_model_tags_should_raise_error_for_inconsistent_pair_order(self):
+        """Test that _validate_double_stimuli_model_tags raises error for inconsistent pair ordering"""
+        # Given
+        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        file_validator = FileValidator(eval_config)
+
+        # First pair: google -> openai
+        file0 = File(path=self.test_wav, model_tag="google")
+        file1 = File(path=self.test_wav, model_tag="openai")
+        file_validator._validate_double_stimuli_model_tags(file0, file1)
+
+        # Second pair: reversed order openai -> google (should raise error)
+        file2 = File(path=self.test_wav, model_tag="openai")
+        file3 = File(path=self.test_wav, model_tag="google")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            file_validator._validate_double_stimuli_model_tags(file2, file3)
+        self.assertIn("Inconsistent model tag pair order", str(context.exception))
+
+    def test_validate_double_stimuli_model_tags_should_allow_different_pairs(self):
+        """Test that _validate_double_stimuli_model_tags allows different model pairs"""
+        # Given
+        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        file_validator = FileValidator(eval_config)
+
+        # First pair: google -> openai
+        file0 = File(path=self.test_wav, model_tag="google")
+        file1 = File(path=self.test_wav, model_tag="openai")
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+
+        # Second pair: elevenlabs -> openai (different pair)
+        file2 = File(path=self.test_wav, model_tag="elevenlabs")
+        file3 = File(path=self.test_wav, model_tag="openai")
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+
+        # Then
+        self.assertEqual(len(result1), 2)
+        self.assertEqual(len(result2), 2)
+        self.assertEqual(result1[0].model_tag, "google")
+        self.assertEqual(result1[1].model_tag, "openai")
+        self.assertEqual(result2[0].model_tag, "elevenlabs")
+        self.assertEqual(result2[1].model_tag, "openai")
+
+    def test_validate_double_stimuli_model_tags_should_handle_case_insensitive_pairs(self):
+        """Test that _validate_double_stimuli_model_tags handles case insensitive pair comparison"""
+        # Given
+        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        file_validator = FileValidator(eval_config)
+
+        # First pair: Google -> OpenAI
+        file0 = File(path=self.test_wav, model_tag="Google")
+        file1 = File(path=self.test_wav, model_tag="OpenAI")
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+
+        # Second pair: google -> openai (same pair, different case)
+        file2 = File(path=self.test_wav, model_tag="google")
+        file3 = File(path=self.test_wav, model_tag="openai")
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+
+        # Then
+        self.assertEqual(len(result1), 2)
+        self.assertEqual(len(result2), 2)
+
+    def test_validate_double_stimuli_model_tags_should_preserve_original_case(self):
+        """Test that _validate_double_stimuli_model_tags preserves original case in returned files"""
+        # Given
+        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        file_validator = FileValidator(eval_config)
+        file0 = File(path=self.test_wav, model_tag="Google")
+        file1 = File(path=self.test_wav, model_tag="OpenAI")
 
         # When
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)
 
         # Then
         self.assertEqual(len(result), 2)
-        self.assertEqual(result[0].model_tag, "ModelA")
-        self.assertEqual(result[1].model_tag, "modelb")
-
-    def test_validate_double_stimuli_model_tags_should_preserve_original_order_when_already_sorted(self):
-        """Test that _validate_double_stimuli_model_tags preserves order when already sorted"""
-        # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
-        file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="ModelA")
-        file1 = File(path=self.test_wav, model_tag="ModelB")
-
-        # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-
-        # Then
-        self.assertEqual(len(result), 2)
-        self.assertEqual(result[0].model_tag, "ModelA")
-        self.assertEqual(result[1].model_tag, "ModelB")
-
-    def test_validate_double_stimuli_model_tags_should_handle_numeric_model_tags(self):
-        """Test that _validate_double_stimuli_model_tags works with numeric model tags"""
-        # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
-        file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="Model2")
-        file1 = File(path=self.test_wav, model_tag="Model10")
-
-        # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-
-        # Then
-        self.assertEqual(len(result), 2)
-        self.assertEqual(result[0].model_tag, "Model2")
-        self.assertEqual(result[1].model_tag, "Model10")
-
-    def test_validate_double_stimuli_model_tags_should_handle_special_characters(self):
-        """Test that _validate_double_stimuli_model_tags works with special characters"""
-        # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
-        file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="Model_B")
-        file1 = File(path=self.test_wav, model_tag="Model-A")
-
-        # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-
-        # Then
-        self.assertEqual(len(result), 2)
-        # String comparison: "Model-A" comes before "Model_B" alphabetically
-        self.assertEqual(result[0].model_tag, "Model-A")
-        self.assertEqual(result[1].model_tag, "Model_B")
-
-    def test_validate_double_stimuli_model_tags_should_handle_unicode_characters(self):
-        """Test that _validate_double_stimuli_model_tags works with unicode characters"""
-        # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
-        file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="모델B")
-        file1 = File(path=self.test_wav, model_tag="모델A")
-
-        # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-
-        # Then
-        self.assertEqual(len(result), 2)
-        # Locale-aware sorting should handle Korean characters correctly
-        self.assertEqual(result[0].model_tag, "모델A")
-        self.assertEqual(result[1].model_tag, "모델B")
-
-    def test_validate_double_stimuli_model_tags_should_handle_mixed_language_model_tags(self):
-        """Test that _validate_double_stimuli_model_tags works with mixed language model tags"""
-        # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
-        file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="Model_한국어")
-        file1 = File(path=self.test_wav, model_tag="Model_English")
-
-        # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-
-        # Then
-        self.assertEqual(len(result), 2)
-        # Locale-aware sorting should handle mixed languages correctly
-        # The exact order depends on the locale, but it should be consistent
-
-    def test_validate_double_stimuli_model_tags_should_return_list_of_files(self):
-        """Test that _validate_double_stimuli_model_tags returns a list of File objects"""
-        # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
-        file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="ModelB")
-        file1 = File(path=self.test_wav, model_tag="ModelA")
-
-        # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-
-        # Then
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 2)
-        self.assertIsInstance(result[0], File)
-        self.assertIsInstance(result[1], File)
+        # Original case should be preserved
+        self.assertEqual(result[0].model_tag, "Google")
+        self.assertEqual(result[1].model_tag, "OpenAI")
 
     def test_validate_double_stimuli_model_tags_should_preserve_file_properties(self):
-        """Test that _validate_double_stimuli_model_tags preserves all file properties after sorting"""
+        """Test that _validate_double_stimuli_model_tags preserves all file properties"""
         # Given
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
@@ -472,17 +462,16 @@ class TestFile(unittest.TestCase):
         # Then
         self.assertEqual(len(result), 2)
 
-        # Check first file (ModelA)
-        self.assertEqual(result[0].model_tag, "ModelA")
-        self.assertEqual(result[0].tags, ["tag3"])
-        self.assertEqual(result[0].script, "script2")
-        self.assertTrue(result[0].is_ref)
+        # Check properties are preserved
+        self.assertEqual(result[0].model_tag, "ModelB")
+        self.assertEqual(result[0].tags, ["tag1", "tag2"])
+        self.assertEqual(result[0].script, "script1")
+        self.assertFalse(result[0].is_ref)
 
-        # Check second file (ModelB)
-        self.assertEqual(result[1].model_tag, "ModelB")
-        self.assertEqual(result[1].tags, ["tag1", "tag2"])
-        self.assertEqual(result[1].script, "script1")
-        self.assertFalse(result[1].is_ref)
+        self.assertEqual(result[1].model_tag, "ModelA")
+        self.assertEqual(result[1].tags, ["tag3"])
+        self.assertEqual(result[1].script, "script2")
+        self.assertTrue(result[1].is_ref)
 
     def test_validate_double_stimuli_model_tags_should_handle_leading_trailing_spaces(self):
         """Test that _validate_double_stimuli_model_tags works with leading/trailing spaces"""
@@ -503,7 +492,8 @@ class TestFile(unittest.TestCase):
         file0 = File(path=self.test_wav, model_tag="100")
         file1 = File(path=self.test_wav, model_tag="2")
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)
-        self.assertEqual([f.model_tag for f in result], ["2", "100"])
+        # New logic preserves original order, not sorted
+        self.assertEqual([f.model_tag for f in result], ["100", "2"])
 
     def test_validate_double_stimuli_model_tags_should_handle_special_symbols(self):
         """Test that _validate_double_stimuli_model_tags works with special symbols in model_tags"""
