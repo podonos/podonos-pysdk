@@ -181,6 +181,7 @@ class FileValidator:
     def __init__(self, eval_config):
         self._eval_config = eval_config
         self._stimulus_model_tags = set()
+        self._stimulus_model_pairs = list()
 
     def validate_file(self, file: File) -> File:
         """Validate file based on evaluation type"""
@@ -274,15 +275,27 @@ class FileValidator:
             if not getattr(f, "model_tag", None):
                 raise ValueError("model_tag is required")
 
-        if file0.model_tag.casefold() == file1.model_tag.casefold():
+        file0_model_tag = file0.model_tag.lower()
+        file1_model_tag = file1.model_tag.lower()
+        if file0_model_tag == file1_model_tag:
             raise ValueError("The model tags must differ in `add_files` " "for double (or more) stimuli evaluations")
 
-        sorted_files = natsorted(
-            [file0, file1],
-            key=lambda f: f.model_tag,
-            alg=ns.IGNORECASE,
-        )
-        return sorted_files
+        requested_model_pair = tuple(sorted([file0_model_tag, file1_model_tag]))
+        for model_pair in self._stimulus_model_pairs:
+            if model_pair == requested_model_pair:
+                first_model_tag = model_pair[0]
+                second_model_tag = model_pair[1]
+                if first_model_tag != file0_model_tag or second_model_tag != file1_model_tag:
+                    raise ValueError(
+                        f"Inconsistent model tag pair order. Previously seen pair: "
+                        f"({first_model_tag}, {second_model_tag}), but received: "
+                        f"({file0_model_tag}, {file1_model_tag}). "
+                        f"Please maintain consistent ordering for the same model tag pairs."
+                    )
+                return [file0, file1]
+
+        self._stimulus_model_pairs.append((file0_model_tag, file1_model_tag))
+        return [file0, file1]
 
 
 class AudioMeta:
