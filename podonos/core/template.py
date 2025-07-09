@@ -24,8 +24,6 @@ class Template:
     description: Optional[str] = None
     language: Optional[Language] = None
     batch_size: Optional[int] = None
-    use_annotation: bool = field(default=EvalConfigDefault.USE_ANNOTATION)
-    use_loudness_normalization: bool = field(default=EvalConfigDefault.USE_LOUDNESS_NORMALIZATION)
     created_time: Optional[datetime] = None
     updated_time: Optional[datetime] = None
 
@@ -38,8 +36,6 @@ class Template:
             "title",
             "description",
             "batch_size",
-            "use_annotation",
-            "use_power_normalization",
             "language",
             "created_time",
             "updated_time",
@@ -54,8 +50,6 @@ class Template:
             title=data["title"],
             description=data["description"],
             batch_size=data["batch_size"],
-            use_annotation=data["use_annotation"],
-            use_loudness_normalization=data["use_power_normalization"],
             language=Language.from_value(data["language"]),
             created_time=datetime.fromisoformat(data["created_time"].replace("Z", "+00:00")),
             updated_time=datetime.fromisoformat(data["updated_time"].replace("Z", "+00:00")),
