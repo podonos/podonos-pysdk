@@ -96,6 +96,8 @@ class HumanEvaluation:
         template_id: str,
         num_eval: int,
         desc: Optional[str] = None,
+        use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
     ) -> Evaluator:
@@ -128,7 +130,8 @@ class HumanEvaluation:
             name=name,
             desc=desc,
             num_eval=num_eval,
-            use_annotation=template.use_annotation,
+            use_annotation=use_annotation,
+            use_loudness_normalization=use_loudness_normalization,
             auto_start=auto_start,
             template_id=str(template.id),
             max_upload_workers=max_upload_workers,

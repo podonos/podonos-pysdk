@@ -106,6 +106,8 @@ class Client:
         desc: Optional[str] = None,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+        use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
     ) -> Evaluator:
         """
         Creates a new evaluator using a predefined template.
@@ -117,6 +119,8 @@ class Client:
             num_eval: The number of evaluators per file. Should be >= 1. Default: 10
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
+            use_annotation: Enable detailed annotation on script for detailed comments. Default: False
+            use_loudness_normalization: Enable loudness normalization for evaluation. Default: True
 
         Returns:
             Evaluator instance.
@@ -127,7 +131,9 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
 
-        return self._human_evaluation.create_from_template(name, template_id, num_eval, desc, auto_start, max_upload_workers)
+        return self._human_evaluation.create_from_template(
+            name, template_id, num_eval, desc, use_annotation, use_loudness_normalization, auto_start, max_upload_workers
+        )
 
     def create_evaluator_from_template_json(
         self,
@@ -224,8 +230,6 @@ class Client:
             "title": template.title,
             "description": template.description,
             "language": template.language,
-            "use_annotation": template.use_annotation,
-            "use_loudness_normalization": template.use_loudness_normalization,
             "created_time": template.created_time,
             "updated_time": template.updated_time,
         }

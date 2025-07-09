@@ -283,8 +283,6 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue("description" in json)
         self.assertTrue("eval_type" in json)
         self.assertTrue(json["eval_type"] in ["Single", "Double", "Triple"])
-        self.assertTrue("use_annotation" in json)
-        self.assertTrue("use_loudness_normalization" in json)
         self.assertTrue("language" in json)
         self.assertTrue("created_time" in json)
         self.assertTrue("updated_time" in json)
