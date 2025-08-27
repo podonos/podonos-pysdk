@@ -275,27 +275,39 @@ class FileValidator:
             if not getattr(f, "model_tag", None):
                 raise ValueError("model_tag is required")
 
-        file0_model_tag = file0.model_tag.lower()
-        file1_model_tag = file1.model_tag.lower()
-        if file0_model_tag == file1_model_tag:
+        # file0_model_tag = file0.model_tag.lower()
+        # file1_model_tag = file1.model_tag.lower()
+        if file0.model_tag == file1.model_tag:
             raise ValueError("The model tags must differ in `add_files` " "for double (or more) stimuli evaluations")
 
-        requested_model_pair = tuple(sorted([file0_model_tag, file1_model_tag]))
-        for model_pair in self._stimulus_model_pairs:
-            if model_pair == requested_model_pair:
-                first_model_tag = model_pair[0]
-                second_model_tag = model_pair[1]
-                if first_model_tag != file0_model_tag or second_model_tag != file1_model_tag:
-                    raise ValueError(
-                        f"Inconsistent model tag pair order. Previously seen pair: "
-                        f"({first_model_tag}, {second_model_tag}), but received: "
-                        f"({file0_model_tag}, {file1_model_tag}). "
-                        f"Please maintain consistent ordering for the same model tag pairs."
-                    )
-                return [file0, file1]
-
-        self._stimulus_model_pairs.append((file0_model_tag, file1_model_tag))
+        if len(self._stimulus_model_tags) == 0:
+            self._stimulus_model_tags.add(file0.model_tag)
+            self._stimulus_model_tags.add(file1.model_tag)
+        else:
+            message = f"The number of model tags should be 2 in `add_files` for double (or more) stimuli evaluations"
+            if file0.model_tag not in self._stimulus_model_tags:
+                raise ValueError(message)
+            if file1.model_tag not in self._stimulus_model_tags:
+                raise ValueError(message)
         return [file0, file1]
+
+        # TODO: Add this back in when we have a way to track the model tag pairs.
+        # requested_model_pair = tuple(sorted([file0_model_tag, file1_model_tag]))
+        # for model_pair in self._stimulus_model_pairs:
+        #     if model_pair == requested_model_pair:
+        #         first_model_tag = model_pair[0]
+        #         second_model_tag = model_pair[1]
+        #         if first_model_tag != file0_model_tag or second_model_tag != file1_model_tag:
+        #             raise ValueError(
+        #                 f"Inconsistent model tag pair order. Previously seen pair: "
+        #                 f"({first_model_tag}, {second_model_tag}), but received: "
+        #                 f"({file0_model_tag}, {file1_model_tag}). "
+        #                 f"Please maintain consistent ordering for the same model tag pairs."
+        #             )
+        #         return [file0, file1]
+
+        # self._stimulus_model_pairs.append((file0_model_tag, file1_model_tag))
+        # return [file0, file1]
 
 
 class AudioMeta:
