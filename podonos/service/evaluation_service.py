@@ -107,7 +107,7 @@ class EvaluationService:
             return response.json()
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation stats: {e}")
-        
+
     def create_evaluation_files(self, evaluation_id: str, audios: List[Audio]):
         try:
             response = self.api_client.put(
@@ -211,7 +211,7 @@ class EvaluationService:
                 file_response = requests.get(file["original_url"], cookies=download_response["cookie"])
                 file_response.raise_for_status()
 
-                content_type = file_response.headers.get('Content-Type')
+                content_type = file_response.headers.get("Content-Type")
                 file_extension = CONTENT_TYPE_TO_EXTENSION[content_type] if content_type else ".flac"
 
                 # Generate a hash for the original file name
@@ -229,13 +229,15 @@ class EvaluationService:
                 # Save the file locally
                 with open(file_path, "wb") as f:
                     f.write(file_response.content)
-                
-                file_mata_json["files"].append({
-                    "file_path": file_path,
-                    "original_name": file_original_name,
-                    "model_tag": file["model_tag"],
-                    "tags": file["tags"],
-                })
+
+                file_mata_json["files"].append(
+                    {
+                        "file_path": file_path,
+                        "original_name": file_original_name,
+                        "model_tag": file["model_tag"],
+                        "tags": file["tags"],
+                    }
+                )
 
             log.info(f"Downloaded {len(file_mata_json['files'])} files")
 

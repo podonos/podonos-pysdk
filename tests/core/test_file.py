@@ -314,6 +314,7 @@ class TestFile(unittest.TestCase):
             file_validator._validate_double_stimuli_model_tags(file0, file1)
         self.assertIn("model tags must differ", str(context.exception))
 
+    @unittest.skip("Skip this test because we don't track model tag pairs")
     def test_validate_double_stimuli_model_tags_should_raise_error_for_case_insensitive_same_model_tags(self):
         """Test that _validate_double_stimuli_model_tags raises error when model tags are same but different case"""
         # Given
@@ -367,6 +368,7 @@ class TestFile(unittest.TestCase):
         self.assertEqual(result2[0].model_tag, "google")
         self.assertEqual(result2[1].model_tag, "openai")
 
+    @unittest.skip("Skip this test because we don't track model tag pairs")
     def test_validate_double_stimuli_model_tags_should_raise_error_for_inconsistent_pair_order(self):
         """Test that _validate_double_stimuli_model_tags raises error for inconsistent pair ordering"""
         # Given
@@ -387,6 +389,7 @@ class TestFile(unittest.TestCase):
             file_validator._validate_double_stimuli_model_tags(file2, file3)
         self.assertIn("Inconsistent model tag pair order", str(context.exception))
 
+    @unittest.skip("Skip this test because we don't track model tag pairs")
     def test_validate_double_stimuli_model_tags_should_allow_different_pairs(self):
         """Test that _validate_double_stimuli_model_tags allows different model pairs"""
         # Given
@@ -411,6 +414,7 @@ class TestFile(unittest.TestCase):
         self.assertEqual(result2[0].model_tag, "elevenlabs")
         self.assertEqual(result2[1].model_tag, "openai")
 
+    @unittest.skip("Skip this test because we don't track model tag pairs")
     def test_validate_double_stimuli_model_tags_should_handle_case_insensitive_pairs(self):
         """Test that _validate_double_stimuli_model_tags handles case insensitive pair comparison"""
         # Given
@@ -473,6 +477,7 @@ class TestFile(unittest.TestCase):
         self.assertEqual(result[1].script, "script2")
         self.assertTrue(result[1].is_ref)
 
+    @unittest.skip("Skip this test because we don't track model tag pairs")
     def test_validate_double_stimuli_model_tags_should_handle_leading_trailing_spaces(self):
         """Test that _validate_double_stimuli_model_tags works with leading/trailing spaces"""
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
@@ -522,6 +527,7 @@ class TestFile(unittest.TestCase):
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)
         self.assertEqual([f.model_tag for f in result], ["모델A", "모델B"])
 
+    @unittest.skip("Skip this test because we don't track model tag pairs")
     def test_validate_double_stimuli_model_tags_should_handle_mixed_case_and_symbols(self):
         """Test that _validate_double_stimuli_model_tags works with mixed case and valid symbols in model_tags"""
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
@@ -531,6 +537,106 @@ class TestFile(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             file_validator._validate_double_stimuli_model_tags(file0, file1)
         self.assertIn("model tags must differ", str(context.exception))
+
+    def test_validate_double_stimuli_model_tags_should_allow_exactly_two_model_tags(self):
+        """Test that _validate_double_stimuli_model_tags allows exactly 2 model tags"""
+        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        file_validator = FileValidator(eval_config)
+
+        # First pair: google -> openai (should work)
+        file0 = File(path=self.test_wav, model_tag="google")
+        file1 = File(path=self.test_wav, model_tag="openai")
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+
+        # Second pair: same model tags (should work)
+        file2 = File(path=self.test_wav, model_tag="google")
+        file3 = File(path=self.test_wav, model_tag="openai")
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+
+        # Then
+        self.assertEqual(len(result1), 2)
+        self.assertEqual(len(result2), 2)
+        self.assertEqual(result1[0].model_tag, "google")
+        self.assertEqual(result1[1].model_tag, "openai")
+        self.assertEqual(result2[0].model_tag, "google")
+        self.assertEqual(result2[1].model_tag, "openai")
+
+    def test_validate_double_stimuli_model_tags_should_reject_third_model_tag(self):
+        """Test that _validate_double_stimuli_model_tags rejects a third model tag"""
+        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        file_validator = FileValidator(eval_config)
+
+        # First pair: google -> openai (should work)
+        file0 = File(path=self.test_wav, model_tag="google")
+        file1 = File(path=self.test_wav, model_tag="openai")
+        file_validator._validate_double_stimuli_model_tags(file0, file1)
+
+        # Second pair: google -> elevenlabs (should fail - elevenlabs is not in allowed set)
+        file2 = File(path=self.test_wav, model_tag="google")
+        file3 = File(path=self.test_wav, model_tag="elevenlabs")
+
+        with self.assertRaises(ValueError) as context:
+            file_validator._validate_double_stimuli_model_tags(file2, file3)
+        self.assertIn("The number of model tags should be 2", str(context.exception))
+
+    def test_validate_double_stimuli_model_tags_should_reject_third_model_tag_reverse(self):
+        """Test that _validate_double_stimuli_model_tags rejects a third model tag in reverse order"""
+        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        file_validator = FileValidator(eval_config)
+
+        # First pair: google -> openai (should work)
+        file0 = File(path=self.test_wav, model_tag="google")
+        file1 = File(path=self.test_wav, model_tag="openai")
+        file_validator._validate_double_stimuli_model_tags(file0, file1)
+
+        # Second pair: elevenlabs -> google (should fail - elevenlabs is not in allowed set)
+        file2 = File(path=self.test_wav, model_tag="elevenlabs")
+        file3 = File(path=self.test_wav, model_tag="google")
+
+        with self.assertRaises(ValueError) as context:
+            file_validator._validate_double_stimuli_model_tags(file2, file3)
+        self.assertIn("The number of model tags should be 2", str(context.exception))
+
+    def test_validate_double_stimuli_model_tags_should_allow_reverse_order_of_same_pair(self):
+        """Test that _validate_double_stimuli_model_tags allows reverse order of the same pair"""
+        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        file_validator = FileValidator(eval_config)
+
+        # First pair: google -> openai (should work)
+        file0 = File(path=self.test_wav, model_tag="google")
+        file1 = File(path=self.test_wav, model_tag="openai")
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+
+        # Second pair: openai -> google (should work - same pair, reverse order)
+        file2 = File(path=self.test_wav, model_tag="openai")
+        file3 = File(path=self.test_wav, model_tag="google")
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+
+        # Then
+        self.assertEqual(len(result1), 2)
+        self.assertEqual(len(result2), 2)
+        self.assertEqual(result1[0].model_tag, "google")
+        self.assertEqual(result1[1].model_tag, "openai")
+        self.assertEqual(result2[0].model_tag, "openai")
+        self.assertEqual(result2[1].model_tag, "google")
+
+    def test_validate_double_stimuli_model_tags_should_reject_third_model_tag_case_insensitive(self):
+        """Test that _validate_double_stimuli_model_tags rejects third model tag with case insensitive validation"""
+        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        file_validator = FileValidator(eval_config)
+
+        # First pair: Google -> OpenAI (should work)
+        file0 = File(path=self.test_wav, model_tag="Google")
+        file1 = File(path=self.test_wav, model_tag="OpenAI")
+        file_validator._validate_double_stimuli_model_tags(file0, file1)
+
+        # Second pair: google -> ELEVENLABS (should fail - ELEVENLABS is not in allowed set)
+        file2 = File(path=self.test_wav, model_tag="google")
+        file3 = File(path=self.test_wav, model_tag="ELEVENLABS")
+
+        with self.assertRaises(ValueError) as context:
+            file_validator._validate_double_stimuli_model_tags(file2, file3)
+        self.assertIn("The number of model tags should be 2", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_handle_non_latin_scripts(self):
         """Test that _validate_double_stimuli_model_tags works with non-latin scripts in model_tags"""

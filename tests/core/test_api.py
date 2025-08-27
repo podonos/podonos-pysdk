@@ -35,7 +35,7 @@ class TestAPIClient(unittest.TestCase):
 
         response = self.client.get("test-endpoint")
         self.assertEqual(response.text, "true")
-        mock_get.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, params=None)
+        mock_get.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, params=None, timeout=(5, 30))
 
     @patch("requests.post")
     def test_post_success(self, mock_post):
@@ -46,7 +46,7 @@ class TestAPIClient(unittest.TestCase):
         data = {"key": "value"}
         response = self.client.post("test-endpoint", data)
         self.assertEqual(response.status_code, 200)
-        mock_post.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, json=data)
+        mock_post.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, json=data, timeout=(5, 30))
 
     @patch("requests.put")
     def test_put_success(self, mock_put):
@@ -57,7 +57,7 @@ class TestAPIClient(unittest.TestCase):
         data = {"key": "value"}
         response = self.client.put("test-endpoint", data)
         self.assertEqual(response.status_code, 200)
-        mock_put.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, json=data)
+        mock_put.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, json=data, timeout=(5, 30))
 
     @patch("podonos.core.api.APIClient._check_minimum_version")
     @patch("podonos.core.api.APIClient.patch")
