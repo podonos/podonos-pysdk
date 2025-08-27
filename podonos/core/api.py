@@ -62,7 +62,7 @@ class APIClient:
         self._max_retries = max_retries
         self._retry_delay = retry_delay
         self._backoff_factor = backoff_factor
-        self._retry_status_codes = retry_status_codes or {500, 502, 503, 504, 429}
+        self._retry_status_codes = retry_status_codes or {500, 502, 503, 504, 429, 408}
 
     @property
     def api_key(self) -> str:
