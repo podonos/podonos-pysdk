@@ -36,14 +36,6 @@ class Client:
         self._ai_evaluation = AIEvaluation(self._api_client)
         self._human_evaluation = HumanEvaluation(self._api_client, self._evaluation_service, self._template_service)
 
-    @property
-    def collection(self) -> CollectionService:
-        return self._collection_service
-
-    @property
-    def script(self) -> ScriptService:
-        return self._script_service
-
     def create_evaluator(
         self,
         name: Optional[str] = None,
