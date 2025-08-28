@@ -1,3 +1,7 @@
+## 0.23.0
+
+- Add `Retry` logic into every API calls
+
 ## 0.21.0
 
 - Add `Retry` logic when calling API
