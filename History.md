@@ -1,3 +1,11 @@
+## 0.23.0
+
+- Add `Retry` logic into every API calls
+- The number of files: 460
+- 100 ms latency / 10% packet loss: 4m 41s
+- 100 ms latency / 20% packet loss: 10m 42s
+- 100 ms latency / 30% packet loss: 21m 22s
+
 ## 0.21.0
 
 - Add `Retry` logic when calling API
