@@ -116,6 +116,89 @@ class TestAPIClient(unittest.TestCase):
         # Test the version string is in the format of "<decimal_version>.<decimal_subversion>"
         self.assertTrue(re.search(r"\d+\.\d+", version_str))
 
+    @patch("requests.get")
+    def test_external_get_success(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        url = "https://external-api.com/data"
+        params = {"key": "value"}
+        headers = {"Custom-Header": "value"}
+        cookies = {"session": "abc123"}
+
+        response = self.client.external_get(url, params=params, headers=headers, cookies=cookies)
+        self.assertEqual(response.status_code, 200)
+        mock_get.assert_called_once_with(url, headers=headers, params=params, cookies=cookies, timeout=(10, 60))
+
+    @patch("requests.put")
+    def test_external_put_with_data_success(self, mock_put):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_put.return_value = mock_response
+
+        url = "https://external-api.com/upload"
+        data = b"file content"
+        headers = {"Content-Type": "application/octet-stream"}
+
+        response = self.client.external_put(url, data=data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        mock_put.assert_called_once_with(url, headers=headers, data=data, timeout=(10, 120))
+
+    @patch("requests.put")
+    def test_external_put_with_json_success(self, mock_put):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_put.return_value = mock_response
+
+        url = "https://external-api.com/upload"
+        json_data = {"key": "value"}
+        headers = {"Content-Type": "application/json"}
+
+        response = self.client.external_put(url, json_data=json_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        mock_put.assert_called_once_with(url, headers=headers, json=json_data, timeout=(10, 120))
+
+    @patch("requests.post")
+    def test_external_post_with_data_success(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        url = "https://external-api.com/submit"
+        data = "form data"
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        response = self.client.external_post(url, data=data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        mock_post.assert_called_once_with(url, headers=headers, data=data, timeout=(10, 60))
+
+    @patch("requests.post")
+    def test_external_post_with_json_success(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        url = "https://external-api.com/submit"
+        json_data = {"key": "value"}
+        headers = {"Content-Type": "application/json"}
+
+        response = self.client.external_post(url, json_data=json_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        mock_post.assert_called_once_with(url, headers=headers, json=json_data, timeout=(10, 60))
+
+    @patch("requests.get")
+    def test_external_get_with_default_headers(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        url = "https://external-api.com/data"
+        response = self.client.external_get(url)
+        self.assertEqual(response.status_code, 200)
+        # Should use empty dict for headers when none provided
+        mock_get.assert_called_once_with(url, headers={}, params=None, cookies=None, timeout=(10, 60))
+
 
 if __name__ == "__main__":
     unittest.main()

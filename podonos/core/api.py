@@ -1,7 +1,5 @@
-import os
 import podonos
 import requests
-import mimetypes
 import importlib.metadata
 import time
 import random
@@ -231,6 +229,63 @@ class APIClient:
 
         def make_request():
             return requests.delete(f"{self._api_url}/{endpoint}", headers=request_header, timeout=(5, 30))
+
+        return self._execute_with_retry(make_request)
+
+    def external_get(
+        self,
+        url: str,
+        params: Optional[Dict[str, str]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        cookies: Optional[Dict[str, str]] = None,
+    ) -> Response:
+        """Make a GET request to an external URL with retry logic."""
+        log.check_notnone(url)
+        log.check_ne(url, "")
+        request_header = headers or {}
+
+        def make_request():
+            return requests.get(url, headers=request_header, params=params, cookies=cookies, timeout=(10, 60))
+
+        return self._execute_with_retry(make_request)
+
+    def external_put(
+        self,
+        url: str,
+        data: Optional[Any] = None,
+        json_data: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Response:
+        """Make a PUT request to an external URL with retry logic."""
+        log.check_notnone(url)
+        log.check_ne(url, "")
+        request_header = headers or {}
+
+        def make_request():
+            if json_data is not None:
+                return requests.put(url, headers=request_header, json=json_data, timeout=(10, 120))
+            else:
+                return requests.put(url, headers=request_header, data=data, timeout=(10, 120))
+
+        return self._execute_with_retry(make_request)
+
+    def external_post(
+        self,
+        url: str,
+        data: Optional[Any] = None,
+        json_data: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Response:
+        """Make a POST request to an external URL with retry logic."""
+        log.check_notnone(url)
+        log.check_ne(url, "")
+        request_header = headers or {}
+
+        def make_request():
+            if json_data is not None:
+                return requests.post(url, headers=request_header, json=json_data, timeout=(10, 60))
+            else:
+                return requests.post(url, headers=request_header, data=data, timeout=(10, 60))
 
         return self._execute_with_retry(make_request)
 

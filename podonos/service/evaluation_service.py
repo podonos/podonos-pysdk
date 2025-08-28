@@ -1,6 +1,5 @@
 import json
 import os
-import requests
 from requests import Response
 from typing import Any, Dict, List, Literal, Optional
 import hashlib
@@ -115,11 +114,11 @@ class EvaluationService:
                 {"files": [audio.to_create_file_dict() for audio in audios]},
             )
             response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
+        except Exception as e:
             log.error(f"HTTP error in adding file meta: {e}")
             raise HTTPError(
                 f"Failed to create evaluation files: {e}",
-                status_code=e.response.status_code if e.response else None,
+                status_code=getattr(e, 'response', {}).get('status_code') if hasattr(e, 'response') else None,
             )
 
     def get_presigned_url(self, evaluation_id: str, remote_object_name: str) -> str:
@@ -144,17 +143,18 @@ class EvaluationService:
         log.check(os.access(path, os.R_OK), f"{path} isn't readable")
 
         try:
-            response = requests.put(
-                url,
-                data=open(path, "rb"),
-                headers={"Content-Type": get_content_type_by_filename(path)},
-            )
+            with open(path, "rb") as file:
+                response = self.api_client.external_put(
+                    url,
+                    data=file,
+                    headers={"Content-Type": get_content_type_by_filename(path)},
+                )
             return response
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             log.error(f"HTTP error in uploading a file to presigned URL: {e}")
             raise HTTPError(
                 f"Failed to Upload File {path}: {e}",
-                status_code=e.response.status_code if e.response else None,
+                status_code=getattr(e, 'response', {}).get('status_code') if hasattr(e, 'response') else None,
             )
 
     def upload_session_json(self, evaluation_id: str, config: EvalConfig, audio_groups: List[AudioGroup]) -> None:
@@ -176,18 +176,17 @@ class EvaluationService:
             log.debug(f"{key}: {value}")
         if headers:
             log.debug("Headers")
-            for key, value in data.items():
+            for key, value in headers.items():
                 log.debug(f"{key}: {value}")
 
         try:
-            response = requests.put(url, json=data, headers=headers)
-            response.raise_for_status()
+            response = self.api_client.external_put(url, json_data=data, headers=headers)
             return response
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             log.error(f"HTTP error in uploading a json to presigned url: {e}")
             raise HTTPError(
                 f"Failed to Upload JSON {data}: {e}",
-                status_code=e.response.status_code if e.response else None,
+                status_code=getattr(e, 'response', {}).get('status_code') if hasattr(e, 'response') else None,
             )
 
     def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
@@ -208,7 +207,10 @@ class EvaluationService:
             # Download each file using the original URL and cookies
             for file in tqdm(download_response["files"], desc="Downloading files", unit="file"):
                 # Download the file using the original URL and cookies
-                file_response = requests.get(file["original_url"], cookies=download_response["cookie"])
+                file_response = self.api_client.external_get(
+                    file["original_url"], 
+                    cookies=download_response["cookie"]
+                )
                 file_response.raise_for_status()
 
                 content_type = file_response.headers.get("Content-Type")

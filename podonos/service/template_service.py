@@ -1,10 +1,9 @@
-import requests
 from typing import List, Optional
-from requests import HTTPError
 from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.core.template import Template
 from podonos.core.types import TemplateOption, TemplateQuestion
+from podonos.common.exception import HTTPError
 
 
 class TemplateService:
@@ -102,7 +101,7 @@ class TemplateService:
         """
         try:
             with open(file_path, "rb") as file:
-                upload_response = requests.put(url, data=file)
+                upload_response = self.api_client.external_put(url, data=file)
                 upload_response.raise_for_status()
 
             log.debug(f"Successfully uploaded reference file {file_path} of Template by url")
