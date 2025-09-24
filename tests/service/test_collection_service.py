@@ -48,13 +48,28 @@ class TestCollectionService(unittest.TestCase):
         self.assertEqual(collection.id, "test_collection_id")
         self.assertEqual(collection.name, "Test Collection")
 
+    def test_should_raise_error_when_create_collection_with_non_en_us_language(self):
+        """Test that collection creation fails with non-en-us languages including en-in"""
+        # Test with en-in language (should fail)
+        with self.assertRaises(Exception) as context:
+            self.service.create(
+                name="Test Collection EN-IN",
+                desc="Test Description for Indian English",
+                lan=Language.ENGLISH_INDIA.value,
+                num_required_people=10,
+                target=CollectionTarget.AUDIO.value,
+            )
+
+        # The error should be raised during validation
+        self.assertIsNotNone(context.exception)
+
     def test_should_raise_error_when_create_collection_with_empty_name(self):
         # Given
         name = ""
 
         # When/Then
         with self.assertRaises(Exception):
-            self.service.create(name="")
+            self.service.create(name=name)
 
     def test_should_raise_error_when_create_collection_fails(self):
         # Given
