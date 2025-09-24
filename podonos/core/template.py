@@ -27,7 +27,7 @@ class Template:
     updated_time: Optional[datetime] = None
 
     @staticmethod
-    def from_api_response(data: dict[str, Any]) -> "Template":
+    def from_api_response(data: Dict[str, Any]) -> "Template":
         """Create Template instance from API response."""
         required_keys = [
             "id",
@@ -119,7 +119,7 @@ class TemplateValidator:
         return instructions, core_questions
 
     @staticmethod
-    def process_questions(data: dict[TYPE_OF_TEMPLATE_KEY, Any], key: str, expected_types: List[type], batch_size: int) -> List[TemplateQuestion]:
+    def process_questions(data: Dict[TYPE_OF_TEMPLATE_KEY, Any], key: str, expected_types: List[type], batch_size: int) -> List[TemplateQuestion]:
         """
         Process questions from the given data dictionary.
 

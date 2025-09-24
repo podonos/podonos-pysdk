@@ -194,7 +194,7 @@ class EvaluationService:
         try:
             # Get the response from the API
             log.debug(f"Download evaluation files for evaluation {evaluation_id}")
-            file_mata_json: dict[str, list[dict[str, Any]]] = {"files": []}
+            file_mata_json: Dict[str, List[Dict[str, Any]]] = {"files": []}
             response = self.api_client.get(f"evaluation-files/download?evaluation-id={evaluation_id}")
             response.raise_for_status()
 

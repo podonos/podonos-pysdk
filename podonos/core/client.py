@@ -4,7 +4,6 @@ from podonos.core.api import APIClient
 from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
 from podonos.core.evaluator import Evaluator
-from podonos.core.template import Template
 from podonos.evaluation import AIEvaluation, HumanEvaluation
 from podonos.service import CollectionService, EvaluationService, ScriptService, TemplateService
 
@@ -129,7 +128,7 @@ class Client:
 
     def create_evaluator_from_template_json(
         self,
-        json: Optional[Dict] = None,
+        json: Optional[Dict[str, Any]] = None,
         json_file: Optional[str] = None,
         name: Optional[str] = None,
         custom_type: Union[Literal["SINGLE"], Literal["DOUBLE"]] = "SINGLE",
@@ -169,7 +168,17 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         return self._human_evaluation.create_from_template_json(
-            json, json_file, name, custom_type, desc, lan, num_eval, use_annotation, use_loudness_normalization, auto_start, max_upload_workers
+            json=json,
+            json_file=json_file,
+            name=name,
+            custom_type=custom_type,
+            desc=desc,
+            lan=lan,
+            num_eval=num_eval,
+            use_annotation=use_annotation,
+            use_loudness_normalization=use_loudness_normalization,
+            auto_start=auto_start,
+            max_upload_workers=max_upload_workers,
         )
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:

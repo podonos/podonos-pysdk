@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from natsort import natsorted, ns
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.util import generate_random_group_name, generate_random_name, process_paths_to_posix

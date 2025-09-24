@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from podonos.common.enum import QuestionResponseCategory, QuestionUsageType, QuestionRelatedModel
 
 
@@ -8,7 +8,7 @@ class QuestionMetadataPosition:
     left: str = field(default_factory=str)
     right: str = field(default_factory=str)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {"left": self.left, "right": self.right}
 
 
@@ -23,7 +23,7 @@ class QuestionMetadataLinearScale:
 class QuestionMetadataColumn:
     linear_scale: QuestionMetadataLinearScale = field(default_factory=QuestionMetadataLinearScale)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "linear_scale": {
                 "title": self.linear_scale.title,
@@ -42,7 +42,7 @@ class TemplateOption:
     id: Optional[str] = None
     reference_file: Optional[str] = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {"id": self.id, "value": self.value, "label_text": self.label_text, "label_uri": self.label_uri, "order": self.order}
 
 
@@ -62,7 +62,7 @@ class TemplateQuestion:
     reference_file: Optional[str] = None
     id: Optional[str] = None
 
-    def to_create_dict(self) -> dict:
+    def to_create_dict(self) -> Dict[str, Any]:
         return {
             "title": self.title,
             "description": self.description,
@@ -76,5 +76,5 @@ class TemplateQuestion:
             "meta_data": self.meta_data.to_dict() if self.meta_data else None,
         }
 
-    def to_option_bulk_request(self) -> dict:
+    def to_option_bulk_request(self) -> Dict[str, Any]:
         return {"template_question_id": self.id, "options": [opt.to_dict() for opt in (self.options or [])]}

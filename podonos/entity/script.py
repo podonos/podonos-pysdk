@@ -21,7 +21,7 @@ class ScriptEntity:
     updated_time: datetime
 
     @staticmethod
-    def from_dict(data: dict[str, Any]) -> "ScriptEntity":
+    def from_dict(data: Dict[str, Any]) -> "ScriptEntity":
         return ScriptEntity(
             id=data["id"],
             collection_id=data["collection_id"],

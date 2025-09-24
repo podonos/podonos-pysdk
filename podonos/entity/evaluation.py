@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 from datetime import datetime
 
 
@@ -15,7 +15,7 @@ class EvaluationEntity:
     updated_time: datetime
 
     @staticmethod
-    def from_dict(data: dict[str, Any]) -> "EvaluationEntity":
+    def from_dict(data: Dict[str, Any]) -> "EvaluationEntity":
         required_keys = ["id", "title", "batch_size", "status", "created_time", "updated_time"]
         for key in required_keys:
             if key not in data:
@@ -32,7 +32,7 @@ class EvaluationEntity:
             updated_time=datetime.fromisoformat(data["updated_time"].replace("Z", "+00:00")),
         )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         created_time_str = self.created_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         updated_time_str = self.updated_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         return {

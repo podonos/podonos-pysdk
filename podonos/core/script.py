@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Any
+from typing import List, Any, Dict
 
 
 @dataclass
@@ -7,7 +7,7 @@ class ScriptCreateRequestDto:
     collection_id: str
     texts: List[str]
 
-    def to_create_request_dto(self) -> dict[str, Any]:
+    def to_create_request_dto(self) -> Dict[str, Any]:
         return {
             "collection_id": self.collection_id,
             "texts": self.texts,

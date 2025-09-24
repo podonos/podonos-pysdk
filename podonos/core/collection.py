@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 
 from podonos.common.enum import CollectionTarget, Language
 
@@ -15,7 +15,7 @@ class CollectionCreateRequestDto:
     def get_language(self) -> Language:
         return Language(self.language)
 
-    def to_create_request_dto(self) -> dict[str, Any]:
+    def to_create_request_dto(self) -> Dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
