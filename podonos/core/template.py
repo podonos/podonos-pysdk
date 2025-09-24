@@ -1,12 +1,11 @@
 import json as json_lib
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Optional, List, Dict, Any, Tuple
 
 from podonos.common.enum import Language
 from podonos.core.base import *
-from podonos.core.config import EvalConfigDefault
 from podonos.core.types import TemplateQuestion
 from podonos.core.query import NonScoredQuestion, Question, Instruction, ComparisonQuestion, ScoredQuestion
 
@@ -28,7 +27,7 @@ class Template:
     updated_time: Optional[datetime] = None
 
     @staticmethod
-    def from_api_response(data: dict) -> "Template":
+    def from_api_response(data: dict[str, Any]) -> "Template":
         """Create Template instance from API response."""
         required_keys = [
             "id",
@@ -60,7 +59,7 @@ class TemplateJsonLoader:
     """Loader class for template JSON data"""
 
     @staticmethod
-    def load_json(json: Optional[Dict] = None, json_file: Optional[str] = None) -> Dict[TYPE_OF_TEMPLATE_KEY, Any]:
+    def load_json(json: Optional[Dict[str, Any]] = None, json_file: Optional[str] = None) -> Dict[TYPE_OF_TEMPLATE_KEY, Any]:
         """Load template JSON data from a file"""
         # Validate input parameters
         if json is None and json_file is None:
@@ -120,7 +119,7 @@ class TemplateValidator:
         return instructions, core_questions
 
     @staticmethod
-    def process_questions(data: dict, key: str, expected_types: List[type], batch_size: int) -> List[TemplateQuestion]:
+    def process_questions(data: dict[TYPE_OF_TEMPLATE_KEY, Any], key: str, expected_types: List[type], batch_size: int) -> List[TemplateQuestion]:
         """
         Process questions from the given data dictionary.
 
@@ -144,7 +143,7 @@ class TemplateValidator:
             raise ValueError(f"{key.capitalize()} must be in a list format")
 
         log.debug(f"Processing {len(data[key])} {key}...")
-        questions = []
+        questions: List[TemplateQuestion] = []
         for i, q_data in enumerate(data[key]):
             try:
                 question = Question.from_dict(q_data, batch_size)
