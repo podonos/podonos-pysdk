@@ -166,6 +166,7 @@ class EvalConfig:
             Language.ENGLISH_AUSTRALIAN.value,
             Language.ENGLISH_BRITISH.value,
             Language.ENGLISH_CANADIAN.value,
+            Language.ENGLISH_INDIA.value,
             Language.KOREAN.value,
             Language.MANDARIN.value,
             Language.SPANISH_SPAIN.value,
@@ -196,7 +197,7 @@ class EvalConfig:
 
     def _validate_eval_granularity(self, granularity: float) -> float:
         if granularity not in [0.5, 1.0]:
-            raise ValueError(f'"granularity" must be one of 0.5 and 1.9')
+            raise ValueError(f'"granularity" must be one of 0.5 and 1.0')
         return granularity
 
     def _validate_eval_batch_size(self, eval_type: str) -> int:

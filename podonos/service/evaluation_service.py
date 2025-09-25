@@ -118,7 +118,7 @@ class EvaluationService:
             log.error(f"HTTP error in adding file meta: {e}")
             raise HTTPError(
                 f"Failed to create evaluation files: {e}",
-                status_code=getattr(e, 'response', {}).get('status_code') if hasattr(e, 'response') else None,
+                status_code=getattr(e, "response", {}).get("status_code") if hasattr(e, "response") else None,
             )
 
     def get_presigned_url(self, evaluation_id: str, remote_object_name: str) -> str:
@@ -154,7 +154,7 @@ class EvaluationService:
             log.error(f"HTTP error in uploading a file to presigned URL: {e}")
             raise HTTPError(
                 f"Failed to Upload File {path}: {e}",
-                status_code=getattr(e, 'response', {}).get('status_code') if hasattr(e, 'response') else None,
+                status_code=getattr(e, "response", {}).get("status_code") if hasattr(e, "response") else None,
             )
 
     def upload_session_json(self, evaluation_id: str, config: EvalConfig, audio_groups: List[AudioGroup]) -> None:
@@ -186,7 +186,7 @@ class EvaluationService:
             log.error(f"HTTP error in uploading a json to presigned url: {e}")
             raise HTTPError(
                 f"Failed to Upload JSON {data}: {e}",
-                status_code=getattr(e, 'response', {}).get('status_code') if hasattr(e, 'response') else None,
+                status_code=getattr(e, "response", {}).get("status_code") if hasattr(e, "response") else None,
             )
 
     def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
@@ -194,7 +194,7 @@ class EvaluationService:
         try:
             # Get the response from the API
             log.debug(f"Download evaluation files for evaluation {evaluation_id}")
-            file_mata_json = {"files": []}
+            file_mata_json: Dict[str, List[Dict[str, Any]]] = {"files": []}
             response = self.api_client.get(f"evaluation-files/download?evaluation-id={evaluation_id}")
             response.raise_for_status()
 
@@ -207,10 +207,7 @@ class EvaluationService:
             # Download each file using the original URL and cookies
             for file in tqdm(download_response["files"], desc="Downloading files", unit="file"):
                 # Download the file using the original URL and cookies
-                file_response = self.api_client.external_get(
-                    file["original_url"], 
-                    cookies=download_response["cookie"]
-                )
+                file_response = self.api_client.external_get(file["original_url"], cookies=download_response["cookie"])
                 file_response.raise_for_status()
 
                 content_type = file_response.headers.get("Content-Type")

@@ -204,20 +204,16 @@ class TestEvaluationService(unittest.TestCase):
         self.mock_api_client.get.assert_called_once_with(f"evaluations/{evaluation_id}/stats?group-by=question")
         self.assertEqual(stats, expected_stats)
 
-    @patch('os.makedirs')
-    @patch('builtins.open', create=True)
-    @patch('json.dump')
+    @patch("os.makedirs")
+    @patch("builtins.open", create=True)
+    @patch("json.dump")
     def test_download_evaluation_files_by_evaluation_id_success(self, mock_json_dump, mock_open, mock_makedirs):
         # Given
         evaluation_id = "test_evaluation_id"
         output_dir = "./output"
         expected_response = {
             "evaluation_id": evaluation_id,
-            "cookie": {
-                "CloudFront-Policy": "test_policy",
-                "CloudFront-Signature": "test_signature",
-                "CloudFront-Key-Pair-Id": "test_key_pair_id"
-            },
+            "cookie": {"CloudFront-Policy": "test_policy", "CloudFront-Signature": "test_signature", "CloudFront-Key-Pair-Id": "test_key_pair_id"},
             "files": [
                 {
                     "evaluation_file_id": "file1_id",
@@ -225,7 +221,7 @@ class TestEvaluationService(unittest.TestCase):
                     "original_name": "file1.wav",
                     "original_url": "https://example.com/file1.wav",
                     "model_tag": "model1",
-                    "tags": ["tag1", "tag2"]
+                    "tags": ["tag1", "tag2"],
                 },
                 {
                     "evaluation_file_id": "file2_id",
@@ -233,19 +229,19 @@ class TestEvaluationService(unittest.TestCase):
                     "original_name": "file2.wav",
                     "original_url": "https://example.com/file2.wav",
                     "model_tag": "model2",
-                    "tags": ["tag3", "tag4"]
-                }
-            ]
+                    "tags": ["tag3", "tag4"],
+                },
+            ],
         }
-        
+
         # Mock API responses
         self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_response)
-        
+
         # Mock external_get responses for file downloads
         mock_file_response1 = Mock(status_code=200, content=b"test_content1", headers={"Content-Type": "audio/wav"})
         mock_file_response2 = Mock(status_code=200, content=b"test_content2", headers={"Content-Type": "audio/wav"})
         self.mock_api_client.external_get.side_effect = [mock_file_response1, mock_file_response2]
-        
+
         # Mock file operations
         mock_file = Mock()
         mock_open.return_value.__enter__.return_value = mock_file
@@ -258,34 +254,30 @@ class TestEvaluationService(unittest.TestCase):
         self.assertEqual(self.mock_api_client.external_get.call_count, 2)
         self.assertEqual(result, "Files downloaded successfully.")
 
-    @patch('os.path.isfile')
-    @patch('os.access')
+    @patch("os.path.isfile")
+    @patch("os.access")
     def test_should_upload_evaluation_file_successfully(self, mock_access, mock_isfile):
         # Given
         url = "https://presigned-url.com/upload"
         path = "/tmp/test.wav"
-        
+
         # Mock file existence and access checks
         mock_isfile.return_value = True
         mock_access.return_value = True
-        
+
         # Mock the file operations
-        with patch('builtins.open', create=True) as mock_open:
+        with patch("builtins.open", create=True) as mock_open:
             mock_file = Mock()
             mock_open.return_value.__enter__.return_value = mock_file
-            
+
             mock_response = Mock(status_code=200)
             self.mock_api_client.external_put.return_value = mock_response
-            
+
             # When
             response = self.service.upload_evaluation_file(url, path)
-            
+
             # Then
-            self.mock_api_client.external_put.assert_called_once_with(
-                url, 
-                data=mock_file, 
-                headers={"Content-Type": "audio/wav"}
-            )
+            self.mock_api_client.external_put.assert_called_once_with(url, data=mock_file, headers={"Content-Type": "audio/wav"})
             self.assertEqual(response, mock_response)
 
     def test_should_upload_session_json_successfully(self):
@@ -293,59 +285,51 @@ class TestEvaluationService(unittest.TestCase):
         url = "https://presigned-url.com/session.json"
         data = {"key": "value", "files": []}
         headers = {"Content-Type": "application/json"}
-        
+
         mock_response = Mock(status_code=200)
         self.mock_api_client.external_put.return_value = mock_response
-        
+
         # When
         response = self.service.put_session_json(url, data, headers)
-        
+
         # Then
-        self.mock_api_client.external_put.assert_called_once_with(
-            url, 
-            json_data=data, 
-            headers=headers
-        )
+        self.mock_api_client.external_put.assert_called_once_with(url, json_data=data, headers=headers)
         self.assertEqual(response, mock_response)
 
     def test_should_upload_session_json_without_headers(self):
         # Given
         url = "https://presigned-url.com/session.json"
         data = {"key": "value", "files": []}
-        
+
         mock_response = Mock(status_code=200)
         self.mock_api_client.external_put.return_value = mock_response
-        
+
         # When
         response = self.service.put_session_json(url, data)
-        
+
         # Then
-        self.mock_api_client.external_put.assert_called_once_with(
-            url, 
-            json_data=data, 
-            headers=None
-        )
+        self.mock_api_client.external_put.assert_called_once_with(url, json_data=data, headers=None)
         self.assertEqual(response, mock_response)
 
-    @patch('os.path.isfile')
-    @patch('os.access')
+    @patch("os.path.isfile")
+    @patch("os.access")
     def test_should_handle_upload_evaluation_file_failure(self, mock_access, mock_isfile):
         # Given
         url = "https://presigned-url.com/upload"
         path = "/tmp/test.wav"
-        
+
         # Mock file existence and access checks
         mock_isfile.return_value = True
         mock_access.return_value = True
-        
-        with patch('builtins.open', create=True) as mock_open:
+
+        with patch("builtins.open", create=True) as mock_open:
             mock_file = Mock()
             mock_open.return_value.__enter__.return_value = mock_file
-            
+
             error_response = Mock()
             error_response.status_code = 500
             self.mock_api_client.external_put.side_effect = Exception("Upload failed")
-            
+
             # When/Then
             with self.assertRaises(HTTPError) as context:
                 self.service.upload_evaluation_file(url, path)
@@ -355,9 +339,9 @@ class TestEvaluationService(unittest.TestCase):
         # Given
         url = "https://presigned-url.com/session.json"
         data = {"key": "value"}
-        
+
         self.mock_api_client.external_put.side_effect = Exception("JSON upload failed")
-        
+
         # When/Then
         with self.assertRaises(HTTPError) as context:
             self.service.put_session_json(url, data)
@@ -370,19 +354,19 @@ class TestEvaluationService(unittest.TestCase):
         mock_audio_group = Mock()
         mock_audio_group.to_dict.return_value = {"group": "test", "files": []}
         audio_groups = [mock_audio_group]  # type: ignore
-        
+
         # Mock the presigned URL response
         mock_presigned_response = Mock()
         mock_presigned_response.text = '"https://presigned-url.com/session.json"'
         self.mock_api_client.put.return_value = mock_presigned_response
-        
+
         # Mock the external put for session JSON
         mock_response = Mock(status_code=200)
         self.mock_api_client.external_put.return_value = mock_response
-        
+
         # When
         self.service.upload_session_json(evaluation_id, config, audio_groups)  # type: ignore
-        
+
         # Then
         self.mock_api_client.put.assert_called_once()
         self.mock_api_client.external_put.assert_called_once()
@@ -394,9 +378,9 @@ class TestEvaluationService(unittest.TestCase):
         mock_audio_group = Mock()
         mock_audio_group.to_dict.return_value = {"group": "test", "files": []}
         audio_groups = [mock_audio_group]  # type: ignore
-        
+
         self.mock_api_client.put.side_effect = Exception("Failed to get presigned URL")
-        
+
         # When/Then
         with self.assertRaises(HTTPError) as context:
             self.service.upload_session_json(evaluation_id, config, audio_groups)  # type: ignore
@@ -407,17 +391,16 @@ class TestEvaluationService(unittest.TestCase):
         evaluation_id = "test_eval_id"
         remote_object_name = "test.wav"
         expected_url = "https://presigned-url.com/upload"
-        
+
         mock_response = Mock(status_code=200, text=f'"{expected_url}"')
         self.mock_api_client.put.return_value = mock_response
-        
+
         # When
         result = self.service.get_presigned_url(evaluation_id, remote_object_name)
-        
+
         # Then
         self.mock_api_client.put.assert_called_once_with(
-            f"evaluations/{evaluation_id}/uploading-presigned-url",
-            data={"uploaded_file_name": remote_object_name}
+            f"evaluations/{evaluation_id}/uploading-presigned-url", data={"uploaded_file_name": remote_object_name}
         )
         self.assertEqual(result, expected_url)
 
@@ -425,13 +408,90 @@ class TestEvaluationService(unittest.TestCase):
         # Given
         evaluation_id = "test_eval_id"
         remote_object_name = "test.wav"
-        
+
         self.mock_api_client.put.side_effect = Exception("Failed to get presigned URL")
-        
+
         # When/Then
         with self.assertRaises(HTTPError) as context:
             self.service.get_presigned_url(evaluation_id, remote_object_name)
         self.assertIn("Failed to get presigned URL", str(context.exception))
+
+    def test_should_create_evaluation_with_en_in_language(self):
+        """Test creating evaluation with en-in language"""
+        # Given
+        expected_eval_id = "test_en_in_eval_id"
+        current_time = datetime.now(timezone.utc)
+        expected_response = {
+            "id": expected_eval_id,
+            "title": "Test EN-IN Evaluation",
+            "internal_name": "test_en_internal",
+            "description": "Test description for Indian English",
+            "batch_size": 10,
+            "status": "ACTIVE",
+            "created_time": current_time.isoformat(),
+            "updated_time": current_time.isoformat(),
+        }
+        self.mock_api_client.post.return_value = Mock(status_code=200, json=lambda: expected_response)
+
+        # Create config with en-in language
+        en_in_eval_config = EvalConfig(
+            name="test_en_in_eval", type=EvalType.NMOS.value, lan=Language.ENGLISH_INDIA.value, granularity=0.5, num_eval=10
+        )
+
+        # When
+        evaluation = self.service.create(en_in_eval_config)
+
+        # Then
+        self.mock_api_client.post.assert_called_once()
+        self.assertEqual(evaluation.id, expected_eval_id)
+        self.assertEqual(evaluation.status, "ACTIVE")
+
+    def test_should_create_evaluation_files_with_en_in_language_context(self):
+        """Test creating evaluation files with en-in language context"""
+        # Given
+        eval_id = "test_en_in_eval_id"
+        expected_response = {"message": "Files created successfully for Indian English evaluation"}
+        self.mock_api_client.put.return_value = Mock(status_code=200, json=lambda: expected_response)
+
+        # Create test audio with en-in context
+        en_in_test_audio = Audio(
+            path=TESTDATA_SPEECH_TWO_CH1_WAV,
+            name="speech_en_in_ch1.wav",
+            remote_object_name="remote/speech_en_in_ch1.wav",
+            script="test script for Indian English",
+            tags=["test", "en-in"],
+            model_tag="test_model_en_in",
+            is_ref=False,
+            group="test_group_en_in",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
+
+        # When
+        self.service.create_evaluation_files(eval_id, [en_in_test_audio])
+
+        # Then
+        self.mock_api_client.put.assert_called_once()
+
+    def test_should_get_presigned_url_with_en_in_language_context(self):
+        """Test getting presigned URL with en-in language context"""
+        # Given
+        evaluation_id = "test_en_in_eval_id"
+        remote_object_name = "test_en_in.wav"
+        expected_url = "https://presigned-url.com/upload-en-in"
+
+        mock_response = Mock(status_code=200, text=f'"{expected_url}"')
+        self.mock_api_client.put.return_value = mock_response
+
+        # When
+        result = self.service.get_presigned_url(evaluation_id, remote_object_name)
+
+        # Then
+        self.mock_api_client.put.assert_called_once_with(
+            f"evaluations/{evaluation_id}/uploading-presigned-url", data={"uploaded_file_name": remote_object_name}
+        )
+        self.assertEqual(result, expected_url)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 from unittest.mock import patch, MagicMock
+from typing import Any
 
 
 import podonos
@@ -12,9 +13,9 @@ from podonos.core.client import Client
 from podonos.core.evaluator import Evaluator
 
 
-def mocked_requests_post(*args, **kwargs):
+def mocked_requests_post(*args: Any, **kwargs: Any):
     class MockResponse:
-        def __init__(self, response_text, response_json, status_code):
+        def __init__(self, response_text: Any, response_json: Any, status_code: Any):
             self.text = response_text
             self.json_response = response_json
             self.status_code = status_code
@@ -43,9 +44,9 @@ def mocked_requests_post(*args, **kwargs):
 
 
 # Mocks HTTP GET request.
-def mocked_requests_get(*args, **kwargs):
+def mocked_requests_get(*args: Any, **kwargs: Any):
     class MockResponse:
-        def __init__(self, response_text, response_json, status_code):
+        def __init__(self, response_text: Any, response_json: Any, status_code: Any):
             self.text = response_text
             self.json_response = response_json
             self.status_code = status_code
@@ -176,7 +177,7 @@ class TestEvaluationClient(unittest.TestCase):
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
-    def test_single_stimulus_evaluator_creation(self, mock_get, mock_post):
+    def test_single_stimulus_evaluator_creation(self, mock_get: Any, mock_post: Any):
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         name = "good_test"
         desc = "detailed description"
@@ -198,11 +199,11 @@ class TestEvaluationClient(unittest.TestCase):
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
-        self.assertTrue(isinstance(etor, Evaluator))
+        self.assertTrue(isinstance(etor, Evaluator))  # type: ignore
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
-    def test_double_stimuli_evaluator_creation(self, mock_get, mock_post):
+    def test_double_stimuli_evaluator_creation(self, mock_get: Any, mock_post: Any):
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         name = "good_test"
         desc = "detailed description"
@@ -224,13 +225,90 @@ class TestEvaluationClient(unittest.TestCase):
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
         )
-        self.assertTrue(isinstance(etor, Evaluator))
+        self.assertTrue(isinstance(etor, Evaluator))  # type: ignore
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
-    def test_evaluation_list(self, mock_get):
+    @mock.patch("requests.post", side_effect=mocked_requests_post)
+    def test_single_stimulus_evaluator_creation_with_en_in_language(self, mock_get: Any, mock_post: Any):
+        """Test single stimulus evaluator creation with en-in language"""
+        self._mock_client = podonos.init(api_key=self.valid_api_key)
+        name = "en_in_test"
+        desc = "detailed description for Indian English"
+        type = "NMOS"
+        lan = "en-in"  # Indian English
+        granularity = 1.0
+        num_eval = 8
+        due_hours = 12
+        auto_start = False
+        max_upload_workers = 10
+        etor = self._mock_client.create_evaluator(
+            name=name,
+            desc=desc,
+            type=type,
+            lan=lan,
+            granularity=granularity,
+            num_eval=num_eval,
+            due_hours=due_hours,
+            auto_start=auto_start,
+            max_upload_workers=max_upload_workers,
+        )
+        self.assertTrue(isinstance(etor, Evaluator))  # type: ignore
+
+    @mock.patch("requests.get", side_effect=mocked_requests_get)
+    @mock.patch("requests.post", side_effect=mocked_requests_post)
+    def test_double_stimuli_evaluator_creation_with_en_in_language(self, mock_get: Any, mock_post: Any):
+        """Test double stimuli evaluator creation with en-in language"""
+        self._mock_client = podonos.init(api_key=self.valid_api_key)
+        name = "en_in_double_test"
+        desc = "detailed description for Indian English double stimuli"
+        type = "PREF"
+        lan = "en-in"  # Indian English
+        granularity = 1.0
+        num_eval = 5
+        due_hours = 12
+        auto_start = False
+        max_upload_workers = 10
+        etor = self._mock_client.create_evaluator(
+            name=name,
+            desc=desc,
+            type=type,
+            lan=lan,
+            granularity=granularity,
+            num_eval=num_eval,
+            due_hours=due_hours,
+            auto_start=auto_start,
+            max_upload_workers=max_upload_workers,
+        )
+        self.assertTrue(isinstance(etor, Evaluator))  # type: ignore
+
+    @mock.patch("requests.get", side_effect=mocked_requests_get)
+    @mock.patch("requests.post", side_effect=mocked_requests_post)
+    def test_evaluator_creation_with_all_eval_types_en_in_language(self, mock_get: Any, mock_post: Any):
+        """Test evaluator creation with all evaluation types using en-in language"""
+        self._mock_client = podonos.init(api_key=self.valid_api_key)
+
+        # Test all evaluation types with en-in language
+        eval_types = ["NMOS", "QMOS", "SMOS", "P808", "PREF", "CSMOS", "CUSTOM_SINGLE", "CUSTOM_DOUBLE"]
+
+        for eval_type in eval_types:
+            etor = self._mock_client.create_evaluator(
+                name=f"en_in_{eval_type.lower()}_test",
+                desc=f"Test {eval_type} evaluation for Indian English",
+                type=eval_type,
+                lan="en-in",
+                granularity=1.0,
+                num_eval=5,
+                due_hours=12,
+                auto_start=False,
+                max_upload_workers=10,
+            )
+            self.assertTrue(isinstance(etor, Evaluator))  # type: ignore
+
+    @mock.patch("requests.get", side_effect=mocked_requests_get)
+    def test_evaluation_list(self, mock_get: Any):
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         response = self._mock_client.get_evaluation_list()
-        self.assertTrue(isinstance(response, list))
+        self.assertTrue(isinstance(response, list))  # type: ignore
         self.assertTrue(len(response) > 0)
         json = response[0]
         self.assertTrue("id" in json)
@@ -242,10 +320,10 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue("updated_time" in json)
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
-    def test_stimulus_stats_by_id(self, mock_get):
+    def test_stimulus_stats_by_id(self, mock_get: Any):
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         response = self._mock_client.get_stats_json_by_id(evaluation_id="mock_id")
-        self.assertTrue(isinstance(response, list))
+        self.assertTrue(isinstance(response, list))  # type: ignore
         self.assertTrue(len(response) > 0)
 
         json = response[0]
@@ -272,7 +350,7 @@ class TestEvaluationClient(unittest.TestCase):
                 self.assertTrue(isinstance(json[stat], (int, float)))
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
-    def test_eval_template_info(self, mock_get):
+    def test_eval_template_info(self, mock_get: Any):
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         response = self._mock_client.get_eval_template_info("mock_id")
 
@@ -290,7 +368,7 @@ class TestEvaluationClient(unittest.TestCase):
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
     @mock.patch("requests.put")
-    def test_create_evaluator_from_template_json_single(self, mock_put, mock_post, mock_get):
+    def test_create_evaluator_from_template_json_single(self, mock_put: Any, mock_post: Any, mock_get: Any):
         # Given
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         json_path = self.create_temp_json_file(is_single=True)
@@ -308,7 +386,7 @@ class TestEvaluationClient(unittest.TestCase):
             )
 
             # Then
-            self.assertIsInstance(evaluator, Evaluator)
+            self.assertIsInstance(evaluator, Evaluator)  # type: ignore
             self.assertTrue(mock_put.call_count >= 2)
 
         finally:
@@ -317,7 +395,7 @@ class TestEvaluationClient(unittest.TestCase):
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
     @mock.patch("requests.put")
-    def test_create_evaluator_from_template_json_double(self, mock_put, mock_post, mock_get):
+    def test_create_evaluator_from_template_json_double(self, mock_put: Any, mock_post: Any, mock_get: Any):
         # Given
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         json_path = self.create_temp_json_file(is_single=False)
@@ -343,7 +421,7 @@ class TestEvaluationClient(unittest.TestCase):
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
-    def test_create_evaluator_from_template_json_invalid_file(self, mock_post, mock_get):
+    def test_create_evaluator_from_template_json_invalid_file(self, mock_post: Any, mock_get: Any):
         # Given
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         non_existent_path = "/path/to/nonexistent/file.json"
@@ -354,7 +432,7 @@ class TestEvaluationClient(unittest.TestCase):
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
-    def test_create_evaluator_from_template_json_invalid_json(self, mock_post, mock_get):
+    def test_create_evaluator_from_template_json_invalid_json(self, mock_post: Any, mock_get: Any):
         # Given
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -384,18 +462,18 @@ class TestEvaluationClientApiKey(unittest.TestCase):
         cls.env.stop()
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
-    def test_env_api_key_only(self, mock_get):
+    def test_env_api_key_only(self, mock_get: Any):
         api_key_env = os.getenv("PODONOS_API_KEY")
         self.assertEqual(api_key_env, "ABCD123ENV")
         mock_client = podonos.init()
-        self.assertTrue(isinstance(mock_client, Client))
+        self.assertTrue(isinstance(mock_client, Client))  # type: ignore
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
-    def test_both_keys(self, mock_get):
+    def test_both_keys(self, mock_get: Any):
         api_key_env = os.getenv("PODONOS_API_KEY")
         self.assertEqual(api_key_env, "ABCD123ENV")
         mock_client = podonos.init(api_key="ABCD123PARAM")
-        self.assertTrue(isinstance(mock_client, Client))
+        self.assertTrue(isinstance(mock_client, Client))  # type: ignore
 
 
 class TestClient(unittest.TestCase):
@@ -483,6 +561,56 @@ class TestClient(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.client.create_evaluator_from_template_json(json=self.template_data, name="Test", custom_type="TRIPLE")  # type: ignore
         self.assertIn('custom_type must be either "SINGLE" or "DOUBLE"', str(context.exception))
+
+    def test_create_evaluator_from_json_dict_with_en_in_language(self):
+        """Test creating evaluator from JSON dict with en-in language"""
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        self.api_client.post.return_value = mock_post_response
+
+        mock_put_response = MagicMock(status_code=200)
+        mock_put_response.json.return_value = [{"id": "question_1"}]
+        self.api_client.put.return_value = mock_put_response
+
+        # When
+        evaluator = self.client.create_evaluator_from_template_json(
+            json=self.template_data, name="Test EN-IN Evaluation", custom_type="SINGLE", desc="Test Description for Indian English"
+        )
+
+        # Then
+        self.assertIsInstance(evaluator, Evaluator)
+        self.api_client.post.assert_called_once()
+        self.assertTrue(self.api_client.put.call_count >= 1)
+
+    def test_create_evaluator_from_json_file_with_en_in_language(self):
+        """Test creating evaluator from JSON file with en-in language"""
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        self.api_client.post.return_value = mock_post_response
+
+        mock_put_response = MagicMock(status_code=200)
+        mock_put_response.json.return_value = [{"id": "question_1"}]
+        self.api_client.put.return_value = mock_put_response
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(self.template_data, f)
+            template_path = f.name
+
+        try:
+            # When
+            evaluator = self.client.create_evaluator_from_template_json(
+                json_file=template_path, name="Test EN-IN Evaluation", custom_type="SINGLE", desc="Test Description for Indian English"
+            )
+
+            # Then
+            self.assertIsInstance(evaluator, Evaluator)
+            self.api_client.post.assert_called_once()
+            self.assertTrue(self.api_client.put.call_count >= 1)
+
+        finally:
+            Path(template_path).unlink()
 
 
 if __name__ == "__main__":

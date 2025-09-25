@@ -1,5 +1,4 @@
-from typing import Dict, Literal, Optional, Union
-
+from typing import Dict, Literal, Optional, Union, Any
 from requests import HTTPError
 
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
@@ -150,7 +149,7 @@ class HumanEvaluation:
 
     def create_from_template_json(
         self,
-        json: Optional[Dict] = None,
+        json: Optional[Dict[str, Any]] = None,
         json_file: Optional[str] = None,
         name: Optional[str] = None,
         custom_type: Union[Literal["SINGLE"], Literal["DOUBLE"]] = "SINGLE",

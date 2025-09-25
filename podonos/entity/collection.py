@@ -1,8 +1,8 @@
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
+from typing import Optional, Dict, Any
 from datetime import datetime
 
-from podonos.common.enum import CollectionCustomerStatus, Language, CollectionTarget
+from podonos.common.enum import CollectionCustomerStatus, CollectionTarget
 
 
 @dataclass
@@ -20,7 +20,7 @@ class CollectionEntity:
     updated_time: datetime
 
     @staticmethod
-    def from_dict(data: dict) -> "CollectionEntity":
+    def from_dict(data: Dict[str, Any]) -> "CollectionEntity":
         return CollectionEntity(
             id=data["id"],
             name=data["name"],

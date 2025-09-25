@@ -10,14 +10,14 @@ class StimulusStatsFile:
     type: Union[Literal["A"], Literal["B"]]
 
     @staticmethod
-    def from_dict(data: dict) -> "StimulusStatsFile":
+    def from_dict(data: Dict[str, Any]) -> "StimulusStatsFile":
         required_keys = ["name", "model_tag", "tags", "type"]
         for key in required_keys:
             if key not in data:
                 raise ValueError(f"Invalid data format for StimulusStatsFile: {data}")
         return StimulusStatsFile(name=data["name"], model_tag=data["model_tag"], tags=data["tags"], type=data["type"])
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "model_tag": self.model_tag, "tags": self.tags, "type": self.type}
 
 
@@ -27,14 +27,14 @@ class StimulusStatsQuestion:
     order: int
 
     @staticmethod
-    def from_dict(data: dict) -> "StimulusStatsQuestion":
+    def from_dict(data: Dict[str, Any]) -> "StimulusStatsQuestion":
         required_keys = ["title", "order"]
         for key in required_keys:
             if key not in data:
                 raise ValueError(f"Invalid data format for StimulusStatsQuestion: {data}")
         return StimulusStatsQuestion(title=data["title"], order=data["order"])
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {"title": self.title, "order": self.order}
 
 
@@ -50,7 +50,7 @@ class StimulusStats:
     options: Dict[str, Any] = field(default_factory=dict)
 
     @staticmethod
-    def from_dict(data: dict) -> "StimulusStats":
+    def from_dict(data: Dict[str, Any]) -> "StimulusStats":
         required_keys = ["files", "question"]
         for key in required_keys:
             if key not in data:
@@ -74,7 +74,7 @@ class StimulusStats:
 
         return stats
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         result = {
             "question": self.question.to_dict(),
             "files": [file.to_dict() for file in self.files],

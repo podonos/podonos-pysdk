@@ -80,7 +80,7 @@ class AIEvalType(Enum):
     ALL = "ALL"
 
     @classmethod
-    def from_value(cls, value):
+    def from_value(cls, value: str) -> "AIEvalType":
         for member in cls:
             if member.value == value:
                 return member
@@ -96,6 +96,7 @@ class Language(Enum):
     ENGLISH_BRITISH = "en-gb"
     ENGLISH_AUSTRALIAN = "en-au"
     ENGLISH_CANADIAN = "en-ca"
+    ENGLISH_INDIA = "en-in"
     KOREAN = "ko-kr"
     MANDARIN = "zh-cn"
     SPANISH_SPAIN = "es-es"
@@ -108,7 +109,7 @@ class Language(Enum):
     AUDIO = "audio"
 
     @classmethod
-    def from_value(cls, value):
+    def from_value(cls, value: str) -> "Language":
         for member in cls:
             if member.value == value:
                 return member

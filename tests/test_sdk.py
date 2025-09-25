@@ -143,6 +143,21 @@ class TestPodonosClient(unittest.TestCase):
         etor = self._mock_client.create_evaluator(name=self.config["name"], desc=self.config["desc"], type="SMOS", lan=self.config["lan"])
         self.assertIsNotNone(etor)
 
+    @mock.patch("requests.get", side_effect=mocked_requests_get)
+    @mock.patch("requests.post", side_effect=mocked_requests_post)
+    def test_create_evaluator_with_en_in_language(self, mock_get, mock_post):
+        """Test creating evaluator with en-in language"""
+        # Test with en-in language
+        etor = self._mock_client.create_evaluator(name="test_en_in_evaluator", desc="Test evaluator for Indian English", type="NMOS", lan="en-in")
+        self.assertIsNotNone(etor)
+
+        # Test with different evaluation types using en-in
+        for eval_type in ["NMOS", "QMOS", "SMOS", "P808", "PREF", "CSMOS"]:
+            etor = self._mock_client.create_evaluator(
+                name=f"test_en_in_{eval_type.lower()}", desc=f"Test {eval_type} evaluator for Indian English", type=eval_type, lan="en-in"
+            )
+            self.assertIsNotNone(etor)
+
 
 class TestPodonosEvaluator(unittest.TestCase):
 
