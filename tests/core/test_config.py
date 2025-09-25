@@ -106,7 +106,7 @@ class TestEvalConfig(unittest.TestCase):
         # Test invalid granularity
         with self.assertRaises(ValueError) as context:
             self.eval_config._validate_eval_granularity(0.3)  # type: ignore
-        self.assertEqual(str(context.exception), '"granularity" must be one of 0.5 and 1.9')
+        self.assertEqual(str(context.exception), '"granularity" must be one of 0.5 and 1.0')
 
     def test_validate_eval_batch_size(self):
         # Test single evaluation types

@@ -3,11 +3,12 @@ import soundfile as sf
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.util import generate_random_group_name, generate_random_name, process_paths_to_posix
 from podonos.core.base import log
+from podonos.core.config import EvalConfig
 
 
 class File:
@@ -177,10 +178,10 @@ class File:
 
 
 class FileValidator:
-    def __init__(self, eval_config):
+    def __init__(self, eval_config: EvalConfig):
         self._eval_config = eval_config
-        self._stimulus_model_tags = set()
-        self._stimulus_model_pairs = list()
+        self._stimulus_model_tags: Set[str] = set()
+        self._stimulus_model_pairs: List[Tuple[str, str]] = list()
 
     def validate_file(self, file: File) -> File:
         """Validate file based on evaluation type"""
@@ -554,7 +555,7 @@ class AudioGroup:
 
 
 class FileTransformer:
-    def __init__(self, eval_config):
+    def __init__(self, eval_config: EvalConfig):
         self._eval_config = eval_config
 
     def transform_into_audio_group(self, files: List[File]) -> AudioGroup:
