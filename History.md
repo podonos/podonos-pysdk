@@ -1,3 +1,9 @@
+## 0.24.0
+
+- Add support for en-IN (Indian English) language in evaluations
+- Add comprehensive test coverage for en-IN language support
+- Improve Python 3.8+ compatibility with proper type hints
+
 ## 0.23.0
 
 - Add `Retry` logic into every API calls
