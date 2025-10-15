@@ -97,6 +97,7 @@ class Language(Enum):
     ENGLISH_AUSTRALIAN = "en-au"
     ENGLISH_CANADIAN = "en-ca"
     ENGLISH_INDIA = "en-in"
+    PORTUGUESE_PORTUGAL = "pt-pt"
     KOREAN = "ko-kr"
     MANDARIN = "zh-cn"
     SPANISH_SPAIN = "es-es"
