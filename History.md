@@ -1,7 +1,11 @@
+## 0.25.0
+
+- Add support for pt-pt (Portuguese Portugal) language in evaluations
+
 ## 0.24.0
 
-- Add support for en-IN (Indian English) language in evaluations
-- Add comprehensive test coverage for en-IN language support
+- Add support for en-in (Indian English) language in evaluations
+- Add comprehensive test coverage for en-in language support
 - Improve Python 3.8+ compatibility with proper type hints
 
 ## 0.23.0
