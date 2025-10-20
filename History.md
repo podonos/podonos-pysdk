@@ -1,3 +1,8 @@
+## 0.26.0
+
+- Add support for pt-br (Portuguese Brazil) language and fr-ca (French Canada) in evaluations
+- Add log when Audio length is under 500ms
+
 ## 0.25.0
 
 - Add support for pt-pt (Portuguese Portugal) language in evaluations
