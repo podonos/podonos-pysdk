@@ -98,11 +98,13 @@ class Language(Enum):
     ENGLISH_CANADIAN = "en-ca"
     ENGLISH_INDIA = "en-in"
     PORTUGUESE_PORTUGAL = "pt-pt"
+    PORTUGUESE_BRAZIL = "pt-br"
     KOREAN = "ko-kr"
     MANDARIN = "zh-cn"
     SPANISH_SPAIN = "es-es"
     SPANISH_MEXICO = "es-mx"
     FRENCH = "fr-fr"
+    FRENCH_CANADA = "fr-ca"
     GERMAN = "de-de"
     JAPANESE = "ja-jp"
     ITALIAN = "it-it"
@@ -115,6 +117,10 @@ class Language(Enum):
             if member.value == value:
                 return member
         raise ValueError(f"{value} is not a valid value for {cls.__name__}")
+
+    @staticmethod
+    def values() -> List[str]:
+        return [item.value for item in Language]
 
 
 class QuestionFileType(str, Enum):

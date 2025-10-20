@@ -386,6 +386,11 @@ class AudioMeta:
 
             duration_in_ms = int(nframes * 1000.0 / float(framerate))
             log.check_gt(duration_in_ms, 0)
+            if duration_in_ms < 500:
+                log.warning(
+                    f"Audio length below 500ms (current {duration_in_ms} ms). "
+                    f"Please verify on the web whether this file is evaluable. File: {filepath}"
+                )
             return nchannels, framerate, duration_in_ms
         except AttributeError as e:
             log.error(f"Attribute error while getting audio info: {e}")
