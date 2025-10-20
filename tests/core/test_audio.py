@@ -61,7 +61,7 @@ class TestAudioMeta(unittest.TestCase):
     def test_audio_meta_unsupported_format(self):
         with self.assertRaises(AssertionError) as context:
             AudioMeta(TESTDATA_SPEECH_TWO_CH1_M4A)
-        self.assertTrue("Unsupported file format" in str(context.exception))
+        self.assertTrue("Unsupported file type" in str(context.exception))
 
 
 class TestAudio(unittest.TestCase):

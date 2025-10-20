@@ -1,4 +1,5 @@
 import os
+import filetype
 import soundfile as sf
 from dataclasses import dataclass
 from datetime import datetime
@@ -334,6 +335,31 @@ class AudioMeta:
     def duration_in_ms(self) -> int:
         return self._duration_in_ms
 
+    def _detect_audio_format(self, filepath: str) -> str:
+        """Detect actual audio format using filetype library"""
+        try:
+            kind = filetype.guess(filepath)
+            if kind is None:
+                return "unknown"
+
+            # Map MIME types to format names
+            mime_to_format = {
+                "audio/wav": "wav",
+                "audio/wave": "wav",
+                "audio/x-wav": "wav",
+                "audio/mpeg": "mp3",
+                "audio/x-mpeg": "mp3",
+                "audio/mp3": "mp3",
+                "audio/flac": "flac",
+                "audio/x-flac": "flac",
+            }
+
+            return mime_to_format.get(kind.mime, kind.extension)
+
+        except Exception as e:
+            log.error(f"Failed to detect format for {filepath}: {e}")
+            return "unknown"
+
     def _set_audio_meta(self, path: str) -> Tuple[int, int, int]:
         """Gets info from an audio file.
 
@@ -354,9 +380,13 @@ class AudioMeta:
 
         # Check if this is wav or mp3.
         suffix = Path(path).suffix
-        support_file_type = [".wav", ".mp3", ".flac"]
-        assert suffix in support_file_type, f"Unsupported file format: {path}. It must be wav, mp3, or flac."
-        if suffix in support_file_type:
+        actual_format = self._detect_audio_format(path)
+        support_file_type = ["wav", "mp3", "flac", ".wav", ".mp3", ".flac"]
+        assert suffix in support_file_type and actual_format in support_file_type, (
+            f"Unsupported file type. Extension: {suffix or 'N/A'}, Actual format: {actual_format or 'unknown'}. "
+            f"Supported: wav, mp3, flac. Please convert or re-export the audio so the content and extension match."
+        )
+        if actual_format in support_file_type:
             return self._get_audio_info(path)
         return 0, 0, 0
 

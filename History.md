@@ -2,6 +2,7 @@
 
 - Add support for pt-br (Portuguese Brazil) language and fr-ca (French Canada) in evaluations
 - Add log when Audio length is under 500ms
+- Add file type validation (via content detection) to block mismatched extensions (e.g., .wav file containing MP4); supported formats: wav, mp3, flac.
 
 ## 0.25.0
 
