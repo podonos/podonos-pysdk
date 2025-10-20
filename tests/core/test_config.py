@@ -44,23 +44,7 @@ class TestEvalConfig(unittest.TestCase):
 
     def test_validate_eval_language(self):
         # Test valid languages
-        valid_languages = [
-            "en-us",
-            "en-gb",
-            "en-au",
-            "en-ca",
-            "en-in",
-            "ko-kr",
-            "zh-cn",
-            "es-es",
-            "es-mx",
-            "fr-fr",
-            "de-de",
-            "ja-jp",
-            "it-it",
-            "pl-pl",
-            "audio",
-        ]
+        valid_languages = Language.values()
         for language in valid_languages:
             result = self.eval_config._validate_eval_language(language)  # type: ignore
             self.assertEqual(result.value, language)

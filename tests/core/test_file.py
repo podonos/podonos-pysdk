@@ -1,10 +1,10 @@
 import os
 import unittest
-from unittest.mock import patch
-
+from unittest.mock import patch, MagicMock
+from typing import Any
 
 from podonos.core.config import EvalConfig
-from podonos.core.file import File, FileValidator, FileTransformer, AudioGroup
+from podonos.core.file import File, FileValidator, FileTransformer, AudioGroup, AudioMeta
 from podonos.common.enum import QuestionFileType
 
 
@@ -649,8 +649,6 @@ class TestFile(unittest.TestCase):
 
     def test_validate_double_stimuli_model_tags_should_handle_identical_unicode_different_normalization(self):
         """Test that _validate_double_stimuli_model_tags works with different unicode normalization in model_tags"""
-        import unicodedata
-
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
         tag1 = "é"  # NFC (default)
@@ -683,6 +681,254 @@ class TestFile(unittest.TestCase):
         model_tags = [f.model_tag for f in result]
         self.assertIn("ModelA", model_tags)
         self.assertIn("ModelB", model_tags)
+
+
+class TestAudioMeta(unittest.TestCase):
+    """Test cases for AudioMeta class and format detection functionality"""
+
+    def setUp(self):
+        """Set up test fixtures"""
+        self.test_dir = os.path.dirname(__file__)
+        self.test_wav = os.path.join(self.test_dir, "speech_two_ch1.wav")
+
+    def test_detect_audio_format_wav(self):
+        """Test _detect_audio_format correctly identifies WAV files"""
+        audio_meta = AudioMeta(self.test_wav)
+        detected_format = audio_meta._detect_audio_format(self.test_wav)
+        self.assertEqual(detected_format, "wav")
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_mp3(self, mock_guess: Any):
+        """Test _detect_audio_format correctly identifies MP3 files"""
+        # Mock filetype to return MP3 MIME type
+        mock_kind = MagicMock()
+        mock_kind.mime = "audio/mpeg"
+        mock_kind.extension = "mp3"
+        mock_guess.return_value = mock_kind
+
+        audio_meta = AudioMeta(self.test_wav)
+        detected_format = audio_meta._detect_audio_format(self.test_wav)
+        self.assertEqual(detected_format, "mp3")
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_flac(self, mock_guess: Any):
+        """Test _detect_audio_format correctly identifies FLAC files"""
+        # Mock filetype to return FLAC MIME type
+        mock_kind = MagicMock()
+        mock_kind.mime = "audio/flac"
+        mock_kind.extension = "flac"
+        mock_guess.return_value = mock_kind
+
+        audio_meta = AudioMeta(self.test_wav)
+        detected_format = audio_meta._detect_audio_format(self.test_wav)
+        self.assertEqual(detected_format, "flac")
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_mp4_video(self, mock_guess: Any):
+        """Test _detect_audio_format correctly identifies MP4 video files"""
+        # Mock filetype to return MP4 MIME type (video/mp4)
+        mock_kind = MagicMock()
+        mock_kind.mime = "video/mp4"
+        mock_kind.extension = "mp4"
+        mock_guess.return_value = mock_kind
+
+        with self.assertRaises(AssertionError):
+            AudioMeta(self.test_wav)
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_mp4_audio(self, mock_guess: Any):
+        """Test _detect_audio_format correctly identifies MP4 audio files"""
+        # Mock filetype to return MP4 audio MIME type
+        mock_kind = MagicMock()
+        mock_kind.mime = "audio/mp4"
+        mock_kind.extension = "mp4"
+        mock_guess.return_value = mock_kind
+
+        with self.assertRaises(AssertionError):
+            AudioMeta(self.test_wav)
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_unknown_mime(self, mock_guess: Any):
+        """Test _detect_audio_format handles unknown MIME types"""
+        # Mock filetype to return unknown MIME type
+        mock_kind = MagicMock()
+        mock_kind.mime = "application/octet-stream"
+        mock_kind.extension = "bin"
+        mock_guess.return_value = mock_kind
+
+        with self.assertRaises(AssertionError):
+            AudioMeta(self.test_wav)
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_none_result(self, mock_guess: Any):
+        """Test _detect_audio_format handles None result from filetype"""
+        # Mock filetype to return None
+        mock_guess.return_value = None
+
+        with self.assertRaises(AssertionError):
+            AudioMeta(self.test_wav)
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_exception_handling(self, mock_guess: Any):
+        """Test _detect_audio_format handles exceptions gracefully"""
+        # Mock filetype to raise an exception
+        mock_guess.side_effect = Exception("File access error")
+
+        with self.assertRaises(AssertionError):
+            AudioMeta(self.test_wav)
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_wav_variants(self, mock_guess: Any):
+        """Test _detect_audio_format handles different WAV MIME type variants"""
+        wav_variants = ["audio/wav", "audio/wave", "audio/x-wav"]
+
+        for mime_type in wav_variants:
+            with self.subTest(mime_type=mime_type):
+                mock_kind = MagicMock()
+                mock_kind.mime = mime_type
+                mock_kind.extension = "wav"
+                mock_guess.return_value = mock_kind
+
+                audio_meta = AudioMeta(self.test_wav)
+                detected_format = audio_meta._detect_audio_format(self.test_wav)
+                self.assertEqual(detected_format, "wav")
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_mp3_variants(self, mock_guess: Any):
+        """Test _detect_audio_format handles different MP3 MIME type variants"""
+        mp3_variants = ["audio/mpeg", "audio/x-mpeg", "audio/mp3"]
+
+        for mime_type in mp3_variants:
+            with self.subTest(mime_type=mime_type):
+                mock_kind = MagicMock()
+                mock_kind.mime = mime_type
+                mock_kind.extension = "mp3"
+                mock_guess.return_value = mock_kind
+
+                audio_meta = AudioMeta(self.test_wav)
+                detected_format = audio_meta._detect_audio_format(self.test_wav)
+                self.assertEqual(detected_format, "mp3")
+
+    @patch("filetype.guess")
+    def test_detect_audio_format_flac_variants(self, mock_guess: Any):
+        """Test _detect_audio_format handles different FLAC MIME type variants"""
+        flac_variants = ["audio/flac", "audio/x-flac"]
+
+        for mime_type in flac_variants:
+            with self.subTest(mime_type=mime_type):
+                mock_kind = MagicMock()
+                mock_kind.mime = mime_type
+                mock_kind.extension = "flac"
+                mock_guess.return_value = mock_kind
+
+                audio_meta = AudioMeta(self.test_wav)
+                detected_format = audio_meta._detect_audio_format(self.test_wav)
+                self.assertEqual(detected_format, "flac")
+
+    def test_set_audio_meta_with_supported_format(self):
+        """Test _set_audio_meta works with supported formats"""
+        audio_meta = AudioMeta(self.test_wav)
+        # Should not raise an exception for supported WAV format
+        self.assertIsInstance(audio_meta.nchannels, int)
+        self.assertIsInstance(audio_meta.framerate, int)
+        self.assertIsInstance(audio_meta.duration_in_ms, int)
+
+    @patch("podonos.core.file.AudioMeta._detect_audio_format")
+    def test_set_audio_meta_with_unsupported_format(self, mock_detect: Any):
+        """Test _set_audio_meta raises error for unsupported formats"""
+        # Mock format detection to return unsupported format
+        mock_detect.return_value = "mp4"
+
+        with self.assertRaises(AssertionError) as context:
+            AudioMeta(self.test_wav)
+        self.assertIn("Unsupported file type", str(context.exception))
+        self.assertIn("Supported: wav, mp3, flac", str(context.exception))
+
+    @patch("podonos.core.file.AudioMeta._detect_audio_format")
+    def test_set_audio_meta_with_avi_format(self, mock_detect: Any):
+        """Test _set_audio_meta raises error for AVI format"""
+        # Mock format detection to return AVI format
+        mock_detect.return_value = "avi"
+
+        with self.assertRaises(AssertionError) as context:
+            AudioMeta(self.test_wav)
+        self.assertIn("Unsupported file type", str(context.exception))
+
+    @patch("podonos.core.file.AudioMeta._detect_audio_format")
+    def test_set_audio_meta_with_mov_format(self, mock_detect: Any):
+        """Test _set_audio_meta raises error for MOV format"""
+        # Mock format detection to return MOV format
+        mock_detect.return_value = "mov"
+
+        with self.assertRaises(AssertionError) as context:
+            AudioMeta(self.test_wav)
+        self.assertIn("Unsupported file type", str(context.exception))
+
+    @patch("podonos.core.file.AudioMeta._detect_audio_format")
+    def test_set_audio_meta_with_unknown_format(self, mock_detect: Any):
+        """Test _set_audio_meta raises error for unknown format"""
+        # Mock format detection to return unknown format
+        mock_detect.return_value = "unknown"
+
+        with self.assertRaises(AssertionError) as context:
+            AudioMeta(self.test_wav)
+        self.assertIn("Unsupported file type", str(context.exception))
+
+    def test_audio_meta_properties(self):
+        """Test AudioMeta properties return correct types and values"""
+        audio_meta = AudioMeta(self.test_wav)
+
+        # Test property types
+        self.assertIsInstance(audio_meta.nchannels, int)
+        self.assertIsInstance(audio_meta.framerate, int)
+        self.assertIsInstance(audio_meta.duration_in_ms, int)
+
+        # Test property values are positive
+        self.assertGreater(audio_meta.nchannels, 0)
+        self.assertGreater(audio_meta.framerate, 0)
+        self.assertGreater(audio_meta.duration_in_ms, 0)
+
+    @patch("podonos.core.file.AudioMeta._detect_audio_format")
+    def test_format_detection_integration(self, mock_detect: Any):
+        """Test that format detection is properly integrated in AudioMeta initialization"""
+        # Mock format detection to return MP3
+        mock_detect.return_value = "mp3"
+
+        # This should work because MP3 is supported
+        audio_meta = AudioMeta(self.test_wav)
+        mock_detect.assert_called_once_with(self.test_wav)
+        self.assertIsInstance(audio_meta.nchannels, int)
+
+    def test_file_with_actual_wav_format(self):
+        """Test File creation with actual WAV file works correctly"""
+        # This test uses the actual WAV file to ensure real format detection works
+        file_obj = File(path=self.test_wav, model_tag="test_model")
+        self.assertEqual(file_obj.path, self.test_wav)
+        self.assertEqual(file_obj.model_tag, "test_model")
+
+    @patch("podonos.core.file.AudioMeta._detect_audio_format")
+    def test_file_creation_with_unsupported_format(self, mock_detect: Any):
+        """Test File creation succeeds but Audio creation fails when format is unsupported"""
+        # Mock format detection to return unsupported format
+        mock_detect.return_value = "mp4"
+
+        # File creation should succeed (no format validation at this stage)
+        file_obj = File(path=self.test_wav, model_tag="test_model")
+        self.assertEqual(file_obj.path, self.test_wav)
+        self.assertEqual(file_obj.model_tag, "test_model")
+
+        # But AudioMeta creation should fail
+        with self.assertRaises(AssertionError):
+            AudioMeta(self.test_wav)
+
+    def test_format_detection_error_logging(self):
+        """Test that format detection errors are properly logged"""
+        with patch("filetype.guess", side_effect=Exception("Test error")):
+            with patch("podonos.core.base.log.error") as mock_log_error:
+                with self.assertRaises(AssertionError):
+                    AudioMeta(self.test_wav)
+                # Should log the error
+                mock_log_error.assert_called()
 
 
 if __name__ == "__main__":
