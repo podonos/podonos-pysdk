@@ -138,6 +138,7 @@ class QuestionResponseCategory(Enum):
 
 
 class QuestionUsageType(Enum):
+    GUIDELINE_EXAMPLE = "GUIDELINE_EXAMPLE"
     GUIDELINE_CORRECT = "GUIDELINE_CORRECT"
     GUIDELINE_WARNING = "GUIDELINE_WARNING"
     GUIDELINE_PROHIBIT = "GUIDELINE_PROHIBIT"
@@ -149,6 +150,7 @@ class QuestionUsageType(Enum):
 
 
 class InstructionCategory(Enum):
+    EXAMPLE = "EXAMPLE"
     DO = "DO"
     WARNING = "WARNING"
     DONT = "DONT"

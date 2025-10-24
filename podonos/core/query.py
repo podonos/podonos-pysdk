@@ -19,8 +19,10 @@ TYPE_OF_QUESTION_KEY = Literal[
     "order",
     "options",
     "reference_file",
+    "reference_files",
     "anchor_label",
 ]
+TYPE_OF_REFERENCE_FILES = Optional[List[Dict[Literal["path", "type"], str]]]
 
 
 @dataclass
@@ -74,6 +76,7 @@ class Question(ABC):
             InstructionCategory.DO.value: Instruction,
             InstructionCategory.WARNING.value: Instruction,
             InstructionCategory.DONT.value: Instruction,
+            InstructionCategory.EXAMPLE.value: Instruction,
         }
 
         if question_type not in question_map:
@@ -301,25 +304,26 @@ class Instruction(Question):
         batch_size: int,
         description: Optional[str] = None,
         order: int = 0,
-        reference_file: Optional[str] = None,
+        reference_files: TYPE_OF_REFERENCE_FILES = None,
     ):
         super().__init__(instruction, "INSTRUCTION", batch_size, description, order)
         self.category = category
-        self.reference_file = reference_file
+        self.reference_files = reference_files
 
     def validate(self) -> None:
         super().validate()
-        if not isinstance(self.category, InstructionCategory):
+        if not isinstance(self.category, InstructionCategory):  # type: ignore
             raise ValueError(
                 f"Invalid instruction type: {self.category}: Use one of {', '.join([InstructionCategory.DO.value, InstructionCategory.WARNING.value, InstructionCategory.DONT.value])}"
             )
 
     def to_template_question(self) -> TemplateQuestion:
         # Map GuideCategory to QuestionUsageType
-        usage_type_map = {
+        usage_type_map: Dict[InstructionCategory, QuestionUsageType] = {
             InstructionCategory.DO: QuestionUsageType.GUIDELINE_CORRECT,
             InstructionCategory.WARNING: QuestionUsageType.GUIDELINE_WARNING,
             InstructionCategory.DONT: QuestionUsageType.GUIDELINE_PROHIBIT,
+            InstructionCategory.EXAMPLE: QuestionUsageType.GUIDELINE_EXAMPLE,
         }
 
         return TemplateQuestion(
@@ -328,7 +332,7 @@ class Instruction(Question):
             response_category=QuestionResponseCategory.INSTRUCTION,
             usage_type=usage_type_map[self.category],
             order=self.order,
-            reference_file=self.reference_file,
+            reference_files=self.reference_files,
             related_model=None,  # Instruction is not related to any model
         )
 
@@ -341,11 +345,28 @@ class Instruction(Question):
                 f"Invalid instruction type: {data['type']}: Use one of {', '.join([InstructionCategory.DO.value, InstructionCategory.WARNING.value, InstructionCategory.DONT.value])}"
             )
 
+        if "reference_file" in data:
+            raise ValueError(f"The 'reference_file' field is not allowed for instruction questions. Please use 'reference_files' instead.")
+
+        if "reference_files" in data and not isinstance(data["reference_files"], list):
+            raise ValueError("Reference files must be a List")
+
+        for reference_file in data.get("reference_files", []):
+            if not isinstance(reference_file, Dict):
+                raise ValueError("Reference files must be a List of Dict")
+            if "path" not in reference_file or "type" not in reference_file:
+                raise ValueError("Reference files must have 'path' and 'type' fields")
+            if reference_file["type"] not in ["reference", "target", "audio"]:
+                raise ValueError("Reference file type must be one of the following: reference, target, audio")
+
+        if len(data.get("reference_files", [])) > 3:
+            raise ValueError("Instruction questions can have at most 3 reference files")
+
         return cls(
             instruction=data["instruction"],
             description=data.get("description"),
             category=category,
             batch_size=batch_size,
             order=data.get("order", 0),
-            reference_file=data.get("reference_file", None),
+            reference_files=data.get("reference_files", None),
         )

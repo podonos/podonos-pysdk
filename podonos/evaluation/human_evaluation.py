@@ -227,11 +227,8 @@ class HumanEvaluation:
                 log.debug(f"Creating {len(instructions)} instructions...")
                 instructions = template_service.create_template_questions_by_evaluation_id_and_questions(evaluator.get_evaluation_id(), instructions)
                 for instruction in instructions:
-                    if instruction.id and instruction.reference_file:
-                        presigned_url = template_service.get_presigned_url_by_template_question_id(instruction.id)
-                        template_service.upload_reference_file_by_url_and_file_path(
-                            presigned_url, instruction.reference_file, question_id=instruction.id
-                        )
+                    if instruction.id and instruction.reference_files:
+                        template_service.upload_reference_files_by_url_and_file_paths(instruction.reference_files, instruction.id)
 
             if core_questions:
                 log.debug(f"Creating {len(core_questions)} core questions...")

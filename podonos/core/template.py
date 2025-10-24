@@ -8,7 +8,7 @@ from podonos.common.enum import Language
 from podonos.core.base import *
 from podonos.core.types import TemplateQuestion
 from podonos.core.query import NonScoredQuestion, Question, Instruction, ComparisonQuestion, ScoredQuestion
-
+from podonos.core.query import TYPE_OF_REFERENCE_FILES
 
 TYPE_OF_TEMPLATE_KEY = Literal["questions", "instructions"]
 
@@ -81,7 +81,7 @@ class TemplateJsonLoader:
             log.info("Using provided template JSON")
             assert json is not None
             template_data = json
-        return template_data
+        return template_data  # type: ignore
 
 
 class TemplateValidator:
@@ -107,7 +107,7 @@ class TemplateValidator:
         if "questions" not in data or not isinstance(data["questions"], list):
             raise ValueError("Template must contain a 'questions' list")
 
-        question_length = len(data["questions"])
+        question_length = len(data["questions"])  # type: ignore
         if question_length < 1 or question_length > 9:
             raise ValueError("Template must contain between 1 and 9 questions")
 
@@ -159,13 +159,13 @@ class TemplateValidator:
                         "Please use batch_size=2 for comparison questions."
                     )
 
-                if isinstance(question, Instruction) and question.reference_file:
-                    TemplateValidator.check_if_reference_file_is_audio_file(question.reference_file)
+                if isinstance(question, Instruction) and question.reference_files:
+                    TemplateValidator.check_if_reference_file_is_audio_file(None, question.reference_files)
 
                 if (isinstance(question, ScoredQuestion) or isinstance(question, NonScoredQuestion)) and question.options:
                     for option in question.options:
                         if option.reference_file:
-                            TemplateValidator.check_if_reference_file_is_audio_file(option.reference_file)
+                            TemplateValidator.check_if_reference_file_is_audio_file(option.reference_file, None)
 
                 template_question = question.to_template_question()
                 template_question.order = i
@@ -177,16 +177,36 @@ class TemplateValidator:
         return questions
 
     @staticmethod
-    def check_if_reference_file_is_audio_file(reference_file: Optional[str]) -> None:
+    def check_if_reference_file_is_audio_file(reference_file: Optional[str], reference_files: TYPE_OF_REFERENCE_FILES) -> None:
         """Check if the reference file is valid"""
-        if reference_file is None:
+        if reference_file is None and reference_files is None:
             return
 
-        if not Path(reference_file).exists():
-            raise ValueError(f"Reference file not found: {reference_file}")
+        if reference_file is not None and reference_files is not None:
+            raise ValueError("Only one of 'reference_file' or 'reference_files' should be provided. The instruction only supports 'reference_files'")
 
-        if not Path(reference_file).is_file():
-            raise ValueError(f"Reference file is not a file: {reference_file}")
+        if reference_file is not None:
+            if not Path(reference_file).exists():
+                raise ValueError(f"Reference file not found: {reference_file}")
 
-        if not Path(reference_file).suffix.lower() in [".wav", ".mp3", ".flac"]:
-            raise ValueError(f"Reference file must be an audio file: {reference_file}. Supported formats: .wav, .mp3, .flac")
+            if not Path(reference_file).is_file():
+                raise ValueError(f"Reference file is not a file: {reference_file}")
+
+            if not Path(reference_file).suffix.lower() in [".wav", ".mp3", ".flac"]:
+                raise ValueError(f"Reference file must be an audio file: {reference_file}. Supported formats: .wav, .mp3, .flac")
+
+        if reference_files is not None:
+            for file in reference_files:
+                path = file["path"]
+                type = file["type"]
+                if not Path(path).exists():
+                    raise ValueError(f"Reference file not found: {path}")
+
+                if not Path(path).is_file():
+                    raise ValueError(f"Reference file is not a file: {path}")
+
+                if not Path(path).suffix.lower() in [".wav", ".mp3", ".flac"]:
+                    raise ValueError(f"Reference file must be an audio file: {path}. Supported formats: .wav, .mp3, .flac")
+
+                if type not in ["reference", "target", "audio"]:
+                    raise ValueError(f"Reference file type must be one of the following: reference, target, audio. Got {type}")
