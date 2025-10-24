@@ -263,12 +263,31 @@ class TestTemplateValidator(unittest.TestCase):
             TemplateValidator.validate_and_create_questions(invalid_template, 1)
         self.assertIn("not allowed in single stimulus evaluation", str(context.exception))
 
-    def test_validate_reference_file(self):
+    def test_validate_reference_file_with_instruction_should_fail(self):
+        # Given
+        invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [{"type": "SCORED", "question": "Test", "options": [{"label_text": "Option 1"}]}],
+            "instructions": [
+                {"type": "WARNING", "instruction": "Evaluation Guide", "description": "How to evaluate", "reference_file": TESTDATA_SPEECH_CH1_MP3}
+            ],
+        }
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+        self.assertIn("reference_file' field is not allowed for instruction questions", str(context.exception))
+
+    def test_validate_reference_files_success(self):
         # Given
         valid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
             "questions": [{"type": "SCORED", "question": "Test", "options": [{"label_text": "Option 1"}]}],
             "instructions": [
-                {"type": "WARNING", "instruction": "Evaluation Guide", "description": "How to evaluate", "reference_file": TESTDATA_SPEECH_CH1_MP3}
+                {
+                    "type": "WARNING",
+                    "instruction": "Evaluation Guide",
+                    "description": "How to evaluate",
+                    "reference_files": [{"path": TESTDATA_SPEECH_CH1_MP3, "type": "audio"}],
+                }
             ],
         }
 
@@ -279,13 +298,21 @@ class TestTemplateValidator(unittest.TestCase):
         self.assertEqual(len(guide_questions), 1)
         self.assertEqual(len(core_questions), 1)
         self.assertEqual(guide_questions[0].usage_type, QuestionUsageType.GUIDELINE_WARNING)
+        self.assertIsNotNone(guide_questions[0].reference_files)
+        assert guide_questions[0].reference_files is not None
+        self.assertEqual(len(guide_questions[0].reference_files), 1)
 
-    def test_validate_reference_file_not_found(self):
+    def test_validate_reference_files_not_found(self):
         # Given
         invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
             "questions": [{"type": "SCORED", "question": "Test", "options": [{"label_text": "Option 1"}]}],
             "instructions": [
-                {"type": "DO", "instruction": "Evaluation Guide", "description": "How to evaluate", "reference_file": "nonexistent.wav"}
+                {
+                    "type": "DO",
+                    "instruction": "Evaluation Guide",
+                    "description": "How to evaluate",
+                    "reference_files": [{"path": "nonexistent.wav", "type": "audio"}],
+                }
             ],
         }
 
@@ -293,6 +320,25 @@ class TestTemplateValidator(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             TemplateValidator.validate_and_create_questions(invalid_template, 1)
         self.assertIn("Reference file not found", str(context.exception))
+
+    def test_validate_reference_files_invalid_type(self):
+        # Given
+        invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [{"type": "SCORED", "question": "Test", "options": [{"label_text": "Option 1"}]}],
+            "instructions": [
+                {
+                    "type": "DO",
+                    "instruction": "Evaluation Guide",
+                    "description": "How to evaluate",
+                    "reference_files": [{"path": TESTDATA_SPEECH_CH1_MP3, "type": "invalid_type"}],
+                }
+            ],
+        }
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+        self.assertIn("Reference file type must be one of the following: reference, target, audio", str(context.exception))
 
     def test_validate_comparison_question_success(self):
         # When

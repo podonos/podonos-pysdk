@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
+from typing import Literal, Optional, List, Dict, Any
 from podonos.common.enum import QuestionResponseCategory, QuestionUsageType, QuestionRelatedModel
 
 
@@ -60,6 +60,7 @@ class TemplateQuestion:
     meta_data: Optional[QuestionMetadataColumn] = None
     options: List[TemplateOption] = field(default_factory=list)
     reference_file: Optional[str] = None
+    reference_files: Optional[List[Dict[Literal["path", "type"], str]]] = None
     id: Optional[str] = None
 
     def to_create_dict(self) -> Dict[str, Any]:
