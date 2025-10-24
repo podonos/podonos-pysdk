@@ -1,3 +1,11 @@
+## 0.27.0
+
+- Support multiple reference files for instruction questions (max 3 files)
+- Deprecate `reference_file` field in favor of `reference_files` for instruction questions
+- Add `EXAMPLE` instruction category for providing examples to evaluators
+- Update file type validation to use `audio`, `reference`, `target` (consistent with server)
+- Add `upload_reference_files_by_url_and_file_paths` method to TemplateService for uploading multiple reference files
+
 ## 0.26.0
 
 - Add support for pt-br (Portuguese Brazil) language and fr-ca (French Canada) in evaluations
