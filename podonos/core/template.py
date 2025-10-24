@@ -104,7 +104,7 @@ class TemplateValidator:
             ValueError: If template structure is invalid or contains incompatible questions
         """
         # Validate core questions (required)
-        if "questions" not in data or not isinstance(data["questions"], List):
+        if "questions" not in data or not isinstance(data["questions"], list):
             raise ValueError("Template must contain a 'questions' list")
 
         question_length = len(data["questions"])  # type: ignore

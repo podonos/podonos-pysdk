@@ -348,7 +348,7 @@ class Instruction(Question):
         if "reference_file" in data:
             raise ValueError(f"The 'reference_file' field is not allowed for instruction questions. Please use 'reference_files' instead.")
 
-        if "reference_files" in data and not isinstance(data["reference_files"], List):
+        if "reference_files" in data and not isinstance(data["reference_files"], list):
             raise ValueError("Reference files must be a List")
 
         for reference_file in data.get("reference_files", []):
