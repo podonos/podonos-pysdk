@@ -124,7 +124,7 @@ class EvaluationService:
             log.error(f"HTTP error in adding file meta: {e}")
             raise HTTPError(
                 f"Failed to create evaluation files: {e}",
-                status_code=getattr(e, "response", {}).get("status_code") if hasattr(e, "response") else None,
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
 
     @validate_args(evaluation_id=Rules.uuid_not_none, remote_object_name=Rules.str_not_none)
@@ -155,7 +155,7 @@ class EvaluationService:
             log.error(f"HTTP error in uploading a file to presigned URL: {e}")
             raise HTTPError(
                 f"Failed to Upload File {path}: {e}",
-                status_code=getattr(e, "response", {}).get("status_code") if hasattr(e, "response") else None,
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
 
     @validate_args(evaluation_id=Rules.uuid_not_none, config=Rules.instance_of(EvalConfig), audio_groups=Rules.list_not_none)
@@ -186,7 +186,7 @@ class EvaluationService:
             log.error(f"HTTP error in uploading a json to presigned url: {e}")
             raise HTTPError(
                 f"Failed to Upload JSON {data}: {e}",
-                status_code=getattr(e, "response", {}).get("status_code") if hasattr(e, "response") else None,
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
 
     @validate_args(evaluation_id=Rules.uuid_not_none, output_dir=Rules.str_not_none)

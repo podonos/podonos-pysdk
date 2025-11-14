@@ -17,7 +17,7 @@ class File:
     _path: str
     _tags: List[str]
     _script: Optional[str]
-    _meta_data: Optional[Dict[str, Any]]
+    _meta_data: Dict[str, Any]
 
     def __init__(
         self,
@@ -26,7 +26,7 @@ class File:
         tags: List[str] = [],
         script: Optional[str] = None,
         is_ref: bool = False,
-        meta_data: Optional[Dict[str, Any]] = None,
+        meta_data: Dict[str, Any] = {},
     ) -> None:
         """
         Args:
@@ -71,7 +71,7 @@ class File:
         return self._is_ref
 
     @property
-    def meta_data(self) -> Optional[Dict[str, Any]]:
+    def meta_data(self) -> Dict[str, Any]:
         return self._meta_data
 
     def get_question_type_by_is_ref(self) -> QuestionFileType:
@@ -200,19 +200,14 @@ class File:
 
         return unique_tags
 
-    @validate_args(meta_data=Rules.dict_not_none_or_none)
-    def _validate_meta_data(self, meta_data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    @validate_args(meta_data=Rules.dict_not_none)
+    def _validate_meta_data(self, meta_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Validate meta_data payload.
         - Keys must be strings.
         - Values must be JSON-primitive types: str, int, float, bool, None.
         - Disallow iterable/container types: list, tuple, set, dict (including nested).
         """
-        if meta_data is None:
-            return None
-        if not isinstance(meta_data, dict):  # type: ignore
-            raise ValueError(f"meta_data must be a dict or None, got {type(meta_data)}")
-
         allowed_value_types = (str, int, float, bool, type(None))
         validated: Dict[str, Any] = {}
         for k, v in meta_data.items():
@@ -490,7 +485,7 @@ class Audio(File):
         tags=Rules.list_not_none,
         model_tag=Rules.str_non_empty,
         is_ref=Rules.bool_not_none,
-        meta_data=Rules.dict_not_none_or_none,
+        meta_data=Rules.dict_not_none,
         group=Rules.str_not_none_or_none,
         type=Rules.instance_of(QuestionFileType),
         order_in_group=Rules.int_not_none,
@@ -507,7 +502,7 @@ class Audio(File):
         group: Optional[str],
         type: QuestionFileType,
         order_in_group: int,
-        meta_data: Optional[Dict[str, Any]] = None,
+        meta_data: Dict[str, Any] = {},
     ):
         super().__init__(path, model_tag, tags, script, is_ref, meta_data)
         self._name = name

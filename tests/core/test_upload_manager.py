@@ -60,8 +60,12 @@ class TestUploadManager(unittest.TestCase):
         upload_manager = UploadManager(evaluation_service=eval_service, max_workers=1)
         # Force uninitialized state for queue to trigger validation error
         upload_manager._queue = None  # type: ignore
-        with self.assertRaises(ValueError):
-            upload_manager.add_file_to_queue("EVALID", "REMOTE_1", TESTDATA_SPEECH_CH1_MP3)
+        try:
+            with self.assertRaises(ValueError):
+                upload_manager.add_file_to_queue("EVALID", "REMOTE_1", TESTDATA_SPEECH_CH1_MP3)
+        finally:
+            # Prevent atexit callback from raising after this test
+            upload_manager._status = False  # type: ignore
 
     def test_multiple_file_uploads_updates_counters(self):
         mock_response = MagicMock()

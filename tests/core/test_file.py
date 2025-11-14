@@ -21,10 +21,10 @@ class TestFile(unittest.TestCase):
     def test_validate_meta_data_should_allow_none(self):
         # Given
         f = File(path=self.test_wav, model_tag="test_model")
-        # When
-        result = f._validate_meta_data(None)  # type: ignore
-        # Then
-        self.assertIsNone(result)
+
+        # When / Then
+        with self.assertRaises(FailedCheckException):
+            f._validate_meta_data(None)  # type: ignore
 
     def test_validate_meta_data_should_allow_empty_dict(self):
         # Given
