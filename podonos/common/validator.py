@@ -2,7 +2,7 @@ from __future__ import annotations
 import inspect
 from functools import wraps
 import os
-from typing import Callable, Any, Type, Union, TypeVar
+from typing import Callable, Any, Tuple, Type, Union, TypeVar
 import uuid
 from datetime import date, datetime
 
@@ -18,7 +18,7 @@ R = TypeVar("R")
 ValidateFunc = Callable[[Any, str], None]
 
 
-def validate_args(**validators: Union[Type[Any], tuple[Type[Any], ...], Callable[[Any, str], None]]) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def validate_args(**validators: Union[Type[Any], Tuple[Type[Any], ...], Callable[[Any, str], None]]) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator to define validation rules for function arguments.
 
@@ -80,7 +80,7 @@ class Validator:
         log.check_notnone(value, f"Argument '{name}' must not be None")  # type: ignore
 
     @staticmethod
-    def check_type(value: Any, name: str, expected_type: Union[Type[Any], tuple[Type[Any], ...]]):
+    def check_type(value: Any, name: str, expected_type: Union[Type[Any], Tuple[Type[Any], ...]]):
         log.check(isinstance(value, expected_type), f"Argument '{name}' must be {expected_type}, got {type(value)}")  # type: ignore
 
     @staticmethod
@@ -127,7 +127,7 @@ class Rules:
     # Factory for type-based rules
     # -----------------------------
     @staticmethod
-    def make_type_rule(expected_type: Union[Type[Any], tuple[Type[Any], ...]]) -> ValidateFunc:
+    def make_type_rule(expected_type: Union[Type[Any], Tuple[Type[Any], ...]]) -> ValidateFunc:
         """Return a validator that ensures non-None and type match."""
 
         def _check(value: Any, name: str) -> None:
@@ -225,7 +225,7 @@ class Rules:
     # Optional (nullable) variants
     # -----------------------------
     @staticmethod
-    def optional(expected_type: Union[Type[Any], tuple[Type[Any], ...]]) -> ValidateFunc:
+    def optional(expected_type: Union[Type[Any], Tuple[Type[Any], ...]]) -> ValidateFunc:
         """Allow None, otherwise enforce type."""
 
         def _check(value: Any, name: str) -> None:
