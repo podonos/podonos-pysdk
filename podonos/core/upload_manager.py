@@ -1,3 +1,4 @@
+from __future__ import annotations
 import atexit
 import datetime
 import queue
@@ -7,7 +8,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from tqdm import tqdm
-from typing import Optional, Any
+from typing import Optional, Any, Dict, Tuple
+
+try:
+    from typing import Protocol  # Python 3.8+: available in typing
+except Exception:  # pragma: no cover
+    from typing_extensions import Protocol  # type: ignore
 
 from podonos.core.base import *
 from podonos.service.evaluation_service import EvaluationService
@@ -19,9 +25,16 @@ class UploadManager:
     Internally creates multiple threads, and manages the uploading status.
     """
 
+    class UploadQueue(Protocol):
+        def put(self, item: Tuple[str, str, str], block: bool = True, timeout: Optional[float] = None) -> None: ...
+        def get(self, block: bool = True, timeout: Optional[float] = None) -> Tuple[str, str, str]: ...
+        def empty(self) -> bool: ...
+        def task_done(self) -> None: ...
+        def join(self) -> None: ...
+
     # File path queue
     # TODO: use a file queue.
-    _queue: Optional[queue.Queue[tuple[str, str, str]]] = None
+    _queue: Optional[UploadQueue] = None
     # Total number of files added to the uploading queue.
     _total_files: int = 0
     _total_uploaded: int = 0
@@ -38,10 +51,10 @@ class UploadManager:
     # Maximum number of uploader worker threads
     _max_workers: int = 1
     #
-    _upload_start: Optional[dict[str, str]] = None
-    _upload_finish: Optional[dict[str, str]] = None
+    _upload_start: Optional[Dict[str, str]] = None
+    _upload_finish: Optional[Dict[str, str]] = None
 
-    def get_upload_time(self) -> tuple[dict[str, str], dict[str, str]]:
+    def get_upload_time(self) -> Tuple[Dict[str, str], Dict[str, str]]:
         if not self._upload_start or not self._upload_finish:
             raise ValueError("Upload Fail")
 
@@ -90,7 +103,7 @@ class UploadManager:
         log.debug(f"Worker is {index} ready")
         while True:
             if not self._queue.empty():
-                item = self._queue.get()
+                item: Tuple[str, str, str] = self._queue.get()
                 evaluation_id = item[0]
                 remote_object_name = item[1]
                 path = item[2]
