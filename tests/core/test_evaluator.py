@@ -46,9 +46,9 @@ class TestEvaluator(unittest.TestCase):
             evaluator = Evaluator(api_client=self.api_client, eval_config=eval_config, supported_eval_types=[EvalType.NMOS])
 
         # Then
-        self.assertEqual(evaluator._eval_config, eval_config)
-        self.assertTrue(evaluator._initialized)
-        self.assertEqual(evaluator._ordered_file_groups, [])
+        self.assertEqual(evaluator._eval_config, eval_config)  # type: ignore
+        self.assertTrue(evaluator._initialized)  # type: ignore
+        self.assertEqual(evaluator._ordered_file_groups, [])  # type: ignore
 
     def test_should_create_evaluation_successfully(self):
         # Given
@@ -66,7 +66,7 @@ class TestEvaluator(unittest.TestCase):
         self.api_client.post.return_value = Mock(status_code=200, json=lambda: mock_response)
 
         # When
-        evaluation = self.evaluator._set_evaluation(self.eval_config)
+        evaluation = self.evaluator._set_evaluation(self.eval_config)  # type: ignore
 
         # Then
         self.assertIsInstance(evaluation, EvaluationEntity)
@@ -87,10 +87,10 @@ class TestEvaluator(unittest.TestCase):
             "updated_time": current_time.isoformat(),
         }
         self.api_client.post.return_value = Mock(status_code=200, json=lambda: mock_response)
-        self.eval_config._eval_template_id = "test_template_id"
+        self.eval_config._eval_template_id = "test_template_id"  # type: ignore
 
         # When
-        evaluation = self.evaluator._set_evaluation(self.eval_config)
+        evaluation = self.evaluator._set_evaluation(self.eval_config)  # type: ignore
 
         # Then
         self.assertIsInstance(evaluation, EvaluationEntity)
@@ -99,60 +99,72 @@ class TestEvaluator(unittest.TestCase):
 
     def test_should_validate_eval_type_successfully(self):
         # Test single file evaluation types
-        assert self.evaluator._eval_config is not None
-        self.evaluator._eval_config._eval_type = EvalType.NMOS
-        self.evaluator._validate_eval_type("add_file")  # Should not raise
+        assert self.evaluator._eval_config is not None  # type: ignore
+        self.evaluator._eval_config._eval_type = EvalType.NMOS  # type: ignore
+        self.evaluator._validate_eval_type("add_file")  # type: ignore
 
         # Test comparison evaluation types
-        self.evaluator._eval_config._eval_type = EvalType.CMOS
-        self.evaluator._validate_eval_type("add_files")  # Should not raise
+        self.evaluator._eval_config._eval_type = EvalType.CMOS  # type: ignore
+        self.evaluator._validate_eval_type("add_files")  # type: ignore
 
     def test_should_validate_eval_type_raise_error(self):
         # Given
-        self.evaluator._eval_config._eval_type = EvalType.CMOS
+        self.evaluator._eval_config._eval_type = EvalType.CMOS  # type: ignore
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.evaluator._validate_eval_type("add_file")
+            self.evaluator._validate_eval_type("add_file")  # type: ignore
         self.assertIn("The 'add_file' is only supported for single file evaluation types:", str(context.exception))
 
     def test_should_cleanup_successfully(self):
         # Given
-        self.evaluator._initialized = True
-        self.evaluator._ordered_file_groups = [AudioGroup(group_id="group1", audios=[], created_at=datetime.now())]
+        self.evaluator._initialized = True  # type: ignore
+        self.evaluator._ordered_file_groups = [AudioGroup(group_id="group1", audios=[], created_at=datetime.now())]  # type: ignore
 
         # When
-        self.evaluator._cleanup()
+        self.evaluator._cleanup()  # type: ignore
 
         # Then
-        self.assertFalse(self.evaluator._initialized)
-        self.assertEqual(self.evaluator._ordered_file_groups, [])
+        self.assertFalse(self.evaluator._initialized)  # type: ignore
+        self.assertEqual(self.evaluator._ordered_file_groups, [])  # type: ignore
 
     @patch("podonos.service.evaluation_service.EvaluationService.upload_session_json")
-    def test_should_upload_session_json_successfully(self, mock_upload):
+    def test_should_upload_session_json_successfully(self, mock_upload: Mock):
         # Given
-        self.evaluator._evaluation = Mock(id="test_eval_id")
-        self.evaluator._evaluation_service = Mock()
+        self.evaluator._evaluation = Mock(id="test_eval_id")  # type: ignore
+        self.evaluator._evaluation_service = Mock()  # type: ignore
 
         # When
-        self.evaluator._upload_session_json()
+        self.evaluator._upload_session_json()  # type: ignore
 
         # Then
-        self.evaluator._evaluation_service.upload_session_json.assert_called_once_with(
-            self.evaluator._evaluation.id, self.evaluator._eval_config, self.evaluator._ordered_file_groups
+        self.evaluator._evaluation_service.upload_session_json.assert_called_once_with(  # type: ignore
+            self.evaluator._evaluation.id, self.evaluator._eval_config, self.evaluator._ordered_file_groups  # type: ignore
         )
 
     def test_should_update_audio_upload_times(self):
         # Given
-        audio = Mock(remote_object_name="test.wav")
+        audio = Audio(
+            path=self.test_wav,
+            name=os.path.basename(self.test_wav),
+            remote_object_name="test.wav",
+            script=None,
+            tags=[],
+            model_tag="test_model",
+            is_ref=False,
+            group=None,
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
         upload_start = {"test.wav": "2024-01-01T00:00:00Z"}
         upload_finish = {"test.wav": "2024-01-01T00:01:00Z"}
 
         # When
-        self.evaluator._update_audio_upload_times(audio, upload_start, upload_finish)
+        self.evaluator._update_audio_upload_times(audio, upload_start, upload_finish)  # type: ignore
 
         # Then
-        audio.set_upload_at.assert_called_once_with(upload_start["test.wav"], upload_finish["test.wav"])
+        self.assertEqual(getattr(audio, "_upload_start_at"), upload_start["test.wav"])  # type: ignore
+        self.assertEqual(getattr(audio, "_upload_finish_at"), upload_finish["test.wav"])  # type: ignore
 
     def test_should_process_upload_times(self):
         # Given
@@ -169,34 +181,34 @@ class TestEvaluator(unittest.TestCase):
             order_in_group=0,
         )
         group = AudioGroup(group_id="test_group", audios=[audio], created_at=datetime.now())
-        self.evaluator._ordered_file_groups = [group]
-        self.evaluator._upload_manager = Mock()
+        self.evaluator._ordered_file_groups = [group]  # type: ignore
+        self.evaluator._upload_manager = Mock()  # type: ignore
         upload_start = {"remote/test.wav": "2024-01-01T00:00:00Z"}
         upload_finish = {"remote/test.wav": "2024-01-01T00:01:00Z"}
-        self.evaluator._upload_manager.get_upload_time.return_value = (upload_start, upload_finish)
+        self.evaluator._upload_manager.get_upload_time.return_value = (upload_start, upload_finish)  # type: ignore
 
         # When
-        self.evaluator._process_upload_times()
+        self.evaluator._process_upload_times()  # type: ignore
 
         # Then
-        self.assertEqual(audio._upload_start_at, upload_start["remote/test.wav"])
-        self.assertEqual(audio._upload_finish_at, upload_finish["remote/test.wav"])
+        self.assertEqual(audio._upload_start_at, upload_start["remote/test.wav"])  # type: ignore
+        self.assertEqual(audio._upload_finish_at, upload_finish["remote/test.wav"])  # type: ignore
 
     def test_should_validate_close(self):
         # Given
-        self.evaluator._initialized = True
-        self.evaluator._upload_manager = Mock()
+        self.evaluator._initialized = True  # type: ignore
+        self.evaluator._upload_manager = Mock()  # type: ignore
 
         # When/Then
-        self.evaluator._validate_close()  # Should not raise
+        self.evaluator._validate_close()  # type: ignore
 
     def test_should_validate_close_raise_error(self):
         # Given
-        self.evaluator._initialized = False
+        self.evaluator._initialized = False  # type: ignore
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.evaluator._validate_close()
+            self.evaluator._validate_close()  # type: ignore
         self.assertEqual(str(context.exception), "No evaluation session is open.")
 
 

@@ -6,30 +6,34 @@ from pathlib import Path
 from unittest import mock
 from unittest.mock import patch, MagicMock
 from typing import Any
-
+from uuid import uuid4
+from requests import Response
+import json as pyjson
 
 import podonos
 from podonos.core.client import Client
 from podonos.core.evaluator import Evaluator
+from podonos.core.api import APIClient
+
+
+def _make_response(text: Any = None, json_data: Any = None, status_code: int = 200) -> Response:
+    resp = Response()
+    resp.status_code = status_code
+    if json_data is not None:
+        resp._content = pyjson.dumps(json_data).encode("utf-8")
+        resp.headers["Content-Type"] = "application/json"
+    elif text is not None:
+        resp._content = str(text).encode("utf-8")
+    else:
+        resp._content = b""
+    return resp
 
 
 def mocked_requests_post(*args: Any, **kwargs: Any):
-    class MockResponse:
-        def __init__(self, response_text: Any, response_json: Any, status_code: Any):
-            self.text = response_text
-            self.json_response = response_json
-            self.status_code = status_code
-
-        def json(self):
-            return self.json_response
-
-        def raise_for_status(self):
-            return
-
     if "/evaluations" in args[0]:
         # Evaluation list
         evaluation_list = dict(
-            id="mock_id",
+            id=str(uuid4()),
             title="mock_title",
             internal_name="mock_internal_name",
             batch_size=1,
@@ -38,33 +42,21 @@ def mocked_requests_post(*args: Any, **kwargs: Any):
             created_time="2024-05-21T06:18:09.659Z",
             updated_time="2024-05-21T06:18:09.659Z",
         )
-        return MockResponse(None, evaluation_list, 200)
+        return _make_response(json_data=evaluation_list, status_code=200)
 
-    return MockResponse(None, None, 404)
+    return _make_response(status_code=404)
 
 
 # Mocks HTTP GET request.
 def mocked_requests_get(*args: Any, **kwargs: Any):
-    class MockResponse:
-        def __init__(self, response_text: Any, response_json: Any, status_code: Any):
-            self.text = response_text
-            self.json_response = response_json
-            self.status_code = status_code
-
-        def json(self):
-            return self.json_response
-
-        def raise_for_status(self):
-            return
-
     if "/customers/verify/api-key" in args[0]:
         # API key verification
-        return MockResponse("true", None, 200)
+        return _make_response(text="true", status_code=200)
 
     if "/version/sdk" in args[0]:
         # SDK versions
         version_response = dict(latest="0.1.5", recommended="0.1.4", minimum="0.1.0")
-        return MockResponse(None, version_response, 200)
+        return _make_response(json_data=version_response, status_code=200)
 
     if "/evaluations" in args[0] and "/stats" in args[0]:
         # Stats by id
@@ -83,13 +75,13 @@ def mocked_requests_get(*args: Any, **kwargs: Any):
                 option_b=False,
             )
         ]
-        return MockResponse(None, evaluation_stats, 200)
+        return _make_response(json_data=evaluation_stats, status_code=200)
 
     if "/evaluations" in args[0]:
         # Evaluation list
         evaluation_list = [
             dict(
-                id="mock_id",
+                id=str(uuid4()),
                 title="mock_title",
                 internal_name="mock_internal_name",
                 description="mock_desc",
@@ -99,11 +91,11 @@ def mocked_requests_get(*args: Any, **kwargs: Any):
                 updated_time="2024-05-21T06:18:09.659Z",
             )
         ]
-        return MockResponse(None, evaluation_list, 200)
+        return _make_response(json_data=evaluation_list, status_code=200)
 
     if "/templates" in args[0]:
         eval_template_info = dict(
-            id="abc123",
+            id=str(uuid4()),
             code="mock_code",
             title="mock_title",
             description="mock_description",
@@ -114,9 +106,9 @@ def mocked_requests_get(*args: Any, **kwargs: Any):
             created_time="2025-05-21T06:18:09.659Z",
             updated_time="2025-05-28T13:59:12.123Z",
         )
-        return MockResponse(None, eval_template_info, 200)
+        return _make_response(json_data=eval_template_info, status_code=200)
 
-    return MockResponse(None, None, 404)
+    return _make_response(status_code=404)
 
 
 class TestEvaluationClient(unittest.TestCase):
@@ -322,7 +314,7 @@ class TestEvaluationClient(unittest.TestCase):
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     def test_stimulus_stats_by_id(self, mock_get: Any):
         self._mock_client = podonos.init(api_key=self.valid_api_key)
-        response = self._mock_client.get_stats_json_by_id(evaluation_id="mock_id")
+        response = self._mock_client.get_stats_json_by_id(evaluation_id=str(uuid4()))
         self.assertTrue(isinstance(response, list))  # type: ignore
         self.assertTrue(len(response) > 0)
 
@@ -352,7 +344,7 @@ class TestEvaluationClient(unittest.TestCase):
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     def test_eval_template_info(self, mock_get: Any):
         self._mock_client = podonos.init(api_key=self.valid_api_key)
-        response = self._mock_client.get_eval_template_info("mock_id")
+        response = self._mock_client.get_eval_template_info(str(uuid4()))
 
         json = response
 
@@ -374,10 +366,8 @@ class TestEvaluationClient(unittest.TestCase):
         json_path = self.create_temp_json_file(is_single=True)
 
         # Mock successful responses
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = [{"id": f"question_{i}"} for i in range(3)]
-        mock_put.return_value = mock_response
+        resp = _make_response(json_data=[{"id": str(uuid4())} for _ in range(3)], status_code=200)
+        mock_put.return_value = resp
 
         try:
             # When
@@ -401,10 +391,8 @@ class TestEvaluationClient(unittest.TestCase):
         json_path = self.create_temp_json_file(is_single=False)
 
         # Mock successful responses
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = [{"id": f"question_{i}"} for i in range(1)]
-        mock_put.return_value = mock_response
+        resp = _make_response(json_data=[{"id": str(uuid4())} for _ in range(1)], status_code=200)
+        mock_put.return_value = resp
 
         try:
             # When
@@ -479,12 +467,13 @@ class TestEvaluationClientApiKey(unittest.TestCase):
 class TestClient(unittest.TestCase):
     def setUp(self):
         self.valid_api_key = "test_key"
-        self.api_client = MagicMock()
+        # Use a real APIClient instance to satisfy strict type checks
+        self.api_client = APIClient(self.valid_api_key, "http://testapi.com")
         self.client = Client(self.api_client)
 
         # Mock successful evaluation creation response
         self.mock_eval_response = {
-            "id": "mock_id",
+            "id": str(uuid4()),
             "title": "mock_title",
             "internal_name": "mock_internal_name",
             "batch_size": 1,
@@ -500,11 +489,13 @@ class TestClient(unittest.TestCase):
         # Given
         mock_post_response = MagicMock(status_code=200)
         mock_post_response.json.return_value = self.mock_eval_response
-        self.api_client.post.return_value = mock_post_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
 
         mock_put_response = MagicMock(status_code=200)
-        mock_put_response.json.return_value = [{"id": "question_1"}]
-        self.api_client.put.return_value = mock_put_response
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status.return_value = None
+        self.api_client.put = MagicMock(return_value=mock_put_response)
 
         # When
         evaluator = self.client.create_evaluator_from_template_json(
@@ -520,11 +511,13 @@ class TestClient(unittest.TestCase):
         # Given
         mock_post_response = MagicMock(status_code=200)
         mock_post_response.json.return_value = self.mock_eval_response
-        self.api_client.post.return_value = mock_post_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
 
         mock_put_response = MagicMock(status_code=200)
-        mock_put_response.json.return_value = [{"id": "question_1"}]
-        self.api_client.put.return_value = mock_put_response
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status.return_value = None
+        self.api_client.put = MagicMock(return_value=mock_put_response)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(self.template_data, f)
@@ -567,11 +560,13 @@ class TestClient(unittest.TestCase):
         # Given
         mock_post_response = MagicMock(status_code=200)
         mock_post_response.json.return_value = self.mock_eval_response
-        self.api_client.post.return_value = mock_post_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
 
         mock_put_response = MagicMock(status_code=200)
-        mock_put_response.json.return_value = [{"id": "question_1"}]
-        self.api_client.put.return_value = mock_put_response
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status.return_value = None
+        self.api_client.put = MagicMock(return_value=mock_put_response)
 
         # When
         evaluator = self.client.create_evaluator_from_template_json(
@@ -588,11 +583,13 @@ class TestClient(unittest.TestCase):
         # Given
         mock_post_response = MagicMock(status_code=200)
         mock_post_response.json.return_value = self.mock_eval_response
-        self.api_client.post.return_value = mock_post_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
 
         mock_put_response = MagicMock(status_code=200)
-        mock_put_response.json.return_value = [{"id": "question_1"}]
-        self.api_client.put.return_value = mock_put_response
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status.return_value = None
+        self.api_client.put = MagicMock(return_value=mock_put_response)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(self.template_data, f)

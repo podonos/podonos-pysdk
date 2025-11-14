@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import Mock
+from uuid import uuid4
 from podonos.service.ai_evaluation_service import AIEvaluationService
 from podonos.core.api import APIClient
 from podonos.common.enum import AIEvalType
@@ -10,7 +11,7 @@ class TestAIEvaluationService(unittest.TestCase):
     def setUp(self):
         self.mock_api_client = Mock(spec=APIClient)
         self.service = AIEvaluationService(self.mock_api_client)
-        self.evaluation_id = "test_evaluation_id"
+        self.evaluation_id = str(uuid4())
         self.ai_eval_type = AIEvalType.ALL
 
     def test_create_ai_evaluation_success(self):
@@ -44,7 +45,7 @@ class TestAIEvaluationService(unittest.TestCase):
     def test_create_ai_evaluation_with_en_in_language_context(self):
         """Test creating AI evaluation with en-in language context"""
         # Given
-        en_in_evaluation_id = "test_en_in_evaluation_id"
+        en_in_evaluation_id = str(uuid4())
         self.mock_api_client.post.return_value = Mock(status_code=200)
 
         # When

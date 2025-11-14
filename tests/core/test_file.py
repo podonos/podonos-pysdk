@@ -2,6 +2,7 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 from typing import Any
+from glog import FailedCheckException  # type: ignore
 
 from podonos.core.config import EvalConfig
 from podonos.core.file import File, FileValidator, FileTransformer, AudioGroup, AudioMeta
@@ -13,6 +14,125 @@ class TestFile(unittest.TestCase):
         """Set up test fixtures"""
         self.test_dir = os.path.dirname(__file__)
         self.test_wav = os.path.join(self.test_dir, "speech_two_ch1.wav")
+
+    # ----------------------------
+    # meta_data validation tests
+    # ----------------------------
+    def test_validate_meta_data_should_allow_none(self):
+        # Given
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When
+        result = f._validate_meta_data(None)  # type: ignore
+        # Then
+        self.assertIsNone(result)
+
+    def test_validate_meta_data_should_allow_empty_dict(self):
+        # Given
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When
+        result = f._validate_meta_data({})  # type: ignore
+        # Then
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result, {})
+
+    def test_validate_meta_data_should_allow_primitive_value_types(self):
+        # Given
+        valid_meta = {
+            "str_key": "value",
+            "int_key": 123,
+            "float_key": 1.23,
+            "bool_true": True,
+            "bool_false": False,
+            "none_key": None,
+        }
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When
+        result = f._validate_meta_data(valid_meta)  # type: ignore
+        # Then
+        self.assertEqual(result, valid_meta)
+
+    def test_validate_meta_data_should_reject_non_dict_input(self):
+        # Given
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When/Then
+        with self.assertRaises(FailedCheckException):
+            f._validate_meta_data(["not", "a", "dict"])  # type: ignore
+
+    def test_validate_meta_data_should_reject_non_string_keys(self):
+        # Given
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When/Then
+        with self.assertRaises(ValueError) as ctx:
+            f._validate_meta_data({1: "value"})  # type: ignore
+        self.assertIn("meta_data key must be a string", str(ctx.exception))
+
+    def test_validate_meta_data_should_reject_list_value(self):
+        # Given
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When/Then
+        with self.assertRaises(ValueError) as ctx:
+            f._validate_meta_data({"k": [1, 2, 3]})  # type: ignore
+        self.assertIn("non-iterable JSON-primitive", str(ctx.exception))
+
+    def test_validate_meta_data_should_reject_tuple_value(self):
+        # Given
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When/Then
+        with self.assertRaises(ValueError) as ctx:
+            f._validate_meta_data({"k": (1, 2)})  # type: ignore
+        self.assertIn("non-iterable JSON-primitive", str(ctx.exception))
+
+    def test_validate_meta_data_should_reject_set_value(self):
+        # Given
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When/Then
+        with self.assertRaises(ValueError) as ctx:
+            f._validate_meta_data({"k": {1, 2, 3}})  # type: ignore
+        self.assertIn("non-iterable JSON-primitive", str(ctx.exception))
+
+    def test_validate_meta_data_should_reject_dict_value(self):
+        # Given
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When/Then
+        with self.assertRaises(ValueError) as ctx:
+            f._validate_meta_data({"k": {"nested": "v"}})  # type: ignore
+        self.assertIn("non-iterable JSON-primitive", str(ctx.exception))
+
+    def test_validate_meta_data_should_preserve_values(self):
+        # Given
+        meta = {"a": "x", "b": 2, "c": 3.14, "d": False, "e": None}
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When
+        result = f._validate_meta_data(meta)  # type: ignore
+        # Then
+        self.assertEqual(result, meta)
+
+    def test_validate_meta_data_large_payload(self):
+        # Given
+        big_meta = {f"k{i}": i for i in range(100)}
+        f = File(path=self.test_wav, model_tag="test_model")
+        # When
+        result = f._validate_meta_data(big_meta)  # type: ignore
+        # Then
+        self.assertIsInstance(result, dict)
+        self.assertEqual(len(result.keys()), 100)  # type: ignore
+        self.assertEqual(result["k0"], 0)  # type: ignore
+        self.assertEqual(result["k99"], 99)  # type: ignore
+
+    def test_file_constructor_should_accept_valid_meta_data(self):
+        # Given
+        meta = {"speaker_id": "spk1", "age": 30, "premium": True, "score": 9.5, "note": None}
+        # When
+        f = File(path=self.test_wav, model_tag="test_model", meta_data=meta)
+        # Then
+        self.assertEqual(f.meta_data, meta)
+
+    def test_file_constructor_should_reject_invalid_meta_data(self):
+        # Given
+        invalid_meta = {"arr": [1, 2, 3]}
+        # When/Then
+        with self.assertRaises(ValueError):
+            File(path=self.test_wav, model_tag="test_model", meta_data=invalid_meta)
 
     def test_should_create_file_successfully(self):
         # Given
@@ -166,7 +286,7 @@ class TestFile(unittest.TestCase):
         file = File(path=self.test_wav, model_tag="test_model")
 
         # When
-        validated_path = file._validate_path(self.test_wav)
+        validated_path = file._validate_path(self.test_wav)  # type: ignore
 
         # Then
         self.assertEqual(validated_path, self.test_wav)
@@ -177,7 +297,7 @@ class TestFile(unittest.TestCase):
         file = File(path=self.test_wav, model_tag="test_model")
 
         # When
-        unique_tags = file._set_tags(tags)
+        unique_tags = file._set_tags(tags)  # type: ignore
 
         # Then
         self.assertEqual(unique_tags, ["test", "mono", "unique"])
@@ -275,8 +395,8 @@ class TestFile(unittest.TestCase):
     def test_file_transformer_should_transform_file_to_audio_double_stimulus(self):
         # Given
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
-        file0 = File(path=self.test_wav, model_tag="test_model")
-        file1 = File(path=self.test_wav, model_tag="test_model")
+        file0 = File(path=self.test_wav, model_tag="test_model", meta_data={"key": "value"})
+        file1 = File(path=self.test_wav, model_tag="test_model", meta_data={"key": "value"})
         file_transformer = FileTransformer(eval_config)
 
         # When
@@ -290,9 +410,9 @@ class TestFile(unittest.TestCase):
     def test_file_transformer_should_transform_file_to_audio_double_stimulus_with_ref(self):
         # Given
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="CSMOS", num_eval=1)
-        file0 = File(path=self.test_wav, model_tag="test_model")
+        file0 = File(path=self.test_wav, model_tag="test_model", meta_data={"key": "value"})
         file1 = File(path=self.test_wav, model_tag="test_model", is_ref=True)
-        file2 = File(path=self.test_wav, model_tag="test_model")
+        file2 = File(path=self.test_wav, model_tag="test_model", meta_data={"key": "value"})
         file_transformer = FileTransformer(eval_config)
 
         # When
@@ -306,12 +426,12 @@ class TestFile(unittest.TestCase):
         # Given
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="same_model")
-        file1 = File(path=self.test_wav, model_tag="same_model")
+        file0 = File(path=self.test_wav, model_tag="same_model", meta_data={"key": "value"})
+        file1 = File(path=self.test_wav, model_tag="same_model", meta_data={"key": "value"})
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file0, file1)
+            file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertIn("model tags must differ", str(context.exception))
 
     @unittest.skip("Skip this test because we don't track model tag pairs")
@@ -320,12 +440,12 @@ class TestFile(unittest.TestCase):
         # Given
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="ModelA")
-        file1 = File(path=self.test_wav, model_tag="modela")
+        file0 = File(path=self.test_wav, model_tag="ModelA", meta_data={"key": "value"})
+        file1 = File(path=self.test_wav, model_tag="modela", meta_data={"key": "value"})
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file0, file1)
+            file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertIn("model tags must differ", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_allow_first_pair(self):
@@ -333,11 +453,11 @@ class TestFile(unittest.TestCase):
         # Given
         eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
         file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="google")
-        file1 = File(path=self.test_wav, model_tag="openai")
+        file0 = File(path=self.test_wav, model_tag="google", meta_data={"key": "value"})
+        file1 = File(path=self.test_wav, model_tag="openai", meta_data={"key": "value"})
 
         # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Then
         self.assertEqual(len(result), 2)
@@ -351,14 +471,14 @@ class TestFile(unittest.TestCase):
         file_validator = FileValidator(eval_config)
 
         # First pair: google -> openai
-        file0 = File(path=self.test_wav, model_tag="google")
-        file1 = File(path=self.test_wav, model_tag="openai")
-        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        file0 = File(path=self.test_wav, model_tag="google", meta_data={"key": "value"})
+        file1 = File(path=self.test_wav, model_tag="openai", meta_data={"key": "value"})
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Second pair: same order google -> openai
         file2 = File(path=self.test_wav, model_tag="google")
         file3 = File(path=self.test_wav, model_tag="openai")
-        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
 
         # Then
         self.assertEqual(len(result1), 2)
@@ -378,7 +498,7 @@ class TestFile(unittest.TestCase):
         # First pair: google -> openai
         file0 = File(path=self.test_wav, model_tag="google")
         file1 = File(path=self.test_wav, model_tag="openai")
-        file_validator._validate_double_stimuli_model_tags(file0, file1)
+        file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Second pair: reversed order openai -> google (should raise error)
         file2 = File(path=self.test_wav, model_tag="openai")
@@ -386,7 +506,7 @@ class TestFile(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file2, file3)
+            file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
         self.assertIn("Inconsistent model tag pair order", str(context.exception))
 
     @unittest.skip("Skip this test because we don't track model tag pairs")
@@ -399,12 +519,12 @@ class TestFile(unittest.TestCase):
         # First pair: google -> openai
         file0 = File(path=self.test_wav, model_tag="google")
         file1 = File(path=self.test_wav, model_tag="openai")
-        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Second pair: elevenlabs -> openai (different pair)
         file2 = File(path=self.test_wav, model_tag="elevenlabs")
         file3 = File(path=self.test_wav, model_tag="openai")
-        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
 
         # Then
         self.assertEqual(len(result1), 2)
@@ -424,12 +544,12 @@ class TestFile(unittest.TestCase):
         # First pair: Google -> OpenAI
         file0 = File(path=self.test_wav, model_tag="Google")
         file1 = File(path=self.test_wav, model_tag="OpenAI")
-        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Second pair: google -> openai (same pair, different case)
         file2 = File(path=self.test_wav, model_tag="google")
         file3 = File(path=self.test_wav, model_tag="openai")
-        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
 
         # Then
         self.assertEqual(len(result1), 2)
@@ -444,7 +564,7 @@ class TestFile(unittest.TestCase):
         file1 = File(path=self.test_wav, model_tag="OpenAI")
 
         # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Then
         self.assertEqual(len(result), 2)
@@ -461,7 +581,7 @@ class TestFile(unittest.TestCase):
         file1 = File(path=self.test_wav, model_tag="ModelA", tags=["tag3"], script="script2", is_ref=True)
 
         # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Then
         self.assertEqual(len(result), 2)
@@ -488,7 +608,7 @@ class TestFile(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError):
-            file_validator._validate_double_stimuli_model_tags(file0, file1)
+            file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
     def test_validate_double_stimuli_model_tags_should_handle_numeric_string_tags(self):
         """Test that _validate_double_stimuli_model_tags works with numeric string model_tags"""
@@ -496,7 +616,7 @@ class TestFile(unittest.TestCase):
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="100")
         file1 = File(path=self.test_wav, model_tag="2")
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         # New logic preserves original order, not sorted
         self.assertEqual([f.model_tag for f in result], ["100", "2"])
 
@@ -506,7 +626,7 @@ class TestFile(unittest.TestCase):
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="AAA")
         file1 = File(path=self.test_wav, model_tag="BBB")
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertEqual([f.model_tag for f in result], ["AAA", "BBB"])
 
     def test_validate_double_stimuli_model_tags_should_handle_long_strings(self):
@@ -515,7 +635,7 @@ class TestFile(unittest.TestCase):
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="A" * 100)
         file1 = File(path=self.test_wav, model_tag="B" * 100)
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertEqual([f.model_tag for f in result], ["A" * 100, "B" * 100])
 
     def test_validate_double_stimuli_model_tags_should_handle_unicode_emoji(self):
@@ -524,7 +644,7 @@ class TestFile(unittest.TestCase):
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="모델A")
         file1 = File(path=self.test_wav, model_tag="모델B")
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertEqual([f.model_tag for f in result], ["모델A", "모델B"])
 
     @unittest.skip("Skip this test because we don't track model tag pairs")
@@ -535,7 +655,7 @@ class TestFile(unittest.TestCase):
         file0 = File(path=self.test_wav, model_tag="Model-A")
         file1 = File(path=self.test_wav, model_tag="model-a")
         with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file0, file1)
+            file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertIn("model tags must differ", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_allow_exactly_two_model_tags(self):
@@ -546,12 +666,12 @@ class TestFile(unittest.TestCase):
         # First pair: google -> openai (should work)
         file0 = File(path=self.test_wav, model_tag="google")
         file1 = File(path=self.test_wav, model_tag="openai")
-        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Second pair: same model tags (should work)
         file2 = File(path=self.test_wav, model_tag="google")
         file3 = File(path=self.test_wav, model_tag="openai")
-        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
 
         # Then
         self.assertEqual(len(result1), 2)
@@ -569,14 +689,14 @@ class TestFile(unittest.TestCase):
         # First pair: google -> openai (should work)
         file0 = File(path=self.test_wav, model_tag="google")
         file1 = File(path=self.test_wav, model_tag="openai")
-        file_validator._validate_double_stimuli_model_tags(file0, file1)
+        file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Second pair: google -> elevenlabs (should fail - elevenlabs is not in allowed set)
         file2 = File(path=self.test_wav, model_tag="google")
         file3 = File(path=self.test_wav, model_tag="elevenlabs")
 
         with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file2, file3)
+            file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
         self.assertIn("The number of model tags should be 2", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_reject_third_model_tag_reverse(self):
@@ -587,14 +707,14 @@ class TestFile(unittest.TestCase):
         # First pair: google -> openai (should work)
         file0 = File(path=self.test_wav, model_tag="google")
         file1 = File(path=self.test_wav, model_tag="openai")
-        file_validator._validate_double_stimuli_model_tags(file0, file1)
+        file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Second pair: elevenlabs -> google (should fail - elevenlabs is not in allowed set)
         file2 = File(path=self.test_wav, model_tag="elevenlabs")
         file3 = File(path=self.test_wav, model_tag="google")
 
         with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file2, file3)
+            file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
         self.assertIn("The number of model tags should be 2", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_allow_reverse_order_of_same_pair(self):
@@ -605,12 +725,12 @@ class TestFile(unittest.TestCase):
         # First pair: google -> openai (should work)
         file0 = File(path=self.test_wav, model_tag="google")
         file1 = File(path=self.test_wav, model_tag="openai")
-        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Second pair: openai -> google (should work - same pair, reverse order)
         file2 = File(path=self.test_wav, model_tag="openai")
         file3 = File(path=self.test_wav, model_tag="google")
-        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)
+        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
 
         # Then
         self.assertEqual(len(result1), 2)
@@ -628,14 +748,14 @@ class TestFile(unittest.TestCase):
         # First pair: Google -> OpenAI (should work)
         file0 = File(path=self.test_wav, model_tag="Google")
         file1 = File(path=self.test_wav, model_tag="OpenAI")
-        file_validator._validate_double_stimuli_model_tags(file0, file1)
+        file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Second pair: google -> ELEVENLABS (should fail - ELEVENLABS is not in allowed set)
         file2 = File(path=self.test_wav, model_tag="google")
         file3 = File(path=self.test_wav, model_tag="ELEVENLABS")
 
         with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file2, file3)
+            file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
         self.assertIn("The number of model tags should be 2", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_handle_non_latin_scripts(self):
@@ -644,7 +764,7 @@ class TestFile(unittest.TestCase):
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="가나다")
         file1 = File(path=self.test_wav, model_tag="나다라")
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertEqual([f.model_tag for f in result], ["가나다", "나다라"])
 
     def test_validate_double_stimuli_model_tags_should_handle_identical_unicode_different_normalization(self):
@@ -660,7 +780,7 @@ class TestFile(unittest.TestCase):
         # When/Then
         # These should be considered the same and raise an error
         with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file0, file1)
+            file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertIn("model tags must differ", str(context.exception))
 
     def test_validate_double_stimuli_model_tags_should_handle_model_tags_with_newlines(self):
@@ -673,7 +793,7 @@ class TestFile(unittest.TestCase):
         file1 = File(path=self.test_wav, model_tag="ModelB")
 
         # When
-        result = file_validator._validate_double_stimuli_model_tags(file0, file1)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
 
         # Then
         self.assertEqual(len(result), 2)
@@ -694,7 +814,7 @@ class TestAudioMeta(unittest.TestCase):
     def test_detect_audio_format_wav(self):
         """Test _detect_audio_format correctly identifies WAV files"""
         audio_meta = AudioMeta(self.test_wav)
-        detected_format = audio_meta._detect_audio_format(self.test_wav)
+        detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
         self.assertEqual(detected_format, "wav")
 
     @patch("filetype.guess")
@@ -707,7 +827,7 @@ class TestAudioMeta(unittest.TestCase):
         mock_guess.return_value = mock_kind
 
         audio_meta = AudioMeta(self.test_wav)
-        detected_format = audio_meta._detect_audio_format(self.test_wav)
+        detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
         self.assertEqual(detected_format, "mp3")
 
     @patch("filetype.guess")
@@ -720,7 +840,7 @@ class TestAudioMeta(unittest.TestCase):
         mock_guess.return_value = mock_kind
 
         audio_meta = AudioMeta(self.test_wav)
-        detected_format = audio_meta._detect_audio_format(self.test_wav)
+        detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
         self.assertEqual(detected_format, "flac")
 
     @patch("filetype.guess")
@@ -790,7 +910,7 @@ class TestAudioMeta(unittest.TestCase):
                 mock_guess.return_value = mock_kind
 
                 audio_meta = AudioMeta(self.test_wav)
-                detected_format = audio_meta._detect_audio_format(self.test_wav)
+                detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
                 self.assertEqual(detected_format, "wav")
 
     @patch("filetype.guess")
@@ -806,7 +926,7 @@ class TestAudioMeta(unittest.TestCase):
                 mock_guess.return_value = mock_kind
 
                 audio_meta = AudioMeta(self.test_wav)
-                detected_format = audio_meta._detect_audio_format(self.test_wav)
+                detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
                 self.assertEqual(detected_format, "mp3")
 
     @patch("filetype.guess")
@@ -822,7 +942,7 @@ class TestAudioMeta(unittest.TestCase):
                 mock_guess.return_value = mock_kind
 
                 audio_meta = AudioMeta(self.test_wav)
-                detected_format = audio_meta._detect_audio_format(self.test_wav)
+                detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
                 self.assertEqual(detected_format, "flac")
 
     def test_set_audio_meta_with_supported_format(self):

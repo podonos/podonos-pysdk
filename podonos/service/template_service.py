@@ -5,6 +5,7 @@ from podonos.core.template import Template
 from podonos.core.types import TemplateOption, TemplateQuestion
 from podonos.common.exception import HTTPError
 from podonos.core.query import TYPE_OF_REFERENCE_FILES
+from podonos.common.validator import Rules, validate_args
 
 
 class TemplateService:
@@ -13,6 +14,7 @@ class TemplateService:
     def __init__(self, api_client: APIClient):
         self.api_client = api_client
 
+    @validate_args(template_id=Rules.str_not_none)
     def get_template_by_code(self, template_id: str) -> Template:
         """
         Get template information by Id
@@ -28,6 +30,7 @@ class TemplateService:
         except Exception as e:
             raise HTTPError(f"Failed to get template by id: {template_id} / {e}")
 
+    @validate_args(evaluation_id=Rules.uuid_not_none, template_questions=Rules.list_not_none)
     def create_template_questions_by_evaluation_id_and_questions(
         self, evaluation_id: str, template_questions: List[TemplateQuestion]
     ) -> List[TemplateQuestion]:
@@ -50,6 +53,7 @@ class TemplateService:
         except Exception as e:
             raise HTTPError(f"Failed to create template questions by evaluation id: {evaluation_id} / {e}")
 
+    @validate_args(template_question_id=Rules.uuid_not_none, template_options=Rules.list_not_none)
     def create_template_options_by_question_id_and_options(
         self, template_question_id: str, template_options: List[TemplateOption]
     ) -> List[TemplateOption]:
@@ -69,19 +73,7 @@ class TemplateService:
         except Exception as e:
             raise HTTPError(f"Failed to create template options by question id: {template_question_id} / {e}")
 
-    def get_presigned_url_by_template_question_id(self, template_question_id: str) -> str:
-        """
-        Get presigned url by template question id
-        """
-        try:
-            # Step 1: Get presigned URL
-            response = self.api_client.post(f"template-questions/{template_question_id}/reference-uri", data={})
-            response.raise_for_status()
-            return response.text.replace('"', "")
-        except Exception as e:
-            log.error(f"Failed to get presigned URL for template question id: {template_question_id} / {e}")
-            raise HTTPError(f"Failed to get presigned URL for template question id: {template_question_id} / {e}")
-
+    @validate_args(template_option_id=Rules.uuid_not_none)
     def get_presigned_url_by_template_option_id(self, template_option_id: str) -> str:
         """
         Get presigned url by template option id
@@ -94,9 +86,8 @@ class TemplateService:
             log.error(f"Failed to get presigned URL for template option id: {template_option_id} / {e}")
             raise HTTPError(f"Failed to get presigned URL for template option id: {template_option_id} / {e}")
 
-    def upload_reference_file_by_url_and_file_path(
-        self, url: str, file_path: str, question_id: Optional[str] = None, option_id: Optional[str] = None
-    ) -> None:
+    @validate_args(url=Rules.str_not_none, file_path=Rules.file_path_not_none, option_id=Rules.str_not_none_or_none)
+    def upload_reference_file_by_url_and_file_path(self, url: str, file_path: str, option_id: Optional[str] = None) -> None:
         """
         Upload reference file by url and file path
         """
@@ -107,22 +98,20 @@ class TemplateService:
 
             log.debug(f"Successfully uploaded reference file {file_path} of Template by url")
         except Exception as e:
-            if question_id:
-                self.api_client.delete(f"template-questions/{question_id}/reference-uri")
-                raise HTTPError(f"Failed to upload reference file by question id: {question_id} / {e}")
-            elif option_id:
+            if option_id:
                 self.api_client.delete(f"template-options/{option_id}/reference-uri")
                 raise HTTPError(f"Failed to upload reference file by option id: {option_id} / {e}")
             else:
                 raise HTTPError(f"Failed to upload reference file by url: {url} / {e}")
 
-    def upload_reference_files_by_url_and_file_paths(self, reference_files: TYPE_OF_REFERENCE_FILES, question_id: str) -> None:
+    @validate_args(reference_files=Rules.list_not_none_or_none, template_question_id=Rules.uuid_not_none)
+    def upload_reference_files_by_url_and_file_paths(self, reference_files: TYPE_OF_REFERENCE_FILES, template_question_id: str) -> None:
         """
         Upload reference files by getting presigned URLs and uploading to them
 
         Args:
             reference_files: List of reference files with 'path' and 'type' keys
-            question_id: Template question ID
+            template_question_id: Template question ID
         """
         if not reference_files:
             return
@@ -136,7 +125,7 @@ class TemplateService:
                 file_type = reference_file["type"]
 
                 # Get presigned URL for this file
-                response = self.api_client.get(f"template-questions/{question_id}/references/presigned-url")
+                response = self.api_client.get(f"template-questions/{template_question_id}/references/presigned-url")
                 response.raise_for_status()
                 presigned_data = response.json()
 
@@ -151,13 +140,13 @@ class TemplateService:
                 # Collect reference data for final submission
                 references.append({"reference_uri": reference_uri, "type": file_type, "label_text": None})
 
-                log.debug(f"Successfully uploaded reference file {file_path} for question {question_id}")
+                log.debug(f"Successfully uploaded reference file {file_path} for question {template_question_id}")
 
             # Step 2: Submit all references
-            response = self.api_client.put(f"template-questions/{question_id}/references", data={"references": references})
+            response = self.api_client.put(f"template-questions/{template_question_id}/references", data={"references": references})
             response.raise_for_status()
 
-            log.info(f"Successfully uploaded {len(references)} reference files for question {question_id}")
+            log.info(f"Successfully uploaded {len(references)} reference files for question {template_question_id}")
 
         except Exception as e:
-            raise HTTPError(f"Failed to upload reference files for question id: {question_id} / {e}")
+            raise HTTPError(f"Failed to upload reference files for question id: {template_question_id} / {e}")

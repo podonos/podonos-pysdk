@@ -2,50 +2,44 @@ import os
 import podonos
 import unittest
 from unittest import mock
+from requests import Response
+import json as pyjson
 
 from podonos.core.file import File
 from podonos.common.constant import *
 
 
 # Mocks HTTP GET request.
+def _make_response(text=None, json_data=None, status_code=200) -> Response:
+    resp = Response()
+    resp.status_code = status_code
+    if json_data is not None:
+        resp._content = pyjson.dumps(json_data).encode("utf-8")
+        resp.headers["Content-Type"] = "application/json"
+    elif text is not None:
+        resp._content = str(text).encode("utf-8")
+    else:
+        resp._content = b""
+    return resp
+
+
 def mocked_requests_get(*args, **kwargs):
-    class MockResponse:
-        def __init__(self, response_text, response_json, status_code):
-            self.text = response_text
-            self.json_response = response_json
-            self.status_code = status_code
-
-        def json(self):
-            return self.json_response
-
     if "/customers/verify/api-key" in args[0]:
         # API key verification
-        return MockResponse("true", None, 200)
+        return _make_response(text="true", status_code=200)
 
     if "/version/sdk" in args[0]:
         # SDK versions
         version_response = dict(latest="0.1.5", recommended="0.1.4", minimum="0.1.0")
-        return MockResponse(None, version_response, 200)
+        return _make_response(json_data=version_response, status_code=200)
 
     if "/customers/uploading-presigned-url" in args[0]:
-        return MockResponse("https://fake.podonos.com/my_url1", None, 200)
+        return _make_response(text="https://fake.podonos.com/my_url1", status_code=200)
 
-    return MockResponse(None, None, 404)
+    return _make_response(status_code=404)
 
 
 def mocked_requests_post(*args, **kwargs):
-    class MockResponse:
-        def __init__(self, response_text, response_json, status_code):
-            self.text = response_text
-            self.json_response = response_json
-            self.status_code = status_code
-
-        def json(self):
-            return self.json_response
-
-        def raise_for_status(self):
-            return
-
     if "/evaluations" in args[0]:
         # evaluations
         evaluation_response = dict(
@@ -58,9 +52,9 @@ def mocked_requests_post(*args, **kwargs):
             created_time="2024-05-21T06:18:09.659270Z",
             updated_time="2024-05-22T06:18:09.659270Z",
         )
-        return MockResponse(None, evaluation_response, 200)
+        return _make_response(json_data=evaluation_response, status_code=200)
 
-    return MockResponse(None, None, 404)
+    return _make_response(status_code=404)
 
 
 class TestPodonos(unittest.TestCase):

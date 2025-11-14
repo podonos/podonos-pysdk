@@ -1,7 +1,8 @@
-from datetime import datetime
 import re
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import Mock, patch
+from requests import Response
+import json as pyjson
 from podonos.common.util import get_content_type_by_filename
 from podonos.core.api import APIClient, APIVersion
 
@@ -28,53 +29,56 @@ class TestAPIClient(unittest.TestCase):
         self.assertEqual(self.api_url, self.client.api_url)
 
     @patch("requests.get")
-    def test_get_success(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.text = "true"
-        mock_get.return_value = mock_response
+    def test_get_success(self, mock_get: Mock):
+        resp = Response()
+        resp.status_code = 200
+        resp._content = b"true"
+        mock_get.return_value = resp
 
         response = self.client.get("test-endpoint")
         self.assertEqual(response.text, "true")
-        mock_get.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, params=None, timeout=(5, 30))
+        mock_get.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, params=None, timeout=(5, 30))  # type: ignore
 
     @patch("requests.post")
-    def test_post_success(self, mock_post):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_post.return_value = mock_response
+    def test_post_success(self, mock_post: Mock):
+        resp = Response()
+        resp.status_code = 200
+        resp._content = b""
+        mock_post.return_value = resp
 
         data = {"key": "value"}
         response = self.client.post("test-endpoint", data)
         self.assertEqual(response.status_code, 200)
-        mock_post.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, json=data, timeout=(5, 30))
+        mock_post.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, json=data, timeout=(5, 30))  # type: ignore
 
     @patch("requests.put")
-    def test_put_success(self, mock_put):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_put.return_value = mock_response
+    def test_put_success(self, mock_put: Mock):
+        resp = Response()
+        resp.status_code = 200
+        resp._content = b""
+        mock_put.return_value = resp
 
         data = {"key": "value"}
         response = self.client.put("test-endpoint", data)
         self.assertEqual(response.status_code, 200)
-        mock_put.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, json=data, timeout=(5, 30))
+        mock_put.assert_called_once_with(f"{self.api_url}/test-endpoint", headers=self.client._headers, json=data, timeout=(5, 30))  # type: ignore
 
     @patch("podonos.core.api.APIClient._check_minimum_version")
     @patch("podonos.core.api.APIClient.patch")
-    def test_initialize_success(self, mock_patch, mock_check_minimum_version):
-        mock_response = MagicMock()
+    def test_initialize_success(self, mock_patch: Mock, mock_check_minimum_version: Mock):
+        mock_response = Mock()
         mock_response.text = "true"
         mock_patch.return_value = mock_response
         mock_check_minimum_version.return_value = True
 
         result = self.client.initialize()
         self.assertTrue(result)
-        mock_patch.assert_called_once_with("api-keys/last-used-time", headers=self.client._headers, data={})
+        mock_patch.assert_called_once_with("api-keys/last-used-time", headers=self.client._headers, data={})  # type: ignore
 
     @patch("podonos.core.api.APIClient._check_minimum_version")
     @patch("podonos.core.api.APIClient.patch")
-    def test_initialize_invalid_api_key(self, mock_patch, mock_check_minimum_version):
-        mock_response = MagicMock()
+    def test_initialize_invalid_api_key(self, mock_patch: Mock, mock_check_minimum_version: Mock):
+        mock_response = Mock()
         mock_response.text = "false"
         mock_patch.return_value = mock_response
         mock_check_minimum_version.return_value = True
@@ -83,18 +87,18 @@ class TestAPIClient(unittest.TestCase):
             self.client.initialize()
 
         self.assertIn("Invalid API key", str(context.exception))
-        mock_patch.assert_called_once_with("api-keys/last-used-time", headers=self.client._headers, data={})
+        mock_patch.assert_called_once_with("api-keys/last-used-time", headers=self.client._headers, data={})  # type: ignore
 
     def test_add_headers(self):
         self.client.add_headers("New-Header", "HeaderValue")
-        self.assertIn("New-Header", self.client._headers)
-        self.assertEqual(self.client._headers["New-Header"], "HeaderValue")
+        self.assertIn("New-Header", self.client._headers)  # type: ignore
+        self.assertEqual(self.client._headers["New-Header"], "HeaderValue")  # type: ignore
 
     @patch("importlib.metadata.version")
-    def test_get_podonos_version_success(self, mock_version):
+    def test_get_podonos_version_success(self, mock_version: Mock):
         mock_version.return_value = "1.2.3"
 
-        result = self.client._get_podonos_version()
+        result = self.client._get_podonos_version()  # type: ignore
         self.assertEqual(result, "1.2.3")
         mock_version.assert_called_once_with("podonos")
 
@@ -112,15 +116,16 @@ class TestAPIClient(unittest.TestCase):
         self.assertEqual("application/octet-stream", get_content_type_by_filename(path_wav))
 
     def test_package_version(self):
-        version_str = self.client._get_podonos_version()
+        version_str = self.client._get_podonos_version()  # type: ignore
         # Test the version string is in the format of "<decimal_version>.<decimal_subversion>"
         self.assertTrue(re.search(r"\d+\.\d+", version_str))
 
     @patch("requests.get")
-    def test_external_get_success(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+    def test_external_get_success(self, mock_get: Mock):
+        resp = Response()
+        resp.status_code = 200
+        resp._content = b""
+        mock_get.return_value = resp
 
         url = "https://external-api.com/data"
         params = {"key": "value"}
@@ -132,10 +137,11 @@ class TestAPIClient(unittest.TestCase):
         mock_get.assert_called_once_with(url, headers=headers, params=params, cookies=cookies, timeout=(10, 60))
 
     @patch("requests.put")
-    def test_external_put_with_data_success(self, mock_put):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_put.return_value = mock_response
+    def test_external_put_with_data_success(self, mock_put: Mock):
+        resp = Response()
+        resp.status_code = 200
+        resp._content = b""
+        mock_put.return_value = resp
 
         url = "https://external-api.com/upload"
         data = b"file content"
@@ -146,10 +152,12 @@ class TestAPIClient(unittest.TestCase):
         mock_put.assert_called_once_with(url, headers=headers, data=data, timeout=(10, 120))
 
     @patch("requests.put")
-    def test_external_put_with_json_success(self, mock_put):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_put.return_value = mock_response
+    def test_external_put_with_json_success(self, mock_put: Mock):
+        resp = Response()
+        resp.status_code = 200
+        resp._content = pyjson.dumps({"ok": True}).encode("utf-8")
+        resp.headers["Content-Type"] = "application/json"
+        mock_put.return_value = resp
 
         url = "https://external-api.com/upload"
         json_data = {"key": "value"}
@@ -160,10 +168,11 @@ class TestAPIClient(unittest.TestCase):
         mock_put.assert_called_once_with(url, headers=headers, json=json_data, timeout=(10, 120))
 
     @patch("requests.post")
-    def test_external_post_with_data_success(self, mock_post):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_post.return_value = mock_response
+    def test_external_post_with_data_success(self, mock_post: Mock):
+        resp = Response()
+        resp.status_code = 200
+        resp._content = b""
+        mock_post.return_value = resp
 
         url = "https://external-api.com/submit"
         data = "form data"
@@ -174,10 +183,12 @@ class TestAPIClient(unittest.TestCase):
         mock_post.assert_called_once_with(url, headers=headers, data=data, timeout=(10, 60))
 
     @patch("requests.post")
-    def test_external_post_with_json_success(self, mock_post):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_post.return_value = mock_response
+    def test_external_post_with_json_success(self, mock_post: Mock):
+        resp = Response()
+        resp.status_code = 200
+        resp._content = pyjson.dumps({"ok": True}).encode("utf-8")
+        resp.headers["Content-Type"] = "application/json"
+        mock_post.return_value = resp
 
         url = "https://external-api.com/submit"
         json_data = {"key": "value"}
@@ -188,10 +199,11 @@ class TestAPIClient(unittest.TestCase):
         mock_post.assert_called_once_with(url, headers=headers, json=json_data, timeout=(10, 60))
 
     @patch("requests.get")
-    def test_external_get_with_default_headers(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+    def test_external_get_with_default_headers(self, mock_get: Mock):
+        resp = Response()
+        resp.status_code = 200
+        resp._content = b""
+        mock_get.return_value = resp
 
         url = "https://external-api.com/data"
         response = self.client.external_get(url)

@@ -5,6 +5,7 @@ from podonos.common.enum import EvalType
 from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.core.config import EvalConfig
+from podonos.common.validator import Rules, validate_args
 from podonos.core.file import File, Audio, AudioGroup, FileTransformer, FileValidator
 from podonos.core.upload_manager import UploadManager
 from podonos.entity.evaluation import EvaluationEntity
@@ -36,6 +37,7 @@ class Evaluator:
         self._validate_initialization(api_client, eval_config, supported_eval_types)
         self._initialize_attributes(api_client, eval_config, supported_eval_types)
 
+    @validate_args(api_client=Rules.instance_of(APIClient), eval_config=Rules.instance_of(EvalConfig), supported_eval_types=Rules.list_not_none)
     def _validate_initialization(self, api_client: APIClient, eval_config: EvalConfig, supported_eval_types: List[EvalType]) -> None:
         """Validate the initialization parameters.
 
@@ -54,6 +56,7 @@ class Evaluator:
         if eval_config.eval_type not in supported_eval_types:
             raise ValueError("Not supported evaluation type")
 
+    @validate_args(api_client=Rules.instance_of(APIClient), eval_config=Rules.instance_of(EvalConfig), supported_eval_types=Rules.list_not_none)
     def _initialize_attributes(self, api_client: APIClient, eval_config: EvalConfig, supported_eval_types: List[EvalType]) -> None:
         """Initialize class attributes.
 
@@ -71,6 +74,7 @@ class Evaluator:
         self._ordered_file_groups = []
         self._upload_manager = None
 
+    @validate_args(method_name=Rules.str_non_empty)
     def _validate_eval_type(self, method_name: str) -> None:
         """Validate if the evaluation type is supported for the given method.
 
@@ -118,6 +122,7 @@ class Evaluator:
         self._cleanup()
         return {"status": "ok"}
 
+    @validate_args(file=Rules.instance_of(File))
     def add_file(self, file: File) -> None:
         """Add new file for speech evaluation.
         The file may be either in {wav, mp3} format. The file will be securely uploaded to
@@ -149,6 +154,7 @@ class Evaluator:
             evaluation_id=self.get_evaluation_id(), remote_object_name=audio_group.audios[0].remote_object_name, path=audio_group.audios[0].path
         )
 
+    @validate_args(file0=Rules.instance_of(File), file1=Rules.instance_of(File), file2=Rules.optional_instance_of(File))
     def add_files(self, file0: File, file1: File, file2: Optional[File] = None) -> None:
         """Add two files for speech evaluation. The files will be securely uploaded to Podonos service system.
 
@@ -195,7 +201,7 @@ class Evaluator:
         Raises:
             ValueError: If session is not properly initialized
         """
-        if not self._initialized or self._eval_config is None:
+        if not self._initialized or not self._eval_config:
             raise ValueError("No evaluation session is open.")
 
     def _wait_for_uploads(self) -> None:
@@ -222,6 +228,7 @@ class Evaluator:
             for audio in group.audios:
                 self._update_audio_upload_times(audio, upload_start, upload_finish)
 
+    @validate_args(audio=Rules.instance_of(Audio), upload_start=Rules.dict_not_none, upload_finish=Rules.dict_not_none)
     def _update_audio_upload_times(self, audio: Audio, upload_start: Dict[str, str], upload_finish: Dict[str, str]) -> None:
         """Update upload times for a single audio file.
 
@@ -244,11 +251,13 @@ class Evaluator:
         self._initialized = False
         self._ordered_file_groups = []
 
+    @validate_args(eval_config=Rules.instance_of(EvalConfig))
     def _set_evaluation(self, eval_config: EvalConfig) -> EvaluationEntity:
         if eval_config.eval_template_id:
             return self._evaluation_service.create_from_template(eval_config)
         return self._evaluation_service.create(eval_config)
 
+    @validate_args(evaluation_id=Rules.str_non_empty, remote_object_name=Rules.str_non_empty, path=Rules.file_path_not_none)
     def _upload_one_file(
         self,
         evaluation_id: str,
@@ -265,13 +274,6 @@ class Evaluator:
         Returns:
             None
         """
-        log.check_notnone(evaluation_id)
-        log.check_notnone(remote_object_name)
-        log.check_notnone(path)
-        log.check_ne(evaluation_id, "")
-        log.check_ne(remote_object_name, "")
-        log.check_ne(path, "")
-
         # Get the presigned URL for one file
         log.debug(f"Adding to queue: {path}")
         if not self._eval_config:

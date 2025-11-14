@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Literal, Optional, List, Dict, Any, Tuple
 
 from podonos.common.enum import Language
+from podonos.common.validator import Rules, validate_args
 from podonos.core.base import *
 from podonos.core.types import TemplateQuestion
 from podonos.core.query import NonScoredQuestion, Question, Instruction, ComparisonQuestion, ScoredQuestion
@@ -27,6 +28,7 @@ class Template:
     updated_time: Optional[datetime] = None
 
     @staticmethod
+    @validate_args(data=Rules.dict_not_none)
     def from_api_response(data: Dict[str, Any]) -> "Template":
         """Create Template instance from API response."""
         required_keys = [
@@ -59,6 +61,7 @@ class TemplateJsonLoader:
     """Loader class for template JSON data"""
 
     @staticmethod
+    @validate_args(json=Rules.dict_not_none_or_none, json_file=Rules.str_not_none_or_none)
     def load_json(json: Optional[Dict[str, Any]] = None, json_file: Optional[str] = None) -> Dict[TYPE_OF_TEMPLATE_KEY, Any]:
         """Load template JSON data from a file"""
         # Validate input parameters
@@ -88,6 +91,7 @@ class TemplateValidator:
     """Validator class for template JSON data"""
 
     @staticmethod
+    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
     def validate_and_create_questions(
         data: Dict[TYPE_OF_TEMPLATE_KEY, Any], batch_size: int
     ) -> Tuple[List[TemplateQuestion], List[TemplateQuestion]]:
@@ -119,6 +123,7 @@ class TemplateValidator:
         return instructions, core_questions
 
     @staticmethod
+    @validate_args(data=Rules.dict_not_none, key=Rules.str_not_none, expected_types=Rules.list_not_none, batch_size=Rules.positive_not_none)
     def process_questions(data: Dict[TYPE_OF_TEMPLATE_KEY, Any], key: str, expected_types: List[type], batch_size: int) -> List[TemplateQuestion]:
         """
         Process questions from the given data dictionary.
@@ -177,6 +182,7 @@ class TemplateValidator:
         return questions
 
     @staticmethod
+    @validate_args(reference_file=Rules.str_not_none_or_none, reference_files=Rules.list_not_none_or_none)
     def check_if_reference_file_is_audio_file(reference_file: Optional[str], reference_files: TYPE_OF_REFERENCE_FILES) -> None:
         """Check if the reference file is valid"""
         if reference_file is None and reference_files is None:

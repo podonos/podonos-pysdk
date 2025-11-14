@@ -1,6 +1,8 @@
+from typing import Any, Dict
 import unittest
 from unittest.mock import Mock, patch
 from datetime import datetime, timezone
+from uuid import uuid4
 
 
 from podonos.common.enum import EvalType, Language, QuestionFileType
@@ -36,7 +38,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_create_evaluation_successfully(self):
         # Given
-        expected_eval_id = "test_eval_id"
+        expected_eval_id = str(uuid4())
         current_time = datetime.now(timezone.utc)
         expected_response = {
             "id": expected_eval_id,
@@ -71,7 +73,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_get_evaluation_successfully(self):
         # Given
-        eval_id = "test_eval_id"
+        eval_id = str(uuid4())
         current_time = datetime.now(timezone.utc)
         expected_response = {
             "id": eval_id,
@@ -95,7 +97,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_get_evaluation_with_minimal_data(self):
         # Given
-        eval_id = "test_eval_id"
+        eval_id = str(uuid4())
         current_time = datetime.now(timezone.utc)
         expected_response = {
             "id": eval_id,
@@ -121,7 +123,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_handle_get_evaluation_failure(self):
         # Given
-        eval_id = "test_eval_id"
+        eval_id = str(uuid4())
         error_response = Mock(status_code=404)
         error_response.raise_for_status.side_effect = HTTPError("Failed to get evaluation", 404)
         self.mock_api_client.get.return_value = error_response
@@ -133,7 +135,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_create_evaluation_files_successfully(self):
         # Given
-        eval_id = "test_eval_id"
+        eval_id = str(uuid4())
         expected_response = {"message": "Files created successfully"}
         self.mock_api_client.put.return_value = Mock(status_code=200, json=lambda: expected_response)
 
@@ -145,7 +147,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_handle_create_evaluation_files_failure(self):
         # Given
-        eval_id = "test_eval_id"
+        eval_id = str(uuid4())
         self.mock_api_client.put.side_effect = Exception("Failed to create evaluation files")
 
         # When/Then
@@ -155,9 +157,10 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_get_evaluation_list_success(self):
         # Given
+        evaluation_id = str(uuid4())
         expected_evaluations = [
             {
-                "id": "eval1",
+                "id": evaluation_id,
                 "title": "Evaluation 1",
                 "internal_name": "Audio Evaluation",
                 "description": "This is a test evaluation",
@@ -174,7 +177,7 @@ class TestEvaluationService(unittest.TestCase):
 
         # Then
         self.mock_api_client.get.assert_called_once_with("evaluations")
-        self.assertEqual(evaluations[0]["id"], "eval1")
+        self.assertEqual(evaluations[0]["id"], evaluation_id)
         self.assertEqual(evaluations[0]["title"], "Evaluation 1")
         self.assertEqual(evaluations[0]["internal_name"], "Audio Evaluation")
         self.assertEqual(evaluations[0]["description"], "This is a test evaluation")
@@ -183,7 +186,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_get_stats_dict_by_id_success(self):
         # Given
-        evaluation_id = "test_evaluation_id"
+        evaluation_id = str(uuid4())
         expected_stats = [
             {
                 "files": [{"name": "file1.wav", "model_tag": "model1", "tags": ["tag1", "tag2"], "type": "A"}],
@@ -207,25 +210,29 @@ class TestEvaluationService(unittest.TestCase):
     @patch("os.makedirs")
     @patch("builtins.open", create=True)
     @patch("json.dump")
-    def test_download_evaluation_files_by_evaluation_id_success(self, mock_json_dump, mock_open, mock_makedirs):
+    def test_download_evaluation_files_by_evaluation_id_success(self, mock_json_dump: Mock, mock_open: Mock, mock_makedirs: Mock):
         # Given
-        evaluation_id = "test_evaluation_id"
+        evaluation_id = str(uuid4())
+        eval_file_1_id = str(uuid4())
+        eval_file_2_id = str(uuid4())
+        file_meta_1_id = str(uuid4())
+        file_meta_2_id = str(uuid4())
         output_dir = "./output"
         expected_response = {
             "evaluation_id": evaluation_id,
             "cookie": {"CloudFront-Policy": "test_policy", "CloudFront-Signature": "test_signature", "CloudFront-Key-Pair-Id": "test_key_pair_id"},
             "files": [
                 {
-                    "evaluation_file_id": "file1_id",
-                    "file_meta_id": "meta1_id",
+                    "evaluation_file_id": eval_file_1_id,
+                    "file_meta_id": file_meta_1_id,
                     "original_name": "file1.wav",
                     "original_url": "https://example.com/file1.wav",
                     "model_tag": "model1",
                     "tags": ["tag1", "tag2"],
                 },
                 {
-                    "evaluation_file_id": "file2_id",
-                    "file_meta_id": "meta2_id",
+                    "evaluation_file_id": eval_file_2_id,
+                    "file_meta_id": file_meta_2_id,
                     "original_name": "file2.wav",
                     "original_url": "https://example.com/file2.wav",
                     "model_tag": "model2",
@@ -256,7 +263,7 @@ class TestEvaluationService(unittest.TestCase):
 
     @patch("os.path.isfile")
     @patch("os.access")
-    def test_should_upload_evaluation_file_successfully(self, mock_access, mock_isfile):
+    def test_should_upload_evaluation_file_successfully(self, mock_access: Mock, mock_isfile: Mock):
         # Given
         url = "https://presigned-url.com/upload"
         path = "/tmp/test.wav"
@@ -283,7 +290,7 @@ class TestEvaluationService(unittest.TestCase):
     def test_should_upload_session_json_successfully(self):
         # Given
         url = "https://presigned-url.com/session.json"
-        data = {"key": "value", "files": []}
+        data: Dict[str, Any] = {"key": "value", "files": []}
         headers = {"Content-Type": "application/json"}
 
         mock_response = Mock(status_code=200)
@@ -299,7 +306,7 @@ class TestEvaluationService(unittest.TestCase):
     def test_should_upload_session_json_without_headers(self):
         # Given
         url = "https://presigned-url.com/session.json"
-        data = {"key": "value", "files": []}
+        data: Dict[str, Any] = {"key": "value", "files": []}
 
         mock_response = Mock(status_code=200)
         self.mock_api_client.external_put.return_value = mock_response
@@ -313,7 +320,7 @@ class TestEvaluationService(unittest.TestCase):
 
     @patch("os.path.isfile")
     @patch("os.access")
-    def test_should_handle_upload_evaluation_file_failure(self, mock_access, mock_isfile):
+    def test_should_handle_upload_evaluation_file_failure(self, mock_access: Mock, mock_isfile: Mock):
         # Given
         url = "https://presigned-url.com/upload"
         path = "/tmp/test.wav"
@@ -349,7 +356,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_upload_session_json_with_audio_groups(self):
         # Given
-        evaluation_id = "test_eval_id"
+        evaluation_id = str(uuid4())
         config = self.sample_eval_config
         mock_audio_group = Mock()
         mock_audio_group.to_dict.return_value = {"group": "test", "files": []}
@@ -373,7 +380,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_handle_upload_session_json_failure(self):
         # Given
-        evaluation_id = "test_eval_id"
+        evaluation_id = str(uuid4())
         config = self.sample_eval_config
         mock_audio_group = Mock()
         mock_audio_group.to_dict.return_value = {"group": "test", "files": []}
@@ -388,7 +395,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_get_presigned_url_successfully(self):
         # Given
-        evaluation_id = "test_eval_id"
+        evaluation_id = str(uuid4())
         remote_object_name = "test.wav"
         expected_url = "https://presigned-url.com/upload"
 
@@ -406,7 +413,7 @@ class TestEvaluationService(unittest.TestCase):
 
     def test_should_handle_get_presigned_url_failure(self):
         # Given
-        evaluation_id = "test_eval_id"
+        evaluation_id = str(uuid4())
         remote_object_name = "test.wav"
 
         self.mock_api_client.put.side_effect = Exception("Failed to get presigned URL")
@@ -419,7 +426,7 @@ class TestEvaluationService(unittest.TestCase):
     def test_should_create_evaluation_with_en_in_language(self):
         """Test creating evaluation with en-in language"""
         # Given
-        expected_eval_id = "test_en_in_eval_id"
+        expected_eval_id = str(uuid4())
         current_time = datetime.now(timezone.utc)
         expected_response = {
             "id": expected_eval_id,
@@ -449,7 +456,7 @@ class TestEvaluationService(unittest.TestCase):
     def test_should_create_evaluation_files_with_en_in_language_context(self):
         """Test creating evaluation files with en-in language context"""
         # Given
-        eval_id = "test_en_in_eval_id"
+        eval_id = str(uuid4())
         expected_response = {"message": "Files created successfully for Indian English evaluation"}
         self.mock_api_client.put.return_value = Mock(status_code=200, json=lambda: expected_response)
 
@@ -476,7 +483,7 @@ class TestEvaluationService(unittest.TestCase):
     def test_should_get_presigned_url_with_en_in_language_context(self):
         """Test getting presigned URL with en-in language context"""
         # Given
-        evaluation_id = "test_en_in_eval_id"
+        evaluation_id = str(uuid4())
         remote_object_name = "test_en_in.wav"
         expected_url = "https://presigned-url.com/upload-en-in"
 

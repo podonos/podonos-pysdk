@@ -1,5 +1,8 @@
 import unittest
 from unittest.mock import Mock
+from uuid import uuid4
+from typing import Any, Dict
+from typing import List
 from requests import HTTPError
 
 from podonos.core.api import APIClient
@@ -15,9 +18,9 @@ class TestScriptService(unittest.TestCase):
         self.service = ScriptService(self.mock_api_client)
 
         # Mock script data
-        self.mock_script_data = {
-            "id": "test_script_id",
-            "collection_id": "test_collection_id",
+        self.mock_script_data: Dict[str, Any] = {
+            "id": str(uuid4()),
+            "collection_id": str(uuid4()),
             "text": "Hello, this is a test script",
             "estimated_duration": 375,
             "required_count": 7,
@@ -32,9 +35,9 @@ class TestScriptService(unittest.TestCase):
 
     def test_should_create_scripts_successfully(self):
         # Given
-        collection_id = "test_collection_id"
+        collection_id = str(uuid4())
         texts = ["Hello", "This is test"]
-        mock_response = [self.mock_script_data, {**self.mock_script_data, "id": "test_script_id_2", "text": "This is test"}]
+        mock_response: List[Dict[str, Any]] = [self.mock_script_data, {**self.mock_script_data, "id": str(uuid4()), "text": "This is test"}]
         self.mock_api_client.post.return_value = Mock(status_code=200, json=lambda: mock_response)
 
         # When
@@ -44,7 +47,7 @@ class TestScriptService(unittest.TestCase):
         self.mock_api_client.post.assert_called_once()
         self.assertEqual(len(scripts), 2)
         self.assertIsInstance(scripts[0], ScriptEntity)
-        self.assertEqual(scripts[0].id, "test_script_id")
+        self.assertEqual(scripts[0].id, self.mock_script_data["id"])
         self.assertEqual(scripts[0].text, "Hello, this is a test script")
         self.assertEqual(scripts[0].speech_style, SpeechStyle.NONE)
         self.assertEqual(scripts[0].emotion, SpeechEmotion.NEUTRAL)
@@ -56,14 +59,13 @@ class TestScriptService(unittest.TestCase):
         texts = ["Hello"]
 
         # When/Then
-        with self.assertRaises(HTTPError) as context:
+        with self.assertRaises(ValueError):
             self.service.create_all(collection_id=collection_id, texts=texts)
-        self.assertIn("The collection_id is required", str(context.exception))
 
     def test_should_raise_error_when_create_scripts_with_empty_texts(self):
         # Given
-        collection_id = "test_collection_id"
-        texts = []
+        collection_id = str(uuid4())
+        texts: List[str] = []
 
         # When/Then
         with self.assertRaises(HTTPError) as context:
@@ -72,8 +74,8 @@ class TestScriptService(unittest.TestCase):
 
     def test_should_raise_error_when_create_scripts_fails(self):
         # Given
-        collection_id = "test_collection_id"
-        texts = ["Hello"]
+        collection_id = str(uuid4())
+        texts: List[str] = ["Hello"]
         self.mock_api_client.post.side_effect = Exception("API Error")
 
         # When/Then
@@ -82,18 +84,20 @@ class TestScriptService(unittest.TestCase):
 
     def test_should_list_scripts_successfully(self):
         # Given
-        mock_scripts = [self.mock_script_data]
+        script_id = self.mock_script_data["id"]
+        collection_id = self.mock_script_data["collection_id"]
+        mock_scripts: List[Dict[str, Any]] = [self.mock_script_data]
         self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: mock_scripts)
 
         # When
-        scripts = self.service.list(collection_id="test_collection_id")
+        scripts = self.service.list(collection_id=collection_id)
 
         # Then
-        self.mock_api_client.get.assert_called_once_with("scripts?collection-id=test_collection_id")
+        self.mock_api_client.get.assert_called_once_with(f"scripts?collection-id={collection_id}")
         self.assertEqual(len(scripts), 1)
         self.assertIsInstance(scripts[0], ScriptEntity)
-        self.assertEqual(scripts[0].id, "test_script_id")
-        self.assertEqual(scripts[0].collection_id, "test_collection_id")
+        self.assertEqual(scripts[0].id, script_id)
+        self.assertEqual(scripts[0].collection_id, collection_id)
         self.assertEqual(scripts[0].text, "Hello, this is a test script")
 
     def test_should_raise_error_when_list_scripts_fails(self):
@@ -102,7 +106,7 @@ class TestScriptService(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(HTTPError):
-            self.service.list(collection_id="test_collection_id")
+            self.service.list(collection_id=str(uuid4()))
 
 
 if __name__ == "__main__":

@@ -7,12 +7,20 @@ from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.core.collection import CollectionCreateRequestDto
 from podonos.entity.collection import CollectionEntity
+from podonos.common.validator import Rules, validate_args
 
 
 class CollectionService:
     def __init__(self, api_client: APIClient) -> None:
         self.api_client = api_client
 
+    @validate_args(
+        name=Rules.str_non_empty,
+        desc=Rules.str_not_none_or_none,
+        lan=Rules.str_not_none,
+        num_required_people=Rules.int_not_none,
+        target=Rules.str_not_none,
+    )
     def create(
         self,
         name: str,
@@ -38,7 +46,6 @@ class CollectionService:
             HTTPError: If the request fails
         """
         log.info(f"Create collection: {name}")
-        log.check_notnone(name, "The name of the collection is required")
 
         try:
             request = CollectionCreateRequestDto.from_dict(name, desc, lan, num_required_people, target)
