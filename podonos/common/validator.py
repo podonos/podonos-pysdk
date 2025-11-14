@@ -1,3 +1,4 @@
+from __future__ import annotations
 import inspect
 from functools import wraps
 import os
@@ -196,25 +197,24 @@ class Rules:
 
         return _check
 
-    # -----------------------------
+    # Declarations for linter/type-checkers (assigned after class definition)
     # Predefined rules (common use)
-    # -----------------------------
-    str_non_empty: ValidateFunc = make_non_empty_str()
-    str_not_none: ValidateFunc = make_type_rule(str)
-    int_not_none: ValidateFunc = make_type_rule(int)
-    float_not_none: ValidateFunc = make_type_rule(float)
-    number_not_none: ValidateFunc = make_type_rule((int, float))
-    bool_not_none: ValidateFunc = make_type_rule(bool)
-    list_not_none: ValidateFunc = make_type_rule(list)
-    list_not_empty: ValidateFunc = make_non_empty_list()
-    uuid_not_none: ValidateFunc = make_uuid_rule()
-    dict_not_none: ValidateFunc = make_type_rule(dict)
-    tuple_not_none: ValidateFunc = make_type_rule(tuple)
-    set_not_none: ValidateFunc = make_type_rule(set)
-    positive_not_none: ValidateFunc = make_positive_rule()
-    date_not_none: ValidateFunc = make_type_rule(date)
-    datetime_not_none: ValidateFunc = make_type_rule(datetime)
-    file_path_not_none: ValidateFunc = make_file_rule()
+    str_non_empty: ValidateFunc
+    str_not_none: ValidateFunc
+    int_not_none: ValidateFunc
+    float_not_none: ValidateFunc
+    number_not_none: ValidateFunc
+    bool_not_none: ValidateFunc
+    list_not_none: ValidateFunc
+    list_not_empty: ValidateFunc
+    uuid_not_none: ValidateFunc
+    dict_not_none: ValidateFunc
+    tuple_not_none: ValidateFunc
+    set_not_none: ValidateFunc
+    positive_not_none: ValidateFunc
+    date_not_none: ValidateFunc
+    datetime_not_none: ValidateFunc
+    file_path_not_none: ValidateFunc
 
     # -----------------------------
     # Instance of (type) variants
@@ -249,11 +249,44 @@ class Rules:
 
         return _check
 
-    str_non_empty_or_none: ValidateFunc = optional(str)
-    str_not_none_or_none: ValidateFunc = optional(str)
-    number_not_none_or_none: ValidateFunc = optional((int, float))
-    list_not_none_or_none: ValidateFunc = optional(list)
-    uuid_not_none_or_none = optional_uuid
-    is_optional_instance_of: Callable[[Type[Any]], ValidateFunc] = optional_instance_of
-    datetime_not_none_or_none: ValidateFunc = optional(datetime)
-    dict_not_none_or_none: ValidateFunc = optional(dict)
+    # Optional rule declarations (assigned after class definition)
+    str_non_empty_or_none: ValidateFunc
+    str_not_none_or_none: ValidateFunc
+    number_not_none_or_none: ValidateFunc
+    list_not_none_or_none: ValidateFunc
+    uuid_not_none_or_none: ValidateFunc
+    is_optional_instance_of: Callable[[Type[Any]], ValidateFunc]
+    datetime_not_none_or_none: ValidateFunc
+    dict_not_none_or_none: ValidateFunc
+
+
+# -----------------------------
+# Assign rule callables (3.8/3.9 compatible)
+# -----------------------------
+# Predefined rules (common use)
+Rules.str_non_empty = Rules.make_non_empty_str()
+Rules.str_not_none = Rules.make_type_rule(str)
+Rules.int_not_none = Rules.make_type_rule(int)
+Rules.float_not_none = Rules.make_type_rule(float)
+Rules.number_not_none = Rules.make_type_rule((int, float))
+Rules.bool_not_none = Rules.make_type_rule(bool)
+Rules.list_not_none = Rules.make_type_rule(list)
+Rules.list_not_empty = Rules.make_non_empty_list()
+Rules.uuid_not_none = Rules.make_uuid_rule()
+Rules.dict_not_none = Rules.make_type_rule(dict)
+Rules.tuple_not_none = Rules.make_type_rule(tuple)
+Rules.set_not_none = Rules.make_type_rule(set)
+Rules.positive_not_none = Rules.make_positive_rule()
+Rules.date_not_none = Rules.make_type_rule(date)
+Rules.datetime_not_none = Rules.make_type_rule(datetime)
+Rules.file_path_not_none = Rules.make_file_rule()
+
+# Optional (nullable) variants
+Rules.str_non_empty_or_none = Rules.optional(str)
+Rules.str_not_none_or_none = Rules.optional(str)
+Rules.number_not_none_or_none = Rules.optional((int, float))
+Rules.list_not_none_or_none = Rules.optional(list)
+Rules.uuid_not_none_or_none = Rules.optional_uuid
+Rules.is_optional_instance_of = Rules.optional_instance_of
+Rules.datetime_not_none_or_none = Rules.optional(datetime)
+Rules.dict_not_none_or_none = Rules.optional(dict)
