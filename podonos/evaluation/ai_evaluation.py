@@ -8,6 +8,7 @@ from podonos.core.evaluator import Evaluator
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
 from podonos.common.enum import AIEvalType, EvalType
 from podonos.service.ai_evaluation_service import AIEvaluationService
+from podonos.common.validator import Rules, validate_args
 
 
 class AIEvaluation:
@@ -18,6 +19,14 @@ class AIEvaluation:
         self._api_client = api_client
         self._ai_evaluation_service = AIEvaluationService(api_client)
 
+    @validate_args(
+        name=Rules.str_not_none_or_none,
+        desc=Rules.str_not_none_or_none,
+        type=Rules.str_not_none,
+        lan=Rules.str_not_none,
+        ai_type=Rules.instance_of(AIEvalType),
+        max_upload_workers=Rules.int_not_none,
+    )
     def create(
         self,
         name: Optional[str] = None,
@@ -51,6 +60,7 @@ class AIEvaluation:
             self._ai_evaluation_service.create(evaluator.get_evaluation_id(), AIEvalType.ALL)
         return evaluator
 
+    @validate_args(name=Rules.str_not_none_or_none, desc=Rules.str_not_none_or_none, lan=Rules.str_not_none, max_upload_workers=Rules.int_not_none)
     def asr(
         self,
         name: Optional[str] = None,

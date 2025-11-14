@@ -1,5 +1,6 @@
 from typing import Any, Dict, Literal, Optional, List, Union
 
+from podonos.common.validator import Rules, validate_args
 from podonos.core.api import APIClient
 from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
@@ -35,6 +36,19 @@ class Client:
         self._ai_evaluation = AIEvaluation(self._api_client)
         self._human_evaluation = HumanEvaluation(self._api_client, self._evaluation_service, self._template_service)
 
+    @validate_args(
+        name=Rules.str_not_none_or_none,
+        desc=Rules.str_not_none_or_none,
+        type=Rules.str_non_empty,
+        lan=Rules.str_non_empty,
+        granularity=Rules.float_not_none,
+        num_eval=Rules.positive_not_none,
+        due_hours=Rules.positive_not_none,
+        use_annotation=Rules.bool_not_none,
+        use_loudness_normalization=Rules.bool_not_none,
+        auto_start=Rules.bool_not_none,
+        max_upload_workers=Rules.positive_not_none,
+    )
     def create_evaluator(
         self,
         name: Optional[str] = None,
@@ -89,6 +103,16 @@ class Client:
             max_upload_workers,
         )
 
+    @validate_args(
+        name=Rules.str_non_empty,
+        template_id=Rules.str_non_empty,
+        num_eval=Rules.positive_not_none,
+        desc=Rules.str_not_none_or_none,
+        auto_start=Rules.bool_not_none,
+        max_upload_workers=Rules.positive_not_none,
+        use_annotation=Rules.bool_not_none,
+        use_loudness_normalization=Rules.bool_not_none,
+    )
     def create_evaluator_from_template(
         self,
         name: str,
@@ -126,6 +150,19 @@ class Client:
             name, template_id, num_eval, desc, use_annotation, use_loudness_normalization, auto_start, max_upload_workers
         )
 
+    @validate_args(
+        json=Rules.dict_not_none_or_none,
+        json_file=Rules.str_not_none_or_none,
+        name=Rules.str_not_none_or_none,
+        custom_type=Rules.str_not_none,
+        desc=Rules.str_not_none_or_none,
+        lan=Rules.str_non_empty,
+        num_eval=Rules.positive_not_none,
+        use_annotation=Rules.bool_not_none,
+        use_loudness_normalization=Rules.bool_not_none,
+        auto_start=Rules.bool_not_none,
+        max_upload_workers=Rules.positive_not_none,
+    )
     def create_evaluator_from_template_json(
         self,
         json: Optional[Dict[str, Any]] = None,
@@ -191,6 +228,7 @@ class Client:
         """
         return self._evaluation_service.get_evaluation_list()
 
+    @validate_args(evaluation_id=Rules.uuid_not_none, group_by=Rules.str_non_empty)
     def get_stats_json_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
@@ -204,10 +242,12 @@ class Client:
         """
         return self._evaluation_service.get_stats_json_by_id(evaluation_id, group_by)
 
+    @validate_args(evaluation_id=Rules.uuid_not_none, output_dir=Rules.str_not_none)
     def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
         """Download evaluation files"""
         return self._evaluation_service.download_evaluation_files_by_evaluation_id(evaluation_id, output_dir)
 
+    @validate_args(template_id=Rules.str_non_empty)
     def get_eval_template_info(self, template_id: str) -> Dict[str, Any]:
         """Gets detailed information on the evaluation template by id.
 

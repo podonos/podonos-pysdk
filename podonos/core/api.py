@@ -6,11 +6,12 @@ import random
 
 from requests import Response
 from requests.exceptions import RequestException, Timeout, ConnectionError, HTTPError, ConnectTimeout, ReadTimeout
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, Set
 from packaging.version import Version
 
 from podonos.common.constant import *
 from podonos.core.base import *
+from podonos.common.validator import validate_args, Rules
 
 
 class APIVersion:
@@ -43,7 +44,7 @@ class APIClient:
     _max_retries: int
     _retry_delay: float
     _backoff_factor: float
-    _retry_status_codes: set
+    _retry_status_codes: Set[int]
 
     def __init__(
         self,
@@ -52,7 +53,7 @@ class APIClient:
         max_retries: int = 5,
         retry_delay: float = 1.0,
         backoff_factor: float = 2.0,
-        retry_status_codes: Optional[set] = None,
+        retry_status_codes: Optional[Set[int]] = None,
     ):
         self._api_key = api_key
         self._api_url = api_url
@@ -78,12 +79,11 @@ class APIClient:
             raise ValueError(TerminalColor.FAIL + f"Invalid API key: {self._api_key}" + TerminalColor.ENDC)
         return True
 
+    @validate_args(key=Rules.str_non_empty, value=Rules.str_non_empty)
     def add_headers(self, key: str, value: str) -> None:
-        log.check_notnone(key)
-        log.check_ne(key, "")
-        log.check_notnone(value)
         self._headers[key] = value
 
+    @validate_args(response=Rules.optional_instance_of(Response), exception=Rules.optional_instance_of(Exception))
     def _should_retry(self, response: Optional[Response], exception: Optional[Exception] = None) -> bool:
         """Determine if a request should be retried based on response or exception."""
         if exception is not None:
@@ -100,6 +100,7 @@ class APIClient:
             return response.status_code in self._retry_status_codes
         return False
 
+    @validate_args(attempt=Rules.int_not_none)
     def _calculate_delay(self, attempt: int) -> float:
         """Calculate delay for exponential backoff with jitter."""
         delay = self._retry_delay * (self._backoff_factor**attempt)
@@ -160,14 +161,13 @@ class APIClient:
             raise last_exception
         raise RequestException("Unknown error occurred during retry")
 
+    @validate_args(endpoint=Rules.str_non_empty, params=Rules.dict_not_none_or_none, headers=Rules.dict_not_none_or_none)
     def get(
         self,
         endpoint: str,
         params: Optional[Dict[str, str]] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
-        log.check_notnone(endpoint)
-        log.check_ne(endpoint, "")
         request_header = self._headers if headers is None else headers
 
         def make_request():
@@ -175,14 +175,13 @@ class APIClient:
 
         return self._execute_with_retry(make_request)
 
+    @validate_args(endpoint=Rules.str_non_empty, data=Rules.dict_not_none, headers=Rules.dict_not_none_or_none)
     def post(
         self,
         endpoint: str,
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
-        log.check_notnone(endpoint)
-        log.check_ne(endpoint, "")
         request_header = self._headers if headers is None else headers
 
         def make_request():
@@ -190,14 +189,13 @@ class APIClient:
 
         return self._execute_with_retry(make_request)
 
+    @validate_args(endpoint=Rules.str_non_empty, data=Rules.dict_not_none, headers=Rules.dict_not_none_or_none)
     def put(
         self,
         endpoint: str,
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
-        log.check_notnone(endpoint)
-        log.check_ne(endpoint, "")
         request_header = self._headers if headers is None else headers
 
         def make_request():
@@ -205,15 +203,13 @@ class APIClient:
 
         return self._execute_with_retry(make_request)
 
+    @validate_args(endpoint=Rules.str_non_empty, data=Rules.dict_not_none, headers=Rules.dict_not_none_or_none)
     def patch(
         self,
         endpoint: str,
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
-        log.check_notnone(endpoint)
-        log.check_ne(endpoint, "")
-
         request_header = self._headers if headers is None else headers
 
         def make_request():
@@ -221,10 +217,8 @@ class APIClient:
 
         return self._execute_with_retry(make_request)
 
+    @validate_args(endpoint=Rules.str_non_empty, headers=Rules.dict_not_none_or_none)
     def delete(self, endpoint: str, headers: Optional[Dict[str, str]] = None) -> Response:
-        log.check_notnone(endpoint)
-        log.check_ne(endpoint, "")
-
         request_header = self._headers if headers is None else headers
 
         def make_request():
@@ -232,6 +226,9 @@ class APIClient:
 
         return self._execute_with_retry(make_request)
 
+    @validate_args(
+        url=Rules.str_non_empty, params=Rules.dict_not_none_or_none, headers=Rules.dict_not_none_or_none, cookies=Rules.dict_not_none_or_none
+    )
     def external_get(
         self,
         url: str,
@@ -240,8 +237,6 @@ class APIClient:
         cookies: Optional[Dict[str, str]] = None,
     ) -> Response:
         """Make a GET request to an external URL with retry logic."""
-        log.check_notnone(url)
-        log.check_ne(url, "")
         request_header = headers or {}
 
         def make_request():
@@ -249,6 +244,7 @@ class APIClient:
 
         return self._execute_with_retry(make_request)
 
+    @validate_args(url=Rules.str_non_empty, json_data=Rules.dict_not_none_or_none, headers=Rules.dict_not_none_or_none)
     def external_put(
         self,
         url: str,
@@ -257,8 +253,6 @@ class APIClient:
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
         """Make a PUT request to an external URL with retry logic."""
-        log.check_notnone(url)
-        log.check_ne(url, "")
         request_header = headers or {}
 
         def make_request():
@@ -269,6 +263,7 @@ class APIClient:
 
         return self._execute_with_retry(make_request)
 
+    @validate_args(url=Rules.str_non_empty, json_data=Rules.dict_not_none_or_none, headers=Rules.dict_not_none_or_none)
     def external_post(
         self,
         url: str,
@@ -277,8 +272,6 @@ class APIClient:
         headers: Optional[Dict[str, str]] = None,
     ) -> Response:
         """Make a POST request to an external URL with retry logic."""
-        log.check_notnone(url)
-        log.check_ne(url, "")
         request_header = headers or {}
 
         def make_request():

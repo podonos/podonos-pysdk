@@ -4,6 +4,7 @@ from typing import Literal, Optional, List, Dict, Any
 
 from podonos.common.enum import QuestionResponseCategory, QuestionUsageType, InstructionCategory, QuestionRelatedModel
 from podonos.core.types import QuestionMetadataColumn, QuestionMetadataLinearScale, QuestionMetadataPosition, TemplateQuestion, TemplateOption
+from podonos.common.validator import Rules, validate_args
 
 TYPE_OF_OPTION_KEY = Literal["score", "label_text", "reference_file"]
 TYPE_OF_QUESTION_KEY = Literal[
@@ -63,6 +64,7 @@ class Question(ABC):
         pass
 
     @classmethod
+    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
     def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "Question":
         """Create appropriate Question instance from dictionary."""
         question_type = data.get("type")
@@ -131,6 +133,7 @@ class ScoredQuestion(Question):
         )
 
     @classmethod
+    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
     def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "ScoredQuestion":
         if "options" not in data or not data["options"]:
             raise ValueError("SCORED question must have options")
@@ -202,6 +205,7 @@ class NonScoredQuestion(Question):
         )
 
     @classmethod
+    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
     def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "NonScoredQuestion":
         if "options" not in data or not data["options"]:
             raise ValueError("NON_SCORED question must have options")
@@ -268,6 +272,7 @@ class ComparisonQuestion(Question):
         )
 
     @classmethod
+    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
     def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "ComparisonQuestion":
         error_message = "COMPARISON question must have 'anchor_label' in the format: {'anchor_label': {'title': optional string, 'label_text': {'left': string, 'right': string}}}"
         if "anchor_label" not in data or "label_text" not in data["anchor_label"]:
@@ -337,6 +342,7 @@ class Instruction(Question):
         )
 
     @classmethod
+    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
     def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "Instruction":
         try:
             category = InstructionCategory(data["type"])

@@ -1,7 +1,6 @@
 import os
 import unittest
 from datetime import datetime
-from unittest.mock import patch
 
 from podonos.core.file import File, Audio, AudioGroup, AudioMeta
 from podonos.common.enum import QuestionFileType
@@ -118,7 +117,7 @@ class TestAudio(unittest.TestCase):
         )
 
         # When
-        meta = audio._metadata
+        meta = audio._metadata  # type: ignore[attr-defined]
 
         # Then
         self.assertEqual(meta.nchannels, 1)
@@ -145,8 +144,8 @@ class TestAudio(unittest.TestCase):
         audio.set_upload_at(now.isoformat(), now.isoformat())
 
         # Then
-        self.assertIsNotNone(audio._upload_start_at)
-        self.assertIsNotNone(audio._upload_finish_at)
+        assert audio._upload_start_at is not None  # type: ignore[attr-defined]
+        assert audio._upload_finish_at is not None  # type: ignore[attr-defined]
 
     def test_should_create_file_dict_correctly(self):
         # Given

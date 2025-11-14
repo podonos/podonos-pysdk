@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import List, Union, Literal, Optional, Dict, Any
 
+from podonos.common.validator import Rules, validate_args
+
 
 @dataclass
 class StimulusStatsFile:
@@ -10,6 +12,7 @@ class StimulusStatsFile:
     type: Union[Literal["A"], Literal["B"]]
 
     @staticmethod
+    @validate_args(data=Rules.dict_not_none)
     def from_dict(data: Dict[str, Any]) -> "StimulusStatsFile":
         required_keys = ["name", "model_tag", "tags", "type"]
         for key in required_keys:
@@ -50,6 +53,7 @@ class StimulusStats:
     options: Dict[str, Any] = field(default_factory=dict)
 
     @staticmethod
+    @validate_args(data=Rules.dict_not_none)
     def from_dict(data: Dict[str, Any]) -> "StimulusStats":
         required_keys = ["files", "question"]
         for key in required_keys:

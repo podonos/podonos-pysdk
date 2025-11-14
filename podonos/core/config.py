@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 from podonos.core.base import *
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
 from podonos.common.enum import AIEvalType, EvalType, Language
+from podonos.common.validator import Rules, validate_args
 
 
 class EvalConfigDefault:
@@ -133,6 +134,7 @@ class EvalConfig:
     def eval_id(self, eval_id: str) -> None:
         self._eval_id = eval_id
 
+    @validate_args(eval_name=Rules.str_non_empty_or_none)
     def _valudate_eval_name(self, eval_name: Optional[str]) -> str:
         if not eval_name:
             current = datetime.now()
@@ -142,6 +144,7 @@ class EvalConfig:
         else:
             raise ValueError('"name" must be longer than 1.')
 
+    @validate_args(eval_type=Rules.str_non_empty)
     def _validate_eval_type(self, eval_type: str) -> EvalType:
         if eval_type not in [
             EvalType.NMOS.value,
@@ -160,6 +163,7 @@ class EvalConfig:
             )
         return EvalType(eval_type)
 
+    @validate_args(eval_language=Rules.str_non_empty)
     def _validate_eval_language(self, eval_language: str) -> Language:
         if eval_language not in [
             Language.ENGLISH_AMERICAN.value,
@@ -188,21 +192,25 @@ class EvalConfig:
             )
         return Language(eval_language)
 
+    @validate_args(eval_ai_type=Rules.optional_instance_of(AIEvalType))
     def _validate_eval_ai_type(self, eval_ai_type: Optional[AIEvalType]) -> Optional[AIEvalType]:
         if eval_ai_type and eval_ai_type not in [AIEvalType.ALL]:
             raise ValueError(f'"ai_type" must be one of {{ALL}}.')
         return eval_ai_type
 
+    @validate_args(num_eval=Rules.positive_not_none)
     def _validate_eval_num(self, num_eval: int) -> int:
         if num_eval < 1:
             raise ValueError(f'"num_eval" must be >= 1.')
         return num_eval
 
+    @validate_args(granularity=Rules.float_not_none)
     def _validate_eval_granularity(self, granularity: float) -> float:
         if granularity not in [0.5, 1.0]:
             raise ValueError(f'"granularity" must be one of 0.5 and 1.0')
         return granularity
 
+    @validate_args(eval_type=Rules.str_non_empty)
     def _validate_eval_batch_size(self, eval_type: str) -> int:
         if EvalType.is_single(eval_type):
             return 1
@@ -214,6 +222,7 @@ class EvalConfig:
             raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}}.')
 
     # TODO: allow floating point hours, e.g. 0.5.
+    @validate_args(due_hours=Rules.positive_not_none)
     def _validate_eval_expected_due(self, due_hours: int) -> str:
         if due_hours < 12:
             raise ValueError('"due_hours" must be >=12.')
@@ -227,6 +236,7 @@ class EvalConfig:
     def _validate_eval_creation_timestamp(self) -> str:
         return datetime.now().isoformat(timespec="milliseconds")
 
+    @validate_args(eval_use_annotation=Rules.bool_not_none, eval_type=Rules.str_non_empty)
     def _validate_eval_use_annotation(self, eval_use_annotation: bool, eval_type: str) -> bool:
         if eval_use_annotation and eval_type not in [
             EvalType.NMOS.value,

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import atexit
 import datetime
 import queue
@@ -7,10 +8,16 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from tqdm import tqdm
-from typing import Optional
+from typing import Optional, Any, Dict, Tuple
+
+try:
+    from typing import Protocol  # Python 3.8+: available in typing
+except Exception:  # pragma: no cover
+    from typing_extensions import Protocol  # type: ignore
 
 from podonos.core.base import *
 from podonos.service.evaluation_service import EvaluationService
+from podonos.common.validator import Rules, validate_args
 
 
 class UploadManager:
@@ -18,14 +25,21 @@ class UploadManager:
     Internally creates multiple threads, and manages the uploading status.
     """
 
+    class UploadQueue(Protocol):
+        def put(self, item: Tuple[str, str, str], block: bool = True, timeout: Optional[float] = None) -> None: ...
+        def get(self, block: bool = True, timeout: Optional[float] = None) -> Tuple[str, str, str]: ...
+        def empty(self) -> bool: ...
+        def task_done(self) -> None: ...
+        def join(self) -> None: ...
+
     # File path queue
     # TODO: use a file queue.
-    _queue: Optional[queue.Queue] = None
+    _queue: Optional[UploadQueue] = None
     # Total number of files added to the uploading queue.
     _total_files: int = 0
     _total_uploaded: int = 0
 
-    _pbar: Optional[tqdm] = None
+    _pbar: Optional[Any] = None
     # Event to all the uploader threads
     _worker_event: Optional[Event] = None
     # Master daemon thread. Alive until the manager closes.
@@ -37,22 +51,21 @@ class UploadManager:
     # Maximum number of uploader worker threads
     _max_workers: int = 1
     #
-    _upload_start: Optional[dict] = None
-    _upload_finish: Optional[dict] = None
+    _upload_start: Optional[Dict[str, str]] = None
+    _upload_finish: Optional[Dict[str, str]] = None
 
-    def get_upload_time(self):
+    def get_upload_time(self) -> Tuple[Dict[str, str], Dict[str, str]]:
         if not self._upload_start or not self._upload_finish:
             raise ValueError("Upload Fail")
 
         return self._upload_start, self._upload_finish
 
+    @validate_args(evaluation_service=Rules.instance_of(EvaluationService), max_workers=Rules.positive_not_none)
     def __init__(
         self,
         evaluation_service: EvaluationService,
         max_workers: int,
     ) -> None:
-        log.check(evaluation_service, "api_client is not initialized")
-
         self._upload_start = dict()
         self._upload_finish = dict()
         self._evaluation_service = evaluation_service
@@ -70,17 +83,18 @@ class UploadManager:
         log.debug(f"Uploader daemon is running with {self._max_workers} workers")
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
             for index in range(self._max_workers):
-                future = executor.submit(self._upload_worker, index, self._worker_event)
+                executor.submit(self._upload_worker, index, self._worker_event)  # type: ignore
         log.debug(f"Uploader daemon is shutting down")
         executor.shutdown(wait=True)
 
-    def _upload_worker(self, index, worker_event) -> None:
+    @validate_args(index=Rules.int_not_none, worker_event=Rules.instance_of(Event))
+    def _upload_worker(self, index: int, worker_event: Event) -> None:
         # Individual worker for uploading files. The upload manager creates multiple threads for each of this worker.
         if not (
             self._queue is not None
             and self._worker_event is not None
             and self._daemon_thread is not None
-            and self._evaluation_service is not None
+            and self._evaluation_service is not None  # type: ignore
             and self._upload_start is not None
             and self._upload_finish is not None
         ):
@@ -89,7 +103,7 @@ class UploadManager:
         log.debug(f"Worker is {index} ready")
         while True:
             if not self._queue.empty():
-                item = self._queue.get()
+                item: Tuple[str, str, str] = self._queue.get()
                 evaluation_id = item[0]
                 remote_object_name = item[1]
                 path = item[2]
@@ -126,7 +140,7 @@ class UploadManager:
             self._queue is not None
             and self._worker_event is not None
             and self._daemon_thread is not None
-            and self._evaluation_service is not None
+            and self._evaluation_service is not None  # type: ignore
             and self._upload_start is not None
             and self._upload_finish is not None
         ):
@@ -167,7 +181,7 @@ class UploadManager:
             self._queue is not None
             and self._worker_event is not None
             and self._daemon_thread is not None
-            and self._evaluation_service is not None
+            and self._evaluation_service is not None  # type: ignore
             and self._upload_start is not None
             and self._upload_finish is not None
         )

@@ -6,12 +6,14 @@ from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.core.script import ScriptCreateRequestDto
 from podonos.entity.script import ScriptEntity
+from podonos.common.validator import Rules, validate_args
 
 
 class ScriptService:
     def __init__(self, api_client: APIClient):
         self.api_client = api_client
 
+    @validate_args(collection_id=Rules.uuid_not_none, texts=Rules.list_not_none)
     def create_all(self, collection_id: str, texts: List[str]) -> List[ScriptEntity]:
         """
         Create new scripts for a collection
@@ -28,8 +30,6 @@ class ScriptService:
             HTTPError: If the request fails
         """
         log.info(f"Create scripts for collection: {collection_id}")
-        log.check_notnone(collection_id, "The collection_id is required")
-        log.check_notnone(texts, "The texts are required")
 
         try:
             request = ScriptCreateRequestDto.from_dict(collection_id, texts)
@@ -39,6 +39,7 @@ class ScriptService:
         except Exception as e:
             raise HTTPError(f"Failed to create scripts: {e}")
 
+    @validate_args(collection_id=Rules.uuid_not_none)
     def list(self, collection_id: str) -> List[ScriptEntity]:
         """
         Get the list of all scripts

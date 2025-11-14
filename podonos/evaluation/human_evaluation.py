@@ -9,6 +9,7 @@ from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 from podonos.core.template import TemplateJsonLoader, TemplateValidator
 from podonos.service import EvaluationService, TemplateService
+from podonos.common.validator import Rules, validate_args
 
 
 class HumanEvaluation:
@@ -21,6 +22,19 @@ class HumanEvaluation:
         self._evaluation_service = evaluation_service
         self._template_service = template_service
 
+    @validate_args(
+        name=Rules.str_not_none_or_none,
+        desc=Rules.str_not_none_or_none,
+        type=Rules.str_not_none,
+        lan=Rules.str_not_none,
+        granularity=Rules.float_not_none,
+        num_eval=Rules.int_not_none,
+        due_hours=Rules.int_not_none,
+        use_annotation=Rules.bool_not_none,
+        use_loudness_normalization=Rules.bool_not_none,
+        auto_start=Rules.bool_not_none,
+        max_upload_workers=Rules.int_not_none,
+    )
     def create(
         self,
         name: Optional[str] = None,
@@ -89,6 +103,16 @@ class HumanEvaluation:
 
         return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
 
+    @validate_args(
+        name=Rules.str_not_none,
+        template_id=Rules.str_non_empty,
+        num_eval=Rules.int_not_none,
+        desc=Rules.str_not_none_or_none,
+        use_annotation=Rules.bool_not_none,
+        use_loudness_normalization=Rules.bool_not_none,
+        auto_start=Rules.bool_not_none,
+        max_upload_workers=Rules.int_not_none,
+    )
     def create_from_template(
         self,
         name: str,
@@ -147,6 +171,19 @@ class HumanEvaluation:
             raise ValueError(f"Template has invalid type so please contact {PODONOS_CONTACT_EMAIL}")
         return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
 
+    @validate_args(
+        json=Rules.dict_not_none_or_none,
+        json_file=Rules.str_not_none_or_none,
+        name=Rules.str_not_none_or_none,
+        custom_type=Rules.str_not_none,
+        desc=Rules.str_not_none_or_none,
+        lan=Rules.str_not_none,
+        num_eval=Rules.int_not_none,
+        use_annotation=Rules.bool_not_none,
+        use_loudness_normalization=Rules.bool_not_none,
+        auto_start=Rules.bool_not_none,
+        max_upload_workers=Rules.int_not_none,
+    )
     def create_from_template_json(
         self,
         json: Optional[Dict[str, Any]] = None,

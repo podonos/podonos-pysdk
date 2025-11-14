@@ -13,6 +13,7 @@ from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig
 from podonos.core.file import Audio, AudioGroup
 from podonos.entity.evaluation import EvaluationEntity
+from podonos.common.validator import Rules, validate_args
 
 
 class EvaluationService:
@@ -21,6 +22,7 @@ class EvaluationService:
     def __init__(self, api_client: APIClient):
         self.api_client = api_client
 
+    @validate_args(config=Rules.instance_of(EvalConfig))
     def create(self, config: EvalConfig) -> EvaluationEntity:
         """
         Create a new evaluation based on the evaluation configuration
@@ -41,6 +43,7 @@ class EvaluationService:
         except Exception as e:
             raise HTTPError(f"Failed to create the evaluation: {e}")
 
+    @validate_args(config=Rules.instance_of(EvalConfig))
     def create_from_template(self, config: EvalConfig) -> EvaluationEntity:
         """
         Create a new evaluation based on built-in template
@@ -61,6 +64,7 @@ class EvaluationService:
         except Exception as e:
             raise HTTPError(f"Failed to create the evaluation: {e}")
 
+    @validate_args(evaluation_id=Rules.uuid_not_none)
     def get_evaluation(self, evaluation_id: str) -> EvaluationEntity:
         """Get evaluation by ID"""
         try:
@@ -86,6 +90,7 @@ class EvaluationService:
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
 
+    @validate_args(evaluation_id=Rules.uuid_not_none, group_by=Rules.str_not_none)
     def get_stats_json_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
@@ -107,6 +112,7 @@ class EvaluationService:
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation stats: {e}")
 
+    @validate_args(evaluation_id=Rules.uuid_not_none, audios=Rules.list_not_none)
     def create_evaluation_files(self, evaluation_id: str, audios: List[Audio]):
         try:
             response = self.api_client.put(
@@ -118,9 +124,10 @@ class EvaluationService:
             log.error(f"HTTP error in adding file meta: {e}")
             raise HTTPError(
                 f"Failed to create evaluation files: {e}",
-                status_code=getattr(e, "response", {}).get("status_code") if hasattr(e, "response") else None,
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
 
+    @validate_args(evaluation_id=Rules.uuid_not_none, remote_object_name=Rules.str_not_none)
     def get_presigned_url(self, evaluation_id: str, remote_object_name: str) -> str:
         """Get presigned URL for file upload"""
         try:
@@ -134,14 +141,8 @@ class EvaluationService:
             log.error(f"HTTP error in getting a presigned url: {e}")
             raise HTTPError(f"Failed to get presigned URL: {e}")
 
+    @validate_args(url=Rules.str_not_none, path=Rules.file_path_not_none)
     def upload_evaluation_file(self, url: str, path: str) -> Response:
-        log.check_notnone(url)
-        log.check_notnone(path)
-        log.check_ne(url, "")
-        log.check_ne(path, "")
-        log.check(os.path.isfile(path), f"{path} doesn't exist")
-        log.check(os.access(path, os.R_OK), f"{path} isn't readable")
-
         try:
             with open(path, "rb") as file:
                 response = self.api_client.external_put(
@@ -154,9 +155,10 @@ class EvaluationService:
             log.error(f"HTTP error in uploading a file to presigned URL: {e}")
             raise HTTPError(
                 f"Failed to Upload File {path}: {e}",
-                status_code=getattr(e, "response", {}).get("status_code") if hasattr(e, "response") else None,
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
 
+    @validate_args(evaluation_id=Rules.uuid_not_none, config=Rules.instance_of(EvalConfig), audio_groups=Rules.list_not_none)
     def upload_session_json(self, evaluation_id: str, config: EvalConfig, audio_groups: List[AudioGroup]) -> None:
         """Upload session JSON data"""
         try:
@@ -167,10 +169,8 @@ class EvaluationService:
         except Exception as e:
             raise HTTPError(f"Failed to upload session JSON: {e}")
 
+    @validate_args(url=Rules.str_not_none, data=Rules.dict_not_none, headers=Rules.dict_not_none_or_none)
     def put_session_json(self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Response:
-        log.check_notnone(url)
-        log.check_ne(url, "")
-
         log.debug("JSON data")
         for key, value in data.items():
             log.debug(f"{key}: {value}")
@@ -186,9 +186,10 @@ class EvaluationService:
             log.error(f"HTTP error in uploading a json to presigned url: {e}")
             raise HTTPError(
                 f"Failed to Upload JSON {data}: {e}",
-                status_code=getattr(e, "response", {}).get("status_code") if hasattr(e, "response") else None,
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
 
+    @validate_args(evaluation_id=Rules.uuid_not_none, output_dir=Rules.str_not_none)
     def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
         """Download evaluation files using CloudFront cookies."""
         try:

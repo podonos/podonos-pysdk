@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import Mock
 from requests import HTTPError
+from uuid import uuid4
 
 from podonos.core.api import APIClient
 from podonos.service.collection_service import CollectionService
@@ -16,7 +17,7 @@ class TestCollectionService(unittest.TestCase):
 
         # Mock collection data
         self.mock_collection_data = {
-            "id": "test_collection_id",
+            "id": str(uuid4()),
             "name": "Test Collection",
             "description": "Test Description",
             "language": Language.ENGLISH_AMERICAN.value,
@@ -45,7 +46,7 @@ class TestCollectionService(unittest.TestCase):
         # Then
         self.mock_api_client.post.assert_called_once()
         self.assertIsInstance(collection, CollectionEntity)
-        self.assertEqual(collection.id, "test_collection_id")
+        self.assertEqual(collection.id, self.mock_collection_data["id"])
         self.assertEqual(collection.name, "Test Collection")
 
     def test_should_raise_error_when_create_collection_with_non_en_us_language(self):
@@ -91,7 +92,7 @@ class TestCollectionService(unittest.TestCase):
         self.mock_api_client.get.assert_called_once_with("collections")
         self.assertEqual(len(collections), 1)
         self.assertIsInstance(collections[0], CollectionEntity)
-        self.assertEqual(collections[0].id, "test_collection_id")
+        self.assertEqual(collections[0].id, self.mock_collection_data["id"])
 
     def test_should_raise_error_when_list_collections_fails(self):
         # Given

@@ -77,9 +77,10 @@ class TestEvalConfig(unittest.TestCase):
             self.assertEqual(result, num)
 
         # Test invalid number
-        with self.assertRaises(ValueError) as context:
+        from glog import FailedCheckException  # type: ignore
+
+        with self.assertRaises(FailedCheckException):
             self.eval_config._validate_eval_num(0)  # type: ignore
-        self.assertEqual(str(context.exception), '"num_eval" must be >= 1.')
 
     def test_validate_eval_granularity(self):
         # Test valid granularity values

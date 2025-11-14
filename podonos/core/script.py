@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Any, Dict
 
+from podonos.common.validator import Rules, validate_args
+
 
 @dataclass
 class ScriptCreateRequestDto:
@@ -14,6 +16,7 @@ class ScriptCreateRequestDto:
         }
 
     @staticmethod
+    @validate_args(collection_id=Rules.str_non_empty, texts=Rules.list_not_none)
     def from_dict(collection_id: str, texts: List[str]) -> "ScriptCreateRequestDto":
         if len(collection_id) == 0:
             raise ValueError("The collection_id is required")

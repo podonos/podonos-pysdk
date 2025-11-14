@@ -1,3 +1,8 @@
+## 0.28.0
+
+- Add runtime parameter validation via `validate_args`/`Rules` across core and services
+- Introduce `File.meta_data` (optional, JSON-primitive only) and propagate in upload payloads
+
 ## 0.27.0
 
 - Support multiple reference files for instruction questions (max 3 files)
