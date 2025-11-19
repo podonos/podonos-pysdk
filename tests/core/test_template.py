@@ -17,6 +17,7 @@ class TestTemplate(unittest.TestCase):
             "code": "TEST_CODE",
             "title": "Test Template",
             "description": "Test Description",
+            "eval_type": "CUSTOM",
             "batch_size": 1,
             "language": "en-us",
             "created_time": "2024-03-20T10:00:00Z",

@@ -33,6 +33,7 @@ class TestTemplateService(unittest.TestCase):
             "code": "TEST_CODE",
             "title": "Test Template",
             "description": "Test Description",
+            "eval_type": "CUSTOM",
             "batch_size": 1,
             "use_annotation": False,
             "use_power_normalization": False,

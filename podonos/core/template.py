@@ -39,6 +39,7 @@ class Template:
             "title",
             "description",
             "batch_size",
+            "eval_type",
             "language",
             "created_time",
             "updated_time",
@@ -54,7 +55,7 @@ class Template:
             description=data["description"],
             batch_size=data["batch_size"],
             language=Language.from_value(data["language"]),
-            evaluation_type=data.get("evaluation_type"),
+            evaluation_type=data.get("eval_type"),
             created_time=datetime.fromisoformat(data["created_time"].replace("Z", "+00:00")),
             updated_time=datetime.fromisoformat(data["updated_time"].replace("Z", "+00:00")),
         )

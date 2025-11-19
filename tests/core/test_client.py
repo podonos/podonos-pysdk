@@ -101,6 +101,7 @@ def mocked_requests_get(*args: Any, **kwargs: Any):
             code="mock_code",
             title="mock_title",
             description="mock_description",
+            eval_type="CUSTOM",
             batch_size=1,
             use_annotation=False,
             use_power_normalization=True,
