@@ -251,6 +251,83 @@ class TestQuery(unittest.TestCase):
         assert isinstance(instruction, Instruction)
         self.assertIsNone(instruction.reference_files)
 
+    def test_question_from_dict_ranking_allows_comparison(self):
+        # Given
+        comparison_data: Dict[TYPE_OF_QUESTION_KEY, Any] = {
+            "type": "COMPARISON",
+            "question": "Compare A vs B",
+            "anchor_label": {"label_text": {"left": "Left", "right": "Right"}},
+        }
+        batch_size = 2
+
+        # When
+        question = Question.from_dict(comparison_data, batch_size, allow_ranking_only=True)
+
+        # Then
+        assert isinstance(question, ComparisonQuestion)
+        self.assertEqual(question.type, "COMPARISON")
+
+    def test_question_from_dict_ranking_allows_instruction(self):
+        # Given
+        instruction_data: Dict[TYPE_OF_QUESTION_KEY, Any] = {
+            "type": "DO",
+            "instruction": "Follow the guide",
+        }
+        batch_size = 2
+
+        # When
+        question = Question.from_dict(instruction_data, batch_size, allow_ranking_only=True)
+
+        # Then
+        assert isinstance(question, Instruction)
+        self.assertEqual(question.type, "INSTRUCTION")
+        self.assertEqual(question.category, InstructionCategory.DO)
+
+    def test_question_from_dict_ranking_rejects_scored(self):
+        # Given
+        scored_data: Dict[TYPE_OF_QUESTION_KEY, Any] = {
+            "type": "SCORED",
+            "question": "Rate this",
+            "options": [{"label_text": "Option 1"}],
+        }
+        batch_size = 2
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            Question.from_dict(scored_data, batch_size, allow_ranking_only=True)
+        self.assertIn("RANKING evaluation allows only Instruction", str(context.exception))
+
+    def test_question_from_dict_ranking_rejects_non_scored(self):
+        # Given
+        non_scored_data: Dict[TYPE_OF_QUESTION_KEY, Any] = {
+            "type": "NON_SCORED",
+            "question": "Select options",
+            "options": [{"label_text": "Option 1"}],
+            "allow_multiple": True,
+        }
+        batch_size = 2
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            Question.from_dict(non_scored_data, batch_size, allow_ranking_only=True)
+        self.assertIn("RANKING evaluation allows only Instruction", str(context.exception))
+
+    def test_question_from_dict_without_ranking_mode_allows_all_types(self):
+        # Given - SCORED question should work in non-ranking mode
+        scored_data: Dict[TYPE_OF_QUESTION_KEY, Any] = {
+            "type": "SCORED",
+            "question": "Rate this",
+            "options": [{"label_text": "Option 1"}],
+        }
+        batch_size = 1
+
+        # When
+        question = Question.from_dict(scored_data, batch_size, allow_ranking_only=False)
+
+        # Then
+        assert isinstance(question, ScoredQuestion)
+        self.assertEqual(question.type, "SCORED")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

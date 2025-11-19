@@ -3,7 +3,7 @@ Default enum values across whole SDK
 """
 
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 
 class EvalType(Enum):
@@ -11,6 +11,7 @@ class EvalType(Enum):
     NMOS = "NMOS"
     QMOS = "QMOS"
     P808 = "P808"
+    RANKING = "RANKING"
     SMOS = "SMOS"
     PREF = "PREF"
     CMOS = "CMOS"
@@ -56,6 +57,57 @@ class EvalType(Enum):
         return [EvalType.CSMOS]
 
     @staticmethod
+    def get_ranking_types() -> List["EvalType"]:
+        """Get all ranking evaluation types"""
+        return [EvalType.RANKING]
+
+    @staticmethod
+    def selected_from_template_evaluation_type(evaluation_type: str, batch_size: Optional[int] = None) -> "EvalType":
+        """
+        Map template.evaluation_type (e.g., 'SPEECH_NMOS', 'SPEECH_RANKING', 'CUSTOM') to EvalType.
+        If evaluation_type is 'CUSTOM', batch_size is required to disambiguate.
+        """
+        mapping = {
+            "SPEECH_NMOS": EvalType.NMOS,
+            "SPEECH_QMOS": EvalType.QMOS,
+            "SPEECH_P808": EvalType.P808,
+            "SPEECH_SMOS": EvalType.SMOS,
+            "SPEECH_PREFERENCE": EvalType.PREF,
+            "SPEECH_CMOS": EvalType.CMOS,
+            "SPEECH_DMOS": EvalType.DMOS,
+            "SPEECH_CSMOS": EvalType.CSMOS,
+            "SPEECH_RANKING": EvalType.RANKING,
+        }
+        if evaluation_type in mapping:
+            return mapping[evaluation_type]
+        if evaluation_type == "CUSTOM":
+            if batch_size == 1:
+                return EvalType.CUSTOM_SINGLE
+            if batch_size == 2:
+                return EvalType.CUSTOM_DOUBLE
+            raise ValueError("CUSTOM evaluation_type requires batch_size 1 or 2")
+        raise ValueError(f"Unknown evaluation_type: {evaluation_type}")
+
+    @staticmethod
+    def get_supported_types_for(selected: "EvalType") -> List["EvalType"]:
+        """
+        Get the supported EvalTypes list that should be passed to Evaluator for a given selected type.
+        - Single family -> all single types
+        - Double family -> all double types
+        - Triple family -> all triple types
+        - Ranking -> [RANKING]
+        """
+        if selected in EvalType.get_single_types():
+            return EvalType.get_single_types()
+        if selected in EvalType.get_double_types():
+            return EvalType.get_double_types()
+        if selected in EvalType.get_triple_types():
+            return EvalType.get_triple_types()
+        if selected in EvalType.get_ranking_types():
+            return [EvalType.RANKING]
+        return [selected]
+
+    @staticmethod
     def is_single(type_str: str) -> bool:
         """Check if type is single stimulus"""
         return EvalType(type_str) in EvalType.get_single_types()
@@ -64,6 +116,11 @@ class EvalType(Enum):
     def is_double(type_str: str) -> bool:
         """Check if type is double stimuli"""
         return EvalType(type_str) in EvalType.get_double_types()
+
+    @staticmethod
+    def is_ranking(type_str: str) -> bool:
+        """Check if type is ranking"""
+        return EvalType(type_str) in EvalType.get_ranking_types()
 
     @staticmethod
     def is_triple(type_str: str) -> bool:

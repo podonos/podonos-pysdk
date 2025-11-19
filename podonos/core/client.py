@@ -168,7 +168,7 @@ class Client:
         json: Optional[Dict[str, Any]] = None,
         json_file: Optional[str] = None,
         name: Optional[str] = None,
-        custom_type: Union[Literal["SINGLE"], Literal["DOUBLE"]] = "SINGLE",
+        custom_type: Union[Literal["SINGLE"], Literal["DOUBLE"], Literal["RANKING"]] = "SINGLE",
         desc: Optional[str] = None,
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,

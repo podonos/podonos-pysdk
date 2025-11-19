@@ -2,12 +2,15 @@ import os
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
+from typing import List
+
+from glog import FailedCheckException  # type: ignore
 
 from podonos.common.enum import QuestionFileType, EvalType
 from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig
 from podonos.core.evaluator import Evaluator
-from podonos.core.file import Audio, AudioGroup
+from podonos.core.file import Audio, AudioGroup, File
 from podonos.entity.evaluation import EvaluationEntity
 from tests.core.test_audio import TESTDATA_SPEECH_TWO_CH1_WAV
 
@@ -210,6 +213,712 @@ class TestEvaluator(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.evaluator._validate_close()  # type: ignore
         self.assertEqual(str(context.exception), "No evaluation session is open.")
+
+    def test_get_evaluation_id_successfully(self):
+        """Test get_evaluation_id returns correct ID"""
+        # Given
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # When
+        eval_id = self.evaluator.get_evaluation_id()
+
+        # Then
+        self.assertEqual(eval_id, "test_id")
+
+    def test_get_evaluation_id_raises_error_when_not_initialized(self):
+        """Test get_evaluation_id raises error when evaluation is None"""
+        # Given
+        self.evaluator._evaluation = None  # type: ignore
+
+        # When/Then
+        with self.assertRaises(AssertionError):
+            self.evaluator.get_evaluation_id()
+
+    def test_validate_initialization_with_invalid_api_client(self):
+        """Test _validate_initialization raises error for invalid api_client"""
+        # Given
+        eval_config = EvalConfig(type=EvalType.NMOS.value)
+
+        # When/Then
+        with self.assertRaises(FailedCheckException):
+            self.evaluator._validate_initialization(None, eval_config, [EvalType.NMOS])  # type: ignore
+
+    def test_validate_initialization_with_invalid_eval_config(self):
+        """Test _validate_initialization raises error for invalid eval_config"""
+        # When/Then
+        with self.assertRaises(FailedCheckException):
+            self.evaluator._validate_initialization(self.api_client, None, [EvalType.NMOS])  # type: ignore
+
+    def test_validate_initialization_with_unsupported_eval_type(self):
+        """Test _validate_initialization raises error for unsupported eval type"""
+        # Given
+        eval_config = EvalConfig(type=EvalType.PREF.value)
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator._validate_initialization(self.api_client, eval_config, [EvalType.NMOS])  # type: ignore
+        self.assertIn("Not supported evaluation type", str(context.exception))
+
+    def test_initialize_attributes_sets_all_attributes(self):
+        """Test _initialize_attributes properly sets all class attributes"""
+        # Given
+        eval_config = EvalConfig(type=EvalType.NMOS.value)
+        evaluator = object.__new__(Evaluator)  # Create uninitialized instance
+
+        # When
+        with patch.object(Evaluator, "_set_evaluation", return_value=self.mock_evaluation):
+            evaluator._initialize_attributes(self.api_client, eval_config, [EvalType.NMOS])  # type: ignore
+
+        # Then
+        self.assertEqual(evaluator._api_client, self.api_client)  # type: ignore
+        self.assertEqual(evaluator._eval_config, eval_config)  # type: ignore
+        self.assertIsNotNone(evaluator._evaluation_service)  # type: ignore
+        self.assertIsNotNone(evaluator._file_transformer)  # type: ignore
+        self.assertIsNotNone(evaluator._file_validator)  # type: ignore
+        self.assertEqual(evaluator._supported_eval_types, [EvalType.NMOS])  # type: ignore
+        self.assertEqual(evaluator._ordered_file_groups, [])  # type: ignore
+        self.assertIsNone(evaluator._upload_manager)  # type: ignore
+
+    def test_validate_eval_type_for_ranking(self):
+        """Test _validate_eval_type for add_ranking_set"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+
+        # When/Then (should not raise)
+        self.evaluator._validate_eval_type("add_ranking_set")  # type: ignore
+
+    def test_validate_eval_type_raises_for_wrong_ranking_type(self):
+        """Test _validate_eval_type raises error when using add_ranking_set with non-RANKING type"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.NMOS  # type: ignore
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator._validate_eval_type("add_ranking_set")  # type: ignore
+        self.assertIn("add_ranking_set", str(context.exception))
+        self.assertIn("ranking evaluation types", str(context.exception))
+
+    @patch("podonos.core.evaluator.UploadManager")
+    def test_upload_one_file_initializes_upload_manager_lazily(self, mock_upload_manager: Mock):
+        """Test _upload_one_file initializes UploadManager on first call"""
+        # Given
+        self.evaluator._upload_manager = None  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+        mock_instance = Mock()
+        mock_upload_manager.return_value = mock_instance
+
+        # When
+        self.evaluator._upload_one_file("eval_id", "remote_name", self.test_wav)  # type: ignore
+
+        # Then
+        mock_upload_manager.assert_called_once()
+        mock_instance.add_file_to_queue.assert_called_once_with("eval_id", "remote_name", self.test_wav)
+
+    def test_upload_one_file_raises_error_when_no_eval_config(self):
+        """Test _upload_one_file raises error when eval_config is None"""
+        # Given
+        self.evaluator._eval_config = None  # type: ignore
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator._upload_one_file("eval_id", "remote_name", self.test_wav)  # type: ignore
+        self.assertIn("No evaluation session is open", str(context.exception))
+
+    def test_upload_one_file_uses_existing_upload_manager(self):
+        """Test _upload_one_file uses existing UploadManager if already initialized"""
+        # Given
+        mock_upload_manager = Mock()
+        self.evaluator._upload_manager = mock_upload_manager  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # When
+        self.evaluator._upload_one_file("eval_id", "remote_name", self.test_wav)  # type: ignore
+
+        # Then
+        mock_upload_manager.add_file_to_queue.assert_called_once_with("eval_id", "remote_name", self.test_wav)
+
+    def test_process_audio_files_batches_correctly(self):
+        """Test _process_audio_files processes audio files in batches of 500"""
+        # Given
+        groups: List[AudioGroup] = []
+        for i in range(600):
+            group_id = f"group{i}"
+            audio = Audio(
+                path=self.test_wav,
+                name=f"test{i}.wav",
+                remote_object_name=f"remote/test{i}.wav",
+                script=None,
+                tags=[],
+                model_tag="test_model",
+                is_ref=False,
+                group=group_id,
+                type=QuestionFileType.STIMULUS,
+                order_in_group=0,
+            )
+            group = AudioGroup(group_id=group_id, audios=[audio], created_at=datetime.now())
+            groups.append(group)
+
+        self.evaluator._ordered_file_groups = groups  # type: ignore
+        self.evaluator._evaluation_service = Mock()  # type: ignore
+        self.evaluator._upload_manager = None  # type: ignore
+
+        # When
+        self.evaluator._process_audio_files()  # type: ignore
+
+        # Then
+        # Should be called twice: first batch 500, second batch 100
+        self.assertEqual(self.evaluator._evaluation_service.create_evaluation_files.call_count, 2)  # type: ignore
+
+    def test_process_upload_times_handles_no_upload_manager(self):
+        """Test _process_upload_times handles case when upload_manager is None"""
+        # Given
+        self.evaluator._upload_manager = None  # type: ignore
+        self.evaluator._ordered_file_groups = []  # type: ignore
+
+        # When/Then (should not raise)
+        self.evaluator._process_upload_times()  # type: ignore
+
+    def test_wait_for_uploads_calls_upload_manager(self):
+        """Test _wait_for_uploads calls wait_and_close on upload_manager"""
+        # Given
+        mock_upload_manager = Mock()
+        mock_upload_manager.wait_and_close.return_value = True
+        self.evaluator._upload_manager = mock_upload_manager  # type: ignore
+
+        # When
+        self.evaluator._wait_for_uploads()  # type: ignore
+
+        # Then
+        mock_upload_manager.wait_and_close.assert_called_once()
+
+    @patch.object(Evaluator, "_wait_for_uploads")
+    @patch.object(Evaluator, "_process_audio_files")
+    @patch.object(Evaluator, "_upload_session_json")
+    @patch.object(Evaluator, "_cleanup")
+    def test_close_calls_all_cleanup_methods_for_nmos(self, mock_cleanup: Mock, mock_upload_session: Mock, mock_process: Mock, mock_wait: Mock):
+        """Test close() calls all required methods in order for NMOS"""
+        # Given
+        self.evaluator._initialized = True  # type: ignore
+        self.evaluator._eval_config._eval_type = EvalType.NMOS  # type: ignore
+
+        # When
+        result = self.evaluator.close()
+
+        # Then
+        mock_wait.assert_called_once()
+        mock_process.assert_called_once()
+        mock_upload_session.assert_called_once()
+        mock_cleanup.assert_called_once()
+        self.assertEqual(result, {"status": "ok"})
+
+    @patch.object(Evaluator, "_update_ranking_batch_size_before_upload")
+    @patch.object(Evaluator, "_wait_for_uploads")
+    @patch.object(Evaluator, "_process_audio_files")
+    @patch.object(Evaluator, "_upload_session_json")
+    @patch.object(Evaluator, "_cleanup")
+    def test_close_calls_update_batch_size_for_ranking(
+        self,
+        mock_cleanup: Mock,
+        mock_upload_session: Mock,
+        mock_process: Mock,
+        mock_wait: Mock,
+        mock_update_batch: Mock,
+    ):
+        """Test close() calls _update_ranking_batch_size_before_upload for RANKING type"""
+        # Given
+        self.evaluator._initialized = True  # type: ignore
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+
+        # When
+        result = self.evaluator.close()
+
+        # Then
+        mock_update_batch.assert_called_once()
+        mock_wait.assert_called_once()
+        mock_process.assert_called_once()
+        mock_upload_session.assert_called_once()
+        mock_cleanup.assert_called_once()
+        self.assertEqual(result, {"status": "ok"})
+
+    def test_add_file_raises_error_when_not_initialized(self):
+        """Test add_file raises error when evaluator is not initialized"""
+        # Given
+        self.evaluator._initialized = False  # type: ignore
+        file = File(path=self.test_wav, model_tag="test_model")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_file(file)
+        self.assertIn("add file once the evaluator is closed", str(context.exception))
+
+    def test_add_file_raises_error_for_wrong_eval_type(self):
+        """Test add_file raises error for non-single evaluation types"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.PREF  # type: ignore
+        file = File(path=self.test_wav, model_tag="test_model")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_file(file)
+        self.assertIn("single file evaluation types", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_file_processes_file_successfully(self, mock_upload: Mock):
+        """Test add_file processes and uploads file successfully"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.NMOS  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+        file = File(path=self.test_wav, model_tag="test_model")
+
+        # When
+        self.evaluator.add_file(file)
+
+        # Then
+        self.assertEqual(len(self.evaluator._ordered_file_groups), 1)  # type: ignore
+        mock_upload.assert_called_once()
+
+    def test_add_files_raises_error_when_not_initialized(self):
+        """Test add_files raises error when evaluator is not initialized"""
+        # Given
+        self.evaluator._initialized = False  # type: ignore
+        file0 = File(path=self.test_wav, model_tag="model1")
+        file1 = File(path=self.test_wav, model_tag="model2")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_files(file0, file1)
+        self.assertIn("Evaluator is not initialized", str(context.exception))
+
+    def test_add_files_raises_error_for_wrong_eval_type(self):
+        """Test add_files raises error for non-comparison evaluation types"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.NMOS  # type: ignore
+        file0 = File(path=self.test_wav, model_tag="model1")
+        file1 = File(path=self.test_wav, model_tag="model2")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_files(file0, file1)
+        self.assertIn("comparison evaluation types", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_files_processes_two_files_successfully(self, mock_upload: Mock):
+        """Test add_files processes and uploads two files successfully"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.PREF  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.PREF]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+        file0 = File(path=self.test_wav, model_tag="model1")
+        file1 = File(path=self.test_wav, model_tag="model2")
+
+        # When
+        self.evaluator.add_files(file0, file1)
+
+        # Then
+        self.assertEqual(len(self.evaluator._ordered_file_groups), 1)  # type: ignore
+        self.assertEqual(mock_upload.call_count, 2)
+
+    def test_add_ranking_set_raises_error_when_not_initialized(self):
+        """Test add_ranking_set raises error when evaluator is not initialized"""
+        # Given
+        self.evaluator._initialized = False  # type: ignore
+        files = [File(path=self.test_wav, model_tag="A"), File(path=self.test_wav, model_tag="B")]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_ranking_set(files)
+        self.assertIn("Evaluator is not initialized", str(context.exception))
+
+    def test_add_ranking_set_raises_error_for_wrong_eval_type(self):
+        """Test add_ranking_set raises error for non-RANKING evaluation types"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.NMOS  # type: ignore
+        files = [File(path=self.test_wav, model_tag="A"), File(path=self.test_wav, model_tag="B")]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_ranking_set(files)
+        self.assertIn("ranking evaluation types", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_processes_files_successfully(self, mock_upload: Mock):
+        """Test add_ranking_set processes and uploads ranking files successfully"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+        files = [File(path=self.test_wav, model_tag="A"), File(path=self.test_wav, model_tag="B")]
+
+        # When
+        self.evaluator.add_ranking_set(files)
+
+        # Then
+        self.assertEqual(len(self.evaluator._ordered_file_groups), 1)  # type: ignore
+        self.assertEqual(mock_upload.call_count, 2)
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_rejects_inconsistent_model_tag_order(self, mock_upload: Mock):
+        """Test add_ranking_set rejects files with inconsistent model_tag order across groups"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # First group: A, B
+        files1 = [File(path=self.test_wav, model_tag="A"), File(path=self.test_wav, model_tag="B")]
+        self.evaluator.add_ranking_set(files1)
+
+        # Second group: B, A (reversed order - should fail)
+        files2 = [File(path=self.test_wav, model_tag="B"), File(path=self.test_wav, model_tag="A")]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_ranking_set(files2)
+        self.assertIn("identical model_tag order", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_rejects_inconsistent_group_size(self, mock_upload: Mock):
+        """Test add_ranking_set rejects groups with different number of files"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # First group: 2 files
+        files1 = [File(path=self.test_wav, model_tag="A"), File(path=self.test_wav, model_tag="B")]
+        self.evaluator.add_ranking_set(files1)
+
+        # Second group: 3 files (should fail)
+        files2 = [
+            File(path=self.test_wav, model_tag="A"),
+            File(path=self.test_wav, model_tag="B"),
+            File(path=self.test_wav, model_tag="C"),
+        ]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_ranking_set(files2)
+        self.assertIn("consistent group size", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_rejects_single_file(self, mock_upload: Mock):
+        """Test add_ranking_set rejects a group with only one file"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # Single file group (should fail)
+        files = [File(path=self.test_wav, model_tag="A")]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_ranking_set(files)
+        self.assertIn("at least two files", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_rejects_reference_files(self, mock_upload: Mock):
+        """Test add_ranking_set rejects files with is_ref=True"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # Files with reference (should fail)
+        files = [File(path=self.test_wav, model_tag="A", is_ref=True), File(path=self.test_wav, model_tag="B")]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_ranking_set(files)
+        self.assertIn("cannot include reference files", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_maintains_order_across_multiple_groups(self, mock_upload: Mock):
+        """Test add_ranking_set maintains consistent order across multiple groups"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 3  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # First group: A, B, C
+        files1 = [
+            File(path=self.test_wav, model_tag="A"),
+            File(path=self.test_wav, model_tag="B"),
+            File(path=self.test_wav, model_tag="C"),
+        ]
+        self.evaluator.add_ranking_set(files1)
+
+        # Second group: same order A, B, C (should pass)
+        files2 = [
+            File(path=self.test_wav, model_tag="A"),
+            File(path=self.test_wav, model_tag="B"),
+            File(path=self.test_wav, model_tag="C"),
+        ]
+        self.evaluator.add_ranking_set(files2)
+
+        # Third group: same order A, B, C (should pass)
+        files3 = [
+            File(path=self.test_wav, model_tag="A"),
+            File(path=self.test_wav, model_tag="B"),
+            File(path=self.test_wav, model_tag="C"),
+        ]
+        self.evaluator.add_ranking_set(files3)
+
+        # Then
+        self.assertEqual(len(self.evaluator._ordered_file_groups), 3)  # type: ignore
+        self.assertEqual(mock_upload.call_count, 9)  # 3 groups * 3 files each
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_rejects_duplicate_model_tags_exact(self, mock_upload: Mock):
+        """Test add_ranking_set rejects duplicate model_tags (exact match)"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # Files with duplicate model_tag (should fail)
+        files = [File(path=self.test_wav, model_tag="AWS"), File(path=self.test_wav, model_tag="AWS")]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_ranking_set(files)
+        self.assertIn("unique model_tags within a group", str(context.exception))
+        self.assertIn("Duplicate found: 'AWS'", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_rejects_duplicate_model_tags_case_insensitive(self, mock_upload: Mock):
+        """Test add_ranking_set rejects duplicate model_tags (case-insensitive)"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # Files with duplicate model_tag in different case (should fail)
+        files = [File(path=self.test_wav, model_tag="AWS"), File(path=self.test_wav, model_tag="aws")]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_ranking_set(files)
+        self.assertIn("unique model_tags within a group", str(context.exception))
+        self.assertIn("case-insensitive", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_rejects_duplicate_in_three_files(self, mock_upload: Mock):
+        """Test add_ranking_set rejects duplicate model_tags in a group of three"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 3  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # First and last have duplicate tag (case-insensitive)
+        files = [
+            File(path=self.test_wav, model_tag="ModelA"),
+            File(path=self.test_wav, model_tag="ModelB"),
+            File(path=self.test_wav, model_tag="modela"),
+        ]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_ranking_set(files)
+        self.assertIn("unique model_tags within a group", str(context.exception))
+
+    def test_update_ranking_batch_size_raises_error_when_no_groups(self):
+        """Test _update_ranking_batch_size_before_upload raises error when no groups"""
+        # Given
+        self.evaluator._ordered_file_groups = []  # type: ignore
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator._update_ranking_batch_size_before_upload()  # type: ignore
+        self.assertIn("at least one group with files", str(context.exception))
+
+    def test_update_ranking_batch_size_raises_error_when_group_too_small(self):
+        """Test _update_ranking_batch_size_before_upload raises error when group has < 2 files"""
+        # Given
+        audio = Audio(
+            path=self.test_wav,
+            name="test.wav",
+            remote_object_name="remote/test.wav",
+            script=None,
+            tags=[],
+            model_tag="A",
+            is_ref=False,
+            group="group1",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
+        group = AudioGroup(group_id="group1", audios=[audio], created_at=datetime.now())
+        self.evaluator._ordered_file_groups = [group]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator._update_ranking_batch_size_before_upload()  # type: ignore
+        self.assertIn("at least two files per group", str(context.exception))
+
+    def test_update_ranking_batch_size_updates_batch_size_successfully(self):
+        """Test _update_ranking_batch_size_before_upload updates batch_size correctly"""
+        # Given
+        audios = [
+            Audio(
+                path=self.test_wav,
+                name=f"test{i}.wav",
+                remote_object_name=f"remote/test{i}.wav",
+                script=None,
+                tags=[],
+                model_tag=chr(65 + i),  # A, B, C
+                is_ref=False,
+                group="group1",
+                type=QuestionFileType.STIMULUS,
+                order_in_group=i,
+            )
+            for i in range(3)
+        ]
+        group = AudioGroup(group_id="group1", audios=audios, created_at=datetime.now())
+        self.evaluator._ordered_file_groups = [group]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+        self.evaluator._evaluation_service = Mock()  # type: ignore
+        self.evaluator._evaluation_service.update_specific_fields = Mock()  # type: ignore
+
+        # When
+        self.evaluator._update_ranking_batch_size_before_upload()  # type: ignore
+
+        # Then
+        self.evaluator._evaluation_service.update_specific_fields.assert_called_once()  # type: ignore
+        call_args = self.evaluator._evaluation_service.update_specific_fields.call_args  # type: ignore
+        payload = call_args[0][1]
+        self.assertEqual(payload["batch_size"], 3)
+        self.assertEqual(self.evaluator._eval_config.eval_batch_size, 3)  # type: ignore
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_update_specific_fields_receives_correct_batch_size_from_add_ranking_set(self, mock_upload: Mock):
+        """Test that batch_size in update_specific_fields matches the number of files added via add_ranking_set"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # Add 4 files in the ranking set
+        files = [
+            File(path=self.test_wav, model_tag="A"),
+            File(path=self.test_wav, model_tag="B"),
+            File(path=self.test_wav, model_tag="C"),
+            File(path=self.test_wav, model_tag="D"),
+        ]
+        self.evaluator.add_ranking_set(files)
+
+        # Mock the evaluation service for update_specific_fields
+        self.evaluator._evaluation_service = Mock()  # type: ignore
+        self.evaluator._evaluation_service.update_specific_fields = Mock()  # type: ignore
+
+        # When
+        self.evaluator._update_ranking_batch_size_before_upload()  # type: ignore
+
+        # Then
+        self.evaluator._evaluation_service.update_specific_fields.assert_called_once()  # type: ignore
+        call_args = self.evaluator._evaluation_service.update_specific_fields.call_args  # type: ignore
+        payload = call_args[0][1]
+
+        # Verify batch_size matches the number of files added
+        self.assertEqual(payload["batch_size"], 4, "batch_size should match the number of files in add_ranking_set")
+        self.assertEqual(len(self.evaluator._ordered_file_groups[0].audios), 4)  # type: ignore
+        self.assertEqual(self.evaluator._eval_config.eval_batch_size, 4)  # type: ignore
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_update_specific_fields_batch_size_matches_first_group_size(self, mock_upload: Mock):
+        """Test that batch_size is determined by the first group's file count"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # Add first group with 5 files
+        files1 = [
+            File(path=self.test_wav, model_tag="A"),
+            File(path=self.test_wav, model_tag="B"),
+            File(path=self.test_wav, model_tag="C"),
+            File(path=self.test_wav, model_tag="D"),
+            File(path=self.test_wav, model_tag="E"),
+        ]
+        self.evaluator.add_ranking_set(files1)
+
+        # Add second group with same files
+        files2 = [
+            File(path=self.test_wav, model_tag="A"),
+            File(path=self.test_wav, model_tag="B"),
+            File(path=self.test_wav, model_tag="C"),
+            File(path=self.test_wav, model_tag="D"),
+            File(path=self.test_wav, model_tag="E"),
+        ]
+        self.evaluator.add_ranking_set(files2)
+
+        # Mock the evaluation service
+        self.evaluator._evaluation_service = Mock()  # type: ignore
+        self.evaluator._evaluation_service.update_specific_fields = Mock()  # type: ignore
+
+        # When
+        self.evaluator._update_ranking_batch_size_before_upload()  # type: ignore
+
+        # Then
+        self.evaluator._evaluation_service.update_specific_fields.assert_called_once()  # type: ignore
+        call_args = self.evaluator._evaluation_service.update_specific_fields.call_args  # type: ignore
+        payload = call_args[0][1]
+
+        # Verify batch_size is 5 (from first group)
+        self.assertEqual(payload["batch_size"], 5, "batch_size should be 5 from the first group")
+        self.assertEqual(len(self.evaluator._ordered_file_groups), 2)  # type: ignore
+        self.assertEqual(len(self.evaluator._ordered_file_groups[0].audios), 5)  # type: ignore
+        self.assertEqual(len(self.evaluator._ordered_file_groups[1].audios), 5)  # type: ignore
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_update_specific_fields_payload_structure_for_ranking(self, mock_upload: Mock):
+        """Test that update_specific_fields receives correct payload structure for RANKING"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+
+        # Add 3 files
+        files = [
+            File(path=self.test_wav, model_tag="A"),
+            File(path=self.test_wav, model_tag="B"),
+            File(path=self.test_wav, model_tag="C"),
+        ]
+        self.evaluator.add_ranking_set(files)
+
+        # Mock the evaluation service
+        self.evaluator._evaluation_service = Mock()  # type: ignore
+        self.evaluator._evaluation_service.update_specific_fields = Mock()  # type: ignore
+
+        # When
+        self.evaluator._update_ranking_batch_size_before_upload()  # type: ignore
+
+        # Then
+        call_args = self.evaluator._evaluation_service.update_specific_fields.call_args  # type: ignore
+        eval_id = call_args[0][0]
+        payload = call_args[0][1]
+
+        # Verify all required fields in payload
+        self.assertEqual(eval_id, "test_id")
+        self.assertEqual(payload["id"], "test_id")
+        self.assertEqual(payload["batch_size"], 3)
+        self.assertEqual(payload["evaluation_type"], "SPEECH_RANKING")
+        self.assertEqual(payload["build_process"], "FILE_UPLOAD")
+        self.assertIn("language", payload)
+        self.assertIn("meta_data", payload)
+        self.assertEqual(payload["meta_data"], {})
 
 
 if __name__ == "__main__":

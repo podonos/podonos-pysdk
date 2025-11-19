@@ -227,6 +227,9 @@ class FileValidator:
         self._eval_config = eval_config
         self._stimulus_model_tags: Set[str] = set()
         self._stimulus_model_pairs: List[Tuple[str, str]] = list()
+        # RANKING state across groups
+        self._ranking_expected_length: Optional[int] = None
+        self._ranking_canonical_order: Optional[List[str]] = None
 
     @validate_args(file=Rules.instance_of(File))
     def validate_file(self, file: File) -> File:
@@ -244,6 +247,8 @@ class FileValidator:
             return self._validate_one_stimulus_and_one_ref_files(files)
         elif self._eval_config.eval_type in [EvalType.CSMOS]:
             return self._validate_two_stimuli_and_one_ref_files(files)
+        elif self._eval_config.eval_type in [EvalType.RANKING]:
+            return self._validate_ranking_files(files)
         else:
             raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
 
@@ -288,6 +293,59 @@ class FileValidator:
             raise ValueError("Two-stimuli-one-reference evaluations require exactly two stimuli and one reference")
 
         return self._validate_double_stimuli_model_tags(stimuli[0], stimuli[1]) + ref
+
+    @validate_args(files=Rules.list_not_none)
+    def _validate_ranking_files(self, files: List[Optional[File]]) -> List[File]:
+        """
+        Validate files for RANKING evaluations.
+        Constraints:
+        - No upper limit within a group (N files), but N must be >= 2.
+        - All files in a group must be stimuli (is_ref == False).
+        - Within a group: all model_tags must be unique (case-insensitive).
+        - Across groups: file count must be identical.
+        - Across groups: order of model_tag must be identical.
+        This method maintains canonical state for length and model_tag order
+        within the validator instance across successive calls.
+        """
+        valid_files = [self._validate_file_common(file) for file in files if file is not None]
+        if len(valid_files) < 2:
+            raise ValueError("RANKING requires at least two files in a group")
+
+        for i, f in enumerate(valid_files):
+            if f.is_ref:
+                raise ValueError(f"RANKING groups cannot include reference files (index {i} has is_ref=True)")
+
+        # Check for duplicate model_tags within the group (case-insensitive)
+        model_tags_lower = [f.model_tag.lower() for f in valid_files]
+        seen_tags: Set[str] = set()
+        for i, tag_lower in enumerate(model_tags_lower):
+            if tag_lower in seen_tags:
+                raise ValueError(
+                    f"RANKING requires unique model_tags within a group (case-insensitive). "
+                    f"Duplicate found: '{valid_files[i].model_tag}' at index {i}"
+                )
+            seen_tags.add(tag_lower)
+
+        current_order: List[str] = [f.model_tag for f in valid_files]
+        current_size: int = len(valid_files)
+
+        if self._ranking_expected_length is None:
+            self._ranking_expected_length = current_size
+        else:
+            if current_size != self._ranking_expected_length:
+                raise ValueError(
+                    f"RANKING requires consistent group size across groups. " f"Expected {self._ranking_expected_length}, got {current_size}."
+                )
+
+        if self._ranking_canonical_order is None:
+            self._ranking_canonical_order = current_order
+        else:
+            if current_order != self._ranking_canonical_order:
+                raise ValueError(
+                    "RANKING requires identical model_tag order across groups. " f"Expected {self._ranking_canonical_order}, got {current_order}."
+                )
+
+        return valid_files
 
     @validate_args(file=Rules.instance_of(File))
     def _validate_file_common(self, file: File) -> File:
@@ -678,6 +736,8 @@ class FileTransformer:
             return self._transform_one_stimulus_and_one_ref_files(files)
         elif self._eval_config.eval_type in [EvalType.CSMOS]:
             return self._transform_two_stimuli_and_one_ref_files(files)
+        elif self._eval_config.eval_type in [EvalType.RANKING]:
+            return self._transform_ranking_files(files)
         else:
             raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
 
@@ -715,6 +775,18 @@ class FileTransformer:
 
     @validate_args(files=Rules.list_not_none)
     def _transform_two_stimuli_and_one_ref_files(self, files: List[File]) -> AudioGroup:
+        group_id = generate_random_group_name()
+        return AudioGroup(
+            group_id=group_id,
+            audios=[
+                self._create_audio(file=file, group=group_id, type=file.get_question_type_by_is_ref(), order_in_group=i)
+                for i, file in enumerate(files)
+            ],
+            created_at=datetime.now(),
+        )
+
+    @validate_args(files=Rules.list_not_none)
+    def _transform_ranking_files(self, files: List[File]) -> AudioGroup:
         group_id = generate_random_group_name()
         return AudioGroup(
             group_id=group_id,

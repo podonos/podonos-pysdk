@@ -22,6 +22,21 @@ class EvaluationService:
     def __init__(self, api_client: APIClient):
         self.api_client = api_client
 
+    @validate_args(evaluation_id=Rules.uuid_not_none, payload=Rules.dict_not_none)
+    def update_specific_fields(self, evaluation_id: str, payload: Dict[str, Any]) -> None:
+        """
+        Patch specific fields of an evaluation (e.g., batch_size) without recreating it.
+        Intended for late adjustments like updating RANKING batch_size.
+        """
+        try:
+            response = self.api_client.patch(f"evaluations/{evaluation_id}/specific-fields", data=payload)
+            response.raise_for_status()
+        except Exception as e:
+            raise HTTPError(
+                f"Failed to update evaluation specific fields: {e}",
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
+            )
+
     @validate_args(config=Rules.instance_of(EvalConfig))
     def create(self, config: EvalConfig) -> EvaluationEntity:
         """

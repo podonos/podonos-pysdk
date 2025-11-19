@@ -65,11 +65,23 @@ class Question(ABC):
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "Question":
+    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "Question":
         """Create appropriate Question instance from dictionary."""
         question_type = data.get("type")
         if not question_type:
             raise ValueError("Question must have a type")
+
+        # In ranking mode, allow only Instruction (DO, WARNING, DONT, EXAMPLE) and COMPARISON
+        if allow_ranking_only:
+            allowed_types = {
+                "COMPARISON",
+                InstructionCategory.DO.value,
+                InstructionCategory.WARNING.value,
+                InstructionCategory.DONT.value,
+                InstructionCategory.EXAMPLE.value,
+            }
+            if question_type not in allowed_types:
+                raise ValueError("RANKING evaluation allows only Instruction (DO/WARNING/DONT/EXAMPLE) and COMPARISON question types")
 
         question_map = {
             "SCORED": ScoredQuestion,
@@ -134,7 +146,7 @@ class ScoredQuestion(Question):
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "ScoredQuestion":
+    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "ScoredQuestion":
         if "options" not in data or not data["options"]:
             raise ValueError("SCORED question must have options")
 
@@ -206,7 +218,7 @@ class NonScoredQuestion(Question):
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "NonScoredQuestion":
+    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "NonScoredQuestion":
         if "options" not in data or not data["options"]:
             raise ValueError("NON_SCORED question must have options")
         if "allow_multiple" not in data:
@@ -273,7 +285,7 @@ class ComparisonQuestion(Question):
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "ComparisonQuestion":
+    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "ComparisonQuestion":
         error_message = "COMPARISON question must have 'anchor_label' in the format: {'anchor_label': {'title': optional string, 'label_text': {'left': string, 'right': string}}}"
         if "anchor_label" not in data or "label_text" not in data["anchor_label"]:
             raise ValueError(error_message)
@@ -343,7 +355,7 @@ class Instruction(Question):
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int) -> "Instruction":
+    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "Instruction":
         try:
             category = InstructionCategory(data["type"])
         except ValueError:

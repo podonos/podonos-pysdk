@@ -32,7 +32,7 @@ class TestEvalConfig(unittest.TestCase):
 
     def test_validate_eval_type(self):
         # Test valid types
-        valid_types = ["NMOS", "QMOS", "SMOS", "P808", "PREF", "CSMOS", "CUSTOM_SINGLE", "CUSTOM_DOUBLE"]
+        valid_types = ["NMOS", "QMOS", "SMOS", "P808", "PREF", "CSMOS", "CUSTOM_SINGLE", "CUSTOM_DOUBLE", "RANKING"]
         for eval_type in valid_types:
             result = self.eval_config._validate_eval_type(eval_type)  # type: ignore
             self.assertEqual(result.value, eval_type)

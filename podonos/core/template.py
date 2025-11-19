@@ -6,6 +6,7 @@ from typing import Literal, Optional, List, Dict, Any, Tuple
 
 from podonos.common.enum import Language
 from podonos.common.validator import Rules, validate_args
+from podonos.common.enum import EvalType
 from podonos.core.base import *
 from podonos.core.types import TemplateQuestion
 from podonos.core.query import NonScoredQuestion, Question, Instruction, ComparisonQuestion, ScoredQuestion
@@ -24,6 +25,7 @@ class Template:
     description: Optional[str] = None
     language: Optional[Language] = None
     batch_size: Optional[int] = None
+    evaluation_type: Optional[str] = None
     created_time: Optional[datetime] = None
     updated_time: Optional[datetime] = None
 
@@ -37,6 +39,7 @@ class Template:
             "title",
             "description",
             "batch_size",
+            "eval_type",
             "language",
             "created_time",
             "updated_time",
@@ -52,6 +55,7 @@ class Template:
             description=data["description"],
             batch_size=data["batch_size"],
             language=Language.from_value(data["language"]),
+            evaluation_type=data.get("eval_type"),
             created_time=datetime.fromisoformat(data["created_time"].replace("Z", "+00:00")),
             updated_time=datetime.fromisoformat(data["updated_time"].replace("Z", "+00:00")),
         )
@@ -91,15 +95,16 @@ class TemplateValidator:
     """Validator class for template JSON data"""
 
     @staticmethod
-    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
+    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none, eval_type=Rules.instance_of(EvalType))
     def validate_and_create_questions(
-        data: Dict[TYPE_OF_TEMPLATE_KEY, Any], batch_size: int
+        data: Dict[TYPE_OF_TEMPLATE_KEY, Any], batch_size: int, eval_type: EvalType
     ) -> Tuple[List[TemplateQuestion], List[TemplateQuestion]]:
         """Validates the template JSON data and returns TemplateQuestion objects.
 
         Args:
             data: Template JSON data
             batch_size: Number of stimuli to compare (1 for single, 2 for double, etc.)
+            eval_type: If set to RANKING, restricts allowed question types accordingly.
 
         Returns:
             Tuple of (instructions, questions)
@@ -115,8 +120,13 @@ class TemplateValidator:
         if question_length < 1 or question_length > 9:
             raise ValueError("Template must contain between 1 and 9 questions")
 
-        instructions = TemplateValidator.process_questions(data, "instructions", [Instruction], batch_size)
-        core_questions = TemplateValidator.process_questions(data, "questions", [ScoredQuestion, NonScoredQuestion, ComparisonQuestion], batch_size)
+        # Restrict types for RANKING: only Instruction and ComparisonQuestion are allowed
+        ranking_mode = eval_type == EvalType.RANKING
+        instructions_expected = [Instruction]
+        core_expected = [ComparisonQuestion] if ranking_mode else [ScoredQuestion, NonScoredQuestion, ComparisonQuestion]
+
+        instructions = TemplateValidator.process_questions(data, "instructions", instructions_expected, batch_size, allow_ranking_only=ranking_mode)
+        core_questions = TemplateValidator.process_questions(data, "questions", core_expected, batch_size, allow_ranking_only=ranking_mode)
 
         log.debug(f"Processed {len(instructions)} instructions and {len(core_questions)} questions")
 
@@ -124,7 +134,13 @@ class TemplateValidator:
 
     @staticmethod
     @validate_args(data=Rules.dict_not_none, key=Rules.str_not_none, expected_types=Rules.list_not_none, batch_size=Rules.positive_not_none)
-    def process_questions(data: Dict[TYPE_OF_TEMPLATE_KEY, Any], key: str, expected_types: List[type], batch_size: int) -> List[TemplateQuestion]:
+    def process_questions(
+        data: Dict[TYPE_OF_TEMPLATE_KEY, Any],
+        key: str,
+        expected_types: List[type],
+        batch_size: int,
+        allow_ranking_only: bool = False,
+    ) -> List[TemplateQuestion]:
         """
         Process questions from the given data dictionary.
 
@@ -132,8 +148,8 @@ class TemplateValidator:
             data: The data dictionary containing questions.
             key: The key in the data dictionary to process.
             expected_types: The expected types of questions.
-            order_start: The starting order number for questions.
             batch_size: The batch size for validation, if applicable.
+            allow_ranking_only: If True, only allow Instruction and ComparisonQuestion kinds.
 
         Returns:
             A list of processed TemplateQuestion objects.
@@ -151,7 +167,7 @@ class TemplateValidator:
         questions: List[TemplateQuestion] = []
         for i, q_data in enumerate(data[key]):
             try:
-                question = Question.from_dict(q_data, batch_size)
+                question = Question.from_dict(q_data, batch_size, allow_ranking_only=allow_ranking_only)
                 question.validate()
 
                 if not any(isinstance(question, expected_type) for expected_type in expected_types):

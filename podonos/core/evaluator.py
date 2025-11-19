@@ -1,11 +1,11 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast, Any
 
 
 from podonos.common.enum import EvalType
+from podonos.common.validator import Rules, validate_args
 from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.core.config import EvalConfig
-from podonos.common.validator import Rules, validate_args
 from podonos.core.file import File, Audio, AudioGroup, FileTransformer, FileValidator
 from podonos.core.upload_manager import UploadManager
 from podonos.entity.evaluation import EvaluationEntity
@@ -87,6 +87,9 @@ class Evaluator:
         if method_name == "add_file":
             supported_types = [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]
             error_msg = f"The '{method_name}' is only supported for single file evaluation types: " f"{supported_types}"
+        elif method_name == "add_ranking_set":
+            supported_types = [EvalType.RANKING]
+            error_msg = f"The '{method_name}' is only supported for ranking evaluation types: " f"{supported_types}"
         else:  # add_files
             supported_types = [EvalType.CMOS, EvalType.DMOS, EvalType.PREF, EvalType.SMOS, EvalType.CSMOS, EvalType.CUSTOM_DOUBLE]
             error_msg = f"The '{method_name}' is only supported for comparison evaluation types: " f"{supported_types}"
@@ -116,6 +119,9 @@ class Evaluator:
             ValueError: If session is not initialized or upload manager is not defined
         """
         self._validate_close()
+        # For RANKING, update batch_size to the canonical group size before any further uploads/metadata writes
+        if self._eval_config.eval_type == EvalType.RANKING:
+            self._update_ranking_batch_size_before_upload()
         self._wait_for_uploads()
         self._process_audio_files()
         self._upload_session_json()
@@ -191,6 +197,27 @@ class Evaluator:
 
         files = self._file_validator.validate_files([file0, file1, file2])
         audio_group = self._file_transformer.transform_into_audio_group(files)
+        self._ordered_file_groups.append(audio_group)
+        for audio in audio_group.audios:
+            self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio.remote_object_name, path=audio.path)
+
+    @validate_args(files=Rules.list_not_none)
+    def add_ranking_set(self, files: List[File]) -> None:
+        """Add one ranking set (ordered candidates) for RANKING evaluation.
+
+        Constraints enforced across calls:
+        - All groups must have the same number of files.
+        - Order of model_tag must be identical across groups.
+        - Files must be stimuli (no reference).
+        """
+        if not self._initialized:
+            raise ValueError("Evaluator is not initialized")
+
+        self._validate_eval_type("add_ranking_set")
+
+        # Validator expects List[Optional[File]] for shared path; we accept only File here.
+        validated_files = self._file_validator.validate_files(cast(List[Optional[File]], files))
+        audio_group = self._file_transformer.transform_into_audio_group(validated_files)
         self._ordered_file_groups.append(audio_group)
         for audio in audio_group.audios:
             self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio.remote_object_name, path=audio.path)
@@ -290,3 +317,22 @@ class Evaluator:
         if self._upload_manager:
             self._upload_manager.add_file_to_queue(evaluation_id, remote_object_name, path)
         return
+
+    def _update_ranking_batch_size_before_upload(self) -> None:
+        """Adjust batch_size for RANKING to match the group size (N) before uploads/metadata."""
+        if not self._ordered_file_groups or not self._ordered_file_groups[0].audios:
+            raise ValueError("RANKING requires at least one group with files before closing the session")
+        group_size = len(self._ordered_file_groups[0].audios)
+        if group_size < 2:
+            raise ValueError("RANKING requires at least two files per group")
+
+        payload: Dict[str, Any] = {
+            "id": self.get_evaluation_id(),
+            "language": self._eval_config.eval_language.value,
+            "build_process": "FILE_UPLOAD",
+            "evaluation_type": self._eval_config.eval_type.get_type(),
+            "batch_size": group_size,
+            "meta_data": {},
+        }
+        self._evaluation_service.update_specific_fields(self.get_evaluation_id(), payload)
+        self._eval_config.eval_batch_size = group_size

@@ -4,7 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 from unittest import mock
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 from typing import Any
 from uuid import uuid4
 from requests import Response
@@ -14,6 +14,8 @@ import podonos
 from podonos.core.client import Client
 from podonos.core.evaluator import Evaluator
 from podonos.core.api import APIClient
+from podonos.core.file import File
+from podonos.common.enum import EvalType
 
 
 def _make_response(text: Any = None, json_data: Any = None, status_code: int = 200) -> Response:
@@ -99,6 +101,7 @@ def mocked_requests_get(*args: Any, **kwargs: Any):
             code="mock_code",
             title="mock_title",
             description="mock_description",
+            eval_type="CUSTOM",
             batch_size=1,
             use_annotation=False,
             use_power_normalization=True,
@@ -436,6 +439,162 @@ class TestEvaluationClient(unittest.TestCase):
             Path(json_path).unlink()
 
 
+class TestClientFromTemplateJson(unittest.TestCase):
+    def setUp(self):
+        self.valid_api_key = "test_key"
+        # Use a real APIClient instance to satisfy strict type checks
+        self.api_client = APIClient(self.valid_api_key, "http://testapi.com")
+        self.client = Client(self.api_client)
+
+        # Mock successful evaluation creation response
+        self.mock_eval_response = {
+            "id": str(uuid4()),
+            "title": "mock_title",
+            "internal_name": "mock_internal_name",
+            "batch_size": 1,
+            "description": "mock_desc",
+            "status": "mock_status",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+
+        self.template_data = {"questions": [{"type": "SCORED", "question": "Test Question", "options": [{"label_text": "Option 1"}]}]}
+
+    def test_create_evaluator_from_json_dict_single(self):
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
+
+        mock_put_response = MagicMock(status_code=200)
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status.return_value = None
+        self.api_client.put = MagicMock(return_value=mock_put_response)
+
+        # When
+        evaluator = self.client.create_evaluator_from_template_json(
+            json=self.template_data, name="Test Evaluation", custom_type="SINGLE", desc="Test Description"
+        )
+
+        # Then
+        self.assertIsInstance(evaluator, Evaluator)
+        self.api_client.post.assert_called_once()
+        self.assertTrue(self.api_client.put.call_count >= 1)
+
+    def test_create_evaluator_from_json_file_single(self):
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
+
+        mock_put_response = MagicMock(status_code=200)
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status.return_value = None
+        self.api_client.put = MagicMock(return_value=mock_put_response)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(self.template_data, f)
+            template_path = f.name
+
+        try:
+            # When
+            evaluator = self.client.create_evaluator_from_template_json(
+                json_file=template_path, name="Test Evaluation", custom_type="SINGLE", desc="Test Description"
+            )
+
+            # Then
+            self.assertIsInstance(evaluator, Evaluator)
+            self.api_client.post.assert_called_once()
+            self.assertTrue(self.api_client.put.call_count >= 1)
+
+        finally:
+            Path(template_path).unlink()
+
+    def test_create_evaluator_with_both_json_inputs(self):
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.client.create_evaluator_from_template_json(json=self.template_data, json_file="test.json", name="Test", custom_type="SINGLE")
+        self.assertIn("Only one of", str(context.exception))
+
+    def test_create_evaluator_with_no_json_input(self):
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.client.create_evaluator_from_template_json(name="Test", custom_type="SINGLE")
+        self.assertIn("Either 'json' or 'json_file' must be provided", str(context.exception))
+
+    def test_create_evaluator_with_invalid_custom_type(self):
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.client.create_evaluator_from_template_json(json=self.template_data, name="Test", custom_type="TRIPLE")  # type: ignore
+        self.assertIn('custom_type must be one of "SINGLE", "DOUBLE", "RANKING"', str(context.exception))
+
+    def test_create_evaluator_from_json_dict_with_en_in_language(self):
+        """Test creating evaluator from JSON dict with en-in language"""
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
+
+        mock_put_response = MagicMock(status_code=200)
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status.return_value = None
+        self.api_client.put = MagicMock(return_value=mock_put_response)
+
+        # When
+        evaluator = self.client.create_evaluator_from_template_json(
+            json=self.template_data, name="Test EN-IN Evaluation", custom_type="SINGLE", desc="Test Description for Indian English"
+        )
+
+        # Then
+        self.assertIsInstance(evaluator, Evaluator)
+        self.api_client.post.assert_called_once()
+        self.assertTrue(self.api_client.put.call_count >= 1)
+
+    def test_create_evaluator_from_json_file_with_en_in_language(self):
+        """Test creating evaluator from JSON file with en-in language"""
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
+
+        mock_put_response = MagicMock(status_code=200)
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status.return_value = None
+        self.api_client.put = MagicMock(return_value=mock_put_response)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(self.template_data, f)
+            template_path = f.name
+
+        try:
+            # When
+            evaluator = self.client.create_evaluator_from_template_json(
+                json_file=template_path, name="Test EN-IN Evaluation", custom_type="SINGLE", desc="Test Description for Indian English"
+            )
+
+            # Then
+            self.assertIsInstance(evaluator, Evaluator)
+            self.api_client.post.assert_called_once()
+            self.assertTrue(self.api_client.put.call_count >= 1)
+
+        finally:
+            Path(template_path).unlink()
+
+    def test_create_evaluator_from_template_json_with_ranking_calls_human(self):
+        mock_human = MagicMock()
+        mock_human.create_from_template_json.return_value = "EVAL"
+        self.client._human_evaluation = mock_human  # type: ignore
+
+        result = self.client.create_evaluator_from_template_json(json={}, name="n", custom_type="RANKING")
+
+        self.assertEqual(result, "EVAL")
+        mock_human.create_from_template_json.assert_called_once()
+
+
 class TestEvaluationClientApiKey(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -553,7 +712,7 @@ class TestClient(unittest.TestCase):
         # When/Then
         with self.assertRaises(ValueError) as context:
             self.client.create_evaluator_from_template_json(json=self.template_data, name="Test", custom_type="TRIPLE")  # type: ignore
-        self.assertIn('custom_type must be either "SINGLE" or "DOUBLE"', str(context.exception))
+        self.assertIn('custom_type must be one of "SINGLE", "DOUBLE", "RANKING"', str(context.exception))
 
     def test_create_evaluator_from_json_dict_with_en_in_language(self):
         """Test creating evaluator from JSON dict with en-in language"""
@@ -608,6 +767,112 @@ class TestClient(unittest.TestCase):
 
         finally:
             Path(template_path).unlink()
+
+
+class TestEvaluatorMethodValidation(unittest.TestCase):
+    """Test that evaluator methods are called with the correct evaluation types"""
+
+    def setUp(self):
+        """Set up test fixtures"""
+        self.test_dir = os.path.dirname(__file__)
+        self.audio_path = os.path.join(self.test_dir, "speech_two_ch1.wav")
+        self.api_client = APIClient(api_key="test_key", api_url="https://test.api")
+
+        # Mock API responses
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "id": "eval_id",
+            "title": "Test Eval",
+            "internal_name": "test",
+            "description": "test",
+            "batch_size": 1,
+            "status": "ACTIVE",
+            "created_time": "2024-01-01T00:00:00Z",
+            "updated_time": "2024-01-01T00:00:00Z",
+        }
+        mock_response.status_code = 200
+        self.api_client.post = Mock(return_value=mock_response)
+        self.api_client.put = Mock(return_value=mock_response)
+
+    def test_ranking_evaluator_rejects_add_file(self):
+        """Test RANKING evaluator rejects add_file method"""
+        # Given
+        client = Client(api_client=self.api_client)
+        evaluator = client._human_evaluation.create(type=EvalType.RANKING.value)  # type: ignore
+        test_file = File(path=self.audio_path, model_tag="test")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            evaluator.add_file(test_file)
+        self.assertIn("add_file", str(context.exception))
+        self.assertIn("single file evaluation types", str(context.exception))
+
+    def test_ranking_evaluator_rejects_add_files(self):
+        """Test RANKING evaluator rejects add_files method"""
+        # Given
+        client = Client(api_client=self.api_client)
+        evaluator = client._human_evaluation.create(type=EvalType.RANKING.value)  # type: ignore
+        file1 = File(path=self.audio_path, model_tag="A")
+        file2 = File(path=self.audio_path, model_tag="B")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            evaluator.add_files(file1, file2)
+        self.assertIn("add_files", str(context.exception))
+        self.assertIn("comparison evaluation types", str(context.exception))
+
+    def test_nmos_evaluator_rejects_add_ranking_set(self):
+        """Test NMOS evaluator rejects add_ranking_set method"""
+        # Given
+        client = Client(api_client=self.api_client)
+        evaluator = client._human_evaluation.create(type=EvalType.NMOS.value)  # type: ignore
+        files = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            evaluator.add_ranking_set(files)
+        self.assertIn("add_ranking_set", str(context.exception))
+        self.assertIn("ranking evaluation types", str(context.exception))
+
+    def test_nmos_evaluator_rejects_add_files(self):
+        """Test NMOS evaluator rejects add_files method"""
+        # Given
+        client = Client(api_client=self.api_client)
+        evaluator = client._human_evaluation.create(type=EvalType.NMOS.value)  # type: ignore
+        file1 = File(path=self.audio_path, model_tag="A")
+        file2 = File(path=self.audio_path, model_tag="B")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            evaluator.add_files(file1, file2)
+        self.assertIn("add_files", str(context.exception))
+        self.assertIn("comparison evaluation types", str(context.exception))
+
+    def test_pref_evaluator_rejects_add_file(self):
+        """Test PREF evaluator rejects add_file method"""
+        # Given
+        client = Client(api_client=self.api_client)
+        evaluator = client._human_evaluation.create(type=EvalType.PREF.value)  # type: ignore
+        test_file = File(path=self.audio_path, model_tag="test")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            evaluator.add_file(test_file)
+        self.assertIn("add_file", str(context.exception))
+        self.assertIn("single file evaluation types", str(context.exception))
+
+    def test_pref_evaluator_rejects_add_ranking_set(self):
+        """Test PREF evaluator rejects add_ranking_set method"""
+        # Given
+        client = Client(api_client=self.api_client)
+        evaluator = client._human_evaluation.create(type=EvalType.PREF.value)  # type: ignore
+        files = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            evaluator.add_ranking_set(files)
+        self.assertIn("add_ranking_set", str(context.exception))
+        self.assertIn("ranking evaluation types", str(context.exception))
 
 
 if __name__ == "__main__":
