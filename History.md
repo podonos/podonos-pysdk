@@ -1,3 +1,10 @@
+## 0.29.0
+
+- Add `RANKING` evaluation type support
+- Add `add_ranking_set` method to `Evaluator` for ranking evaluations
+- Add validation for ranking files (unique model_tags, consistent group size, no reference files)
+- Support `RANKING` in `create_evaluator_from_template_json` and template-based evaluation creation
+
 ## 0.28.0
 
 - Add runtime parameter validation via `validate_args`/`Rules` across core and services
