@@ -46,8 +46,7 @@ class Podonos:
             )
 
         if api_key and api_key_env:
-            print(TerminalColor.WARN + f"Both api_key and {PODONOS_API_KEY} environment variable are set. "
-                                       f"Uses api_key." + TerminalColor.FAIL)
+            print(TerminalColor.WARN + f"Both api_key and {PODONOS_API_KEY} environment variable are set. " f"Uses api_key." + TerminalColor.FAIL)
 
         # API key verification.
         if len(final_api_key) <= 3:
@@ -57,7 +56,7 @@ class Podonos:
             )
 
         api_client = APIClient(final_api_key, api_url)
-        log.check(api_client, "api_client is not properly initiated.")
+        log.check(isinstance(api_client, APIClient), "api_client is not properly initiated.")  # type: ignore
 
         Podonos._api_client = api_client
         Podonos._initialized = api_client.initialize()

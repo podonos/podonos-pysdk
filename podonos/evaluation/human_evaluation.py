@@ -1,7 +1,6 @@
 from typing import Dict, Literal, Optional, Union, Any
 from requests import HTTPError
 
-from podonos.common.constant import PODONOS_CONTACT_EMAIL
 from podonos.common.enum import EvalType
 from podonos.core.api import APIClient
 from podonos.core.base import log
@@ -98,6 +97,8 @@ class HumanEvaluation:
             supported_types = EvalType.get_single_types()
         elif EvalType.is_triple(type):
             supported_types = EvalType.get_triple_types()
+        elif EvalType.is_ranking(type):
+            supported_types = EvalType.get_ranking_types()
         else:
             raise ValueError(f"Invalid evaluation type: {type}")
 
@@ -148,8 +149,11 @@ class HumanEvaluation:
         if template.batch_size is None:
             raise ValueError(f"Template with id {template_id} has no batch size")
 
+        # Determine eval_type from template.evaluation_type if present, else from batch_size
+        selected_eval_type = EvalType.selected_from_template_evaluation_type(template.evaluation_type or "CUSTOM", batch_size=template.batch_size)
+
         eval_config = EvalConfig(
-            type=EvalType.get_type_by_batch_size(template.batch_size).value,
+            type=selected_eval_type.value,
             name=name,
             desc=desc,
             num_eval=num_eval,
@@ -160,15 +164,11 @@ class HumanEvaluation:
             max_upload_workers=max_upload_workers,
         )
 
-        if template.batch_size == 1:
-            supported_types = EvalType.get_single_types()
-        elif template.batch_size == 2:
+        # Derive supported types from the selected type
+        supported_types = EvalType.get_supported_types_for(selected_eval_type)
+        if selected_eval_type in EvalType.get_double_types():
             # CMOS isn't supported in create_from_template
             supported_types = [EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE]
-        elif template.batch_size == 3:
-            supported_types = EvalType.get_triple_types()
-        else:
-            raise ValueError(f"Template has invalid type so please contact {PODONOS_CONTACT_EMAIL}")
         return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
 
     @validate_args(
@@ -189,7 +189,7 @@ class HumanEvaluation:
         json: Optional[Dict[str, Any]] = None,
         json_file: Optional[str] = None,
         name: Optional[str] = None,
-        custom_type: Union[Literal["SINGLE"], Literal["DOUBLE"]] = "SINGLE",
+        custom_type: Union[Literal["SINGLE"], Literal["DOUBLE"], Literal["RANKING"]] = "SINGLE",
         desc: Optional[str] = None,
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
@@ -223,16 +223,25 @@ class HumanEvaluation:
             FileNotFoundError: If the json_file path doesn't exist
         """
         # Validate custom_type
-        if custom_type not in ["SINGLE", "DOUBLE"]:
-            raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
+        if custom_type not in ["SINGLE", "DOUBLE", "RANKING"]:
+            raise ValueError('custom_type must be one of "SINGLE", "DOUBLE", "RANKING"')
 
-        eval_type = EvalType.CUSTOM_SINGLE if custom_type == "SINGLE" else EvalType.CUSTOM_DOUBLE
-        batch_size = 1 if custom_type == "SINGLE" else 2
+        if custom_type == "SINGLE":
+            eval_type = EvalType.CUSTOM_SINGLE
+            batch_size = 1
+        elif custom_type == "DOUBLE":
+            eval_type = EvalType.CUSTOM_DOUBLE
+            batch_size = 2
+        elif custom_type == "RANKING":
+            eval_type = EvalType.RANKING
+            batch_size = 2  # initial; will be adjusted on close() based on first ranking set size
+        else:
+            raise ValueError('custom_type must be one of "SINGLE", "DOUBLE", "RANKING"')
         # Load template data
         template_data = TemplateJsonLoader.load_json(json, json_file)
 
-        # Use the validator from template.py
-        instructions, core_questions = TemplateValidator.validate_and_create_questions(template_data, batch_size)
+        # Use the validator from template.py (pass eval_type for RANKING restrictions)
+        instructions, core_questions = TemplateValidator.validate_and_create_questions(template_data, batch_size, eval_type)
         log.info("Template JSON is validated.")
 
         # Create an evaluator
@@ -249,13 +258,11 @@ class HumanEvaluation:
         )
         log.info(f"Created evaluation config with type: {eval_type.value}")
 
-        if custom_type == "SINGLE":
-            supported_types = EvalType.get_single_types()
-        elif custom_type == "DOUBLE":
+        # Derive supported types from eval_type
+        supported_types = EvalType.get_supported_types_for(eval_type)
+        if eval_type in EvalType.get_double_types():
             # CMOS isn't supported in create_from_template_json
             supported_types = [EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE]
-        else:
-            raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
 
         template_service = TemplateService(self._api_client)
         evaluator = Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)

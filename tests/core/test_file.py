@@ -1,7 +1,8 @@
 import os
+import pytest
 import unittest
 from unittest.mock import patch, MagicMock
-from typing import Any
+from typing import Any, List, Optional
 from glog import FailedCheckException  # type: ignore
 
 from podonos.core.config import EvalConfig
@@ -1049,6 +1050,290 @@ class TestAudioMeta(unittest.TestCase):
                     AudioMeta(self.test_wav)
                 # Should log the error
                 mock_log_error.assert_called()
+
+
+class TestFileRanking(unittest.TestCase):
+    def setUp(self):
+        self.test_dir = os.path.dirname(__file__)
+        self.audio_path = os.path.join(self.test_dir, "speech_two_ch1.wav")
+
+    def test_ranking_accepts_two_files_with_consistent_order(self):
+        """Test RANKING accepts two files and enforces consistent order across groups"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        # First group: A, B
+        g1 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        v1 = validator.validate_files(list(g1))
+        assert [f.model_tag for f in v1] == ["A", "B"]
+
+        # Second group: same order A, B (should pass)
+        g2 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        v2 = validator.validate_files(list(g2))
+        assert [f.model_tag for f in v2] == ["A", "B"]
+
+    def test_ranking_accepts_three_or_more_files(self):
+        """Test RANKING accepts three or more files in a group"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        # Group with 3 files
+        g1 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B"), File(path=self.audio_path, model_tag="C")]
+        v1 = validator.validate_files(list(g1))
+        assert [f.model_tag for f in v1] == ["A", "B", "C"]
+
+        # Second group: same order and size (should pass)
+        g2 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B"), File(path=self.audio_path, model_tag="C")]
+        v2 = validator.validate_files(list(g2))
+        assert [f.model_tag for f in v2] == ["A", "B", "C"]
+
+    def test_ranking_rejects_single_file(self):
+        """Test RANKING rejects a group with only one file"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([File(path=self.audio_path, model_tag="A")])
+        assert "RANKING requires at least two files in a group" in str(context.value)
+
+    def test_ranking_rejects_inconsistent_order(self):
+        """Test RANKING rejects groups with inconsistent model_tag order"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        # First group: A, B
+        g1 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        validator.validate_files(list(g1))
+
+        # Second group: B, A (reversed order - should fail)
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([File(path=self.audio_path, model_tag="B"), File(path=self.audio_path, model_tag="A")])
+        assert "identical model_tag order" in str(context.value)
+
+    def test_ranking_rejects_inconsistent_size(self):
+        """Test RANKING rejects groups with inconsistent size"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        # First group: 2 files
+        g1 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        validator.validate_files(list(g1))
+
+        # Second group: 3 files (should fail)
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(
+                [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B"), File(path=self.audio_path, model_tag="C")]
+            )
+        assert "consistent group size" in str(context.value)
+
+    def test_ranking_rejects_reference_file_first_position(self):
+        """Test RANKING rejects is_ref=True in first position"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([File(path=self.audio_path, model_tag="A", is_ref=True), File(path=self.audio_path, model_tag="B")])
+        assert "cannot include reference files" in str(context.value)
+
+    def test_ranking_rejects_reference_file_second_position(self):
+        """Test RANKING rejects is_ref=True in second position"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B", is_ref=True)])
+        assert "cannot include reference files" in str(context.value)
+
+    def test_ranking_rejects_reference_file_middle_position(self):
+        """Test RANKING rejects is_ref=True in middle position"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(
+                [
+                    File(path=self.audio_path, model_tag="A"),
+                    File(path=self.audio_path, model_tag="B", is_ref=True),
+                    File(path=self.audio_path, model_tag="C"),
+                ]
+            )
+        assert "cannot include reference files" in str(context.value)
+
+    def test_ranking_rejects_all_reference_files(self):
+        """Test RANKING rejects when all files have is_ref=True"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([File(path=self.audio_path, model_tag="A", is_ref=True), File(path=self.audio_path, model_tag="B", is_ref=True)])
+        assert "cannot include reference files" in str(context.value)
+
+    def test_ranking_rejects_duplicate_model_tags_exact_match(self):
+        """Test RANKING rejects duplicate model_tags (exact match)"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([File(path=self.audio_path, model_tag="AWS"), File(path=self.audio_path, model_tag="AWS")])
+        assert "unique model_tags within a group" in str(context.value)
+        assert "Duplicate found: 'AWS'" in str(context.value)
+
+    def test_ranking_rejects_duplicate_model_tags_case_insensitive(self):
+        """Test RANKING rejects duplicate model_tags (case-insensitive)"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        # Test AWS vs aws
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([File(path=self.audio_path, model_tag="AWS"), File(path=self.audio_path, model_tag="aws")])
+        assert "unique model_tags within a group" in str(context.value)
+        assert "case-insensitive" in str(context.value)
+
+    def test_ranking_rejects_duplicate_model_tags_mixed_case(self):
+        """Test RANKING rejects duplicate model_tags with mixed case"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        # Test OpenAI vs openai vs OPENAI
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(
+                [
+                    File(path=self.audio_path, model_tag="OpenAI"),
+                    File(path=self.audio_path, model_tag="Google"),
+                    File(path=self.audio_path, model_tag="openai"),
+                ]
+            )
+        assert "unique model_tags within a group" in str(context.value)
+        assert "Duplicate found: 'openai'" in str(context.value)
+
+    def test_ranking_rejects_duplicate_in_three_files(self):
+        """Test RANKING rejects duplicate model_tags in a group of three"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        # First and last have same tag (case-insensitive)
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(
+                [
+                    File(path=self.audio_path, model_tag="ModelA"),
+                    File(path=self.audio_path, model_tag="ModelB"),
+                    File(path=self.audio_path, model_tag="modela"),
+                ]
+            )
+        assert "unique model_tags within a group" in str(context.value)
+
+    def test_ranking_accepts_unique_model_tags_different_cases(self):
+        """Test RANKING accepts truly unique model_tags even with different casing in names"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        # These should pass - different model tags
+        files: List[Optional[File]] = [
+            File(path=self.audio_path, model_tag="AWS"),
+            File(path=self.audio_path, model_tag="OpenAI"),
+            File(path=self.audio_path, model_tag="Google"),
+        ]
+        result = validator.validate_files(files)
+        assert len(result) == 3
+        assert [f.model_tag for f in result] == ["AWS", "OpenAI", "Google"]
+
+    def test_ranking_duplicate_check_across_multiple_groups(self):
+        """Test RANKING duplicate check works correctly across multiple groups"""
+        from podonos.core.file import FileValidator, File
+        from podonos.core.config import EvalConfig
+        from podonos.common.enum import EvalType as _EvalType
+
+        cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _EvalType.RANKING  # type: ignore
+        validator = FileValidator(cfg)
+
+        # First group: A, B, C (should pass)
+        files1: List[Optional[File]] = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="B"),
+            File(path=self.audio_path, model_tag="C"),
+        ]
+        validator.validate_files(files1)
+
+        # Second group: A, A, C (should fail - duplicate in second group)
+        files2: List[Optional[File]] = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="a"),
+            File(path=self.audio_path, model_tag="C"),
+        ]
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(files2)
+        assert "unique model_tags within a group" in str(context.value)
 
 
 if __name__ == "__main__":

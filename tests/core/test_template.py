@@ -1,9 +1,10 @@
+import pytest
 from typing import Any, Dict
 import unittest
 from datetime import datetime
 
 from podonos.core.template import TYPE_OF_TEMPLATE_KEY, Template, TemplateValidator
-from podonos.common.enum import Language, QuestionResponseCategory, QuestionUsageType
+from podonos.common.enum import Language, QuestionResponseCategory, QuestionUsageType, EvalType
 from podonos.core.types import QuestionMetadataColumn, QuestionMetadataLinearScale, QuestionMetadataPosition, TemplateOption, TemplateQuestion
 from tests.core.test_audio import TESTDATA_SPEECH_CH1_MP3
 
@@ -199,7 +200,9 @@ class TestTemplateValidator(unittest.TestCase):
 
     def test_validate_single_stimulus_template(self):
         # When
-        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(self.valid_single_template, 1)
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(
+            self.valid_single_template, 1, eval_type=EvalType.CUSTOM_SINGLE
+        )
 
         # Then
         self.assertEqual(len(guide_questions), 1)
@@ -209,7 +212,9 @@ class TestTemplateValidator(unittest.TestCase):
 
     def test_validate_double_stimulus_template(self):
         # When
-        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(self.valid_double_template, 2)
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(
+            self.valid_double_template, 2, eval_type=EvalType.CUSTOM_DOUBLE
+        )
 
         # Then
         self.assertEqual(len(guide_questions), 0)
@@ -222,7 +227,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
         self.assertIn("must contain a 'questions' list", str(context.exception))
 
     def test_validate_empty_query(self):
@@ -231,7 +236,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
         self.assertIn("must contain between 1 and 9 questions", str(context.exception))
 
     def test_validate_invalid_instruction_question_type(self):
@@ -243,7 +248,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
         self.assertEqual("Question in instructions section must be one of the following types: Instruction, got SCORED", str(context.exception))
 
     def test_validate_comparison_in_single_stimulus(self):
@@ -260,7 +265,7 @@ class TestTemplateValidator(unittest.TestCase):
         }
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
         self.assertIn("not allowed in single stimulus evaluation", str(context.exception))
 
     def test_validate_reference_file_with_instruction_should_fail(self):
@@ -274,7 +279,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
         self.assertIn("reference_file' field is not allowed for instruction questions", str(context.exception))
 
     def test_validate_reference_files_success(self):
@@ -292,7 +297,7 @@ class TestTemplateValidator(unittest.TestCase):
         }
 
         # When
-        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(valid_template, 1)
+        guide_questions, core_questions = TemplateValidator.validate_and_create_questions(valid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
 
         # Then
         self.assertEqual(len(guide_questions), 1)
@@ -318,7 +323,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
         self.assertIn("Reference file not found", str(context.exception))
 
     def test_validate_reference_files_invalid_type(self):
@@ -337,16 +342,47 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
         self.assertIn("Reference file type must be one of the following: reference, target, audio", str(context.exception))
 
     def test_validate_comparison_question_success(self):
         # When
-        result = TemplateValidator.validate_and_create_questions(self.valid_comparison_template, 2)
+        result = TemplateValidator.validate_and_create_questions(self.valid_comparison_template, 2, eval_type=EvalType.CUSTOM_DOUBLE)
 
         # Then
         self.assertEqual(len(result[0]), 0)
         self.assertEqual(len(result[1]), 1)
+
+    def test_template_validator_ranking_allows_instruction_and_comparison(self):
+        data: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "instructions": [
+                {"type": "DO", "instruction": "Follow the guide"},
+            ],
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "A vs B",
+                    "anchor_label": {"label_text": {"left": "Left", "right": "Right"}},
+                }
+            ],
+        }
+        instructions, questions = TemplateValidator.validate_and_create_questions(data, batch_size=2, eval_type=EvalType.RANKING)
+        assert len(instructions) == 1
+        assert len(questions) == 1
+
+    def test_template_validator_ranking_rejects_scored(self):
+        data: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "instructions": [],
+            "questions": [
+                {
+                    "type": "SCORED",
+                    "question": "Rate",
+                    "options": [{"label_text": "1"}],
+                }
+            ],
+        }
+        with pytest.raises(Exception):
+            TemplateValidator.validate_and_create_questions(data, batch_size=2, eval_type=EvalType.RANKING)
 
     def test_validate_comparison_question_missing_anchor_label(self):
         # Given
@@ -362,7 +398,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
         self.assertIn(
             "COMPARISON question must have 'anchor_label' in the format: {'anchor_label': {'title': optional string, 'label_text': {'left': string, 'right': string}}}",
             str(context.exception),
@@ -387,7 +423,7 @@ class TestTemplateValidator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            TemplateValidator.validate_and_create_questions(invalid_template, 1)
+            TemplateValidator.validate_and_create_questions(invalid_template, 1, eval_type=EvalType.CUSTOM_SINGLE)
         self.assertIn(
             "COMPARISON question must have 'anchor_label' in the format: {'anchor_label': {'title': optional string, 'label_text': {'left': string, 'right': string}}}",
             str(context.exception),

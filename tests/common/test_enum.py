@@ -153,6 +153,18 @@ class TestEvalTypeEnum(unittest.TestCase):
         self.assertTrue(EvalType.is_eval_type("CUSTOM_SINGLE"))
         self.assertFalse(EvalType.is_eval_type("INVALID_TYPE"))
 
+    def test_selected_from_template_evaluation_type_mapping(self):
+        self.assertEqual(EvalType.selected_from_template_evaluation_type("SPEECH_NMOS"), EvalType.NMOS)
+        self.assertEqual(EvalType.selected_from_template_evaluation_type("SPEECH_RANKING"), EvalType.RANKING)
+        self.assertEqual(EvalType.selected_from_template_evaluation_type("CUSTOM", batch_size=1), EvalType.CUSTOM_SINGLE)
+        self.assertEqual(EvalType.selected_from_template_evaluation_type("CUSTOM", batch_size=2), EvalType.CUSTOM_DOUBLE)
+
+    def test_get_supported_types_for(self):
+        self.assertEqual(set(EvalType.get_supported_types_for(EvalType.NMOS)), set(EvalType.get_single_types()))
+        self.assertEqual(set(EvalType.get_supported_types_for(EvalType.PREF)), set(EvalType.get_double_types()))
+        self.assertEqual(set(EvalType.get_supported_types_for(EvalType.CSMOS)), set(EvalType.get_triple_types()))
+        self.assertEqual(EvalType.get_supported_types_for(EvalType.RANKING), [EvalType.RANKING])
+
 
 class TestAIEvalTypeEnum(unittest.TestCase):
     """Test cases for AIEvalType enum"""

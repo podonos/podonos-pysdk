@@ -499,6 +499,48 @@ class TestEvaluationService(unittest.TestCase):
         )
         self.assertEqual(result, expected_url)
 
+    def test_update_specific_fields_calls_patch(self):
+        """Test update_specific_fields sends PATCH request with correct payload"""
+        # Given
+        eval_id = str(uuid4())
+        payload: Dict[str, Any] = {
+            "id": eval_id,
+            "language": "en-us",
+            "build_process": "FILE_UPLOAD",
+            "evaluation_type": "SPEECH_RANKING",
+            "batch_size": 3,
+            "meta_data": {},
+        }
+
+        mock_response = Mock(status_code=200)
+        self.mock_api_client.patch.return_value = mock_response
+
+        # When
+        self.service.update_specific_fields(eval_id, payload)
+
+        # Then
+        self.mock_api_client.patch.assert_called_once_with(f"evaluations/{eval_id}/specific-fields", data=payload)
+
+    def test_update_specific_fields_handles_failure(self):
+        """Test update_specific_fields handles failure correctly"""
+        # Given
+        eval_id = str(uuid4())
+        payload: Dict[str, Any] = {
+            "id": eval_id,
+            "language": "en-us",
+            "build_process": "FILE_UPLOAD",
+            "evaluation_type": "SPEECH_RANKING",
+            "batch_size": 3,
+            "meta_data": {},
+        }
+
+        self.mock_api_client.patch.side_effect = Exception("Failed to patch")
+
+        # When/Then
+        with self.assertRaises(HTTPError) as context:
+            self.service.update_specific_fields(eval_id, payload)
+        self.assertIn("Failed to update evaluation specific fields", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

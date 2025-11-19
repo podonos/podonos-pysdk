@@ -130,9 +130,17 @@ class EvalConfig:
     def max_upload_workers(self) -> int:
         return self._max_upload_workers
 
+    @property
+    def eval_batch_size(self) -> int:
+        return self._eval_batch_size
+
     @eval_id.setter
     def eval_id(self, eval_id: str) -> None:
         self._eval_id = eval_id
+
+    @eval_batch_size.setter
+    def eval_batch_size(self, eval_batch_size: int) -> None:
+        self._eval_batch_size = eval_batch_size
 
     @validate_args(eval_name=Rules.str_non_empty_or_none)
     def _valudate_eval_name(self, eval_name: Optional[str]) -> str:
@@ -156,9 +164,10 @@ class EvalConfig:
             EvalType.CSMOS.value,
             EvalType.CUSTOM_SINGLE.value,
             EvalType.CUSTOM_DOUBLE.value,
+            EvalType.RANKING.value,
         ]:
             raise ValueError(
-                f'"type" must be one of {{NMOS, QMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE}}. \n'
+                f'"type" must be one of {{NMOS, QMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING}}. \n'
                 + f"Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}"
             )
         return EvalType(eval_type)
@@ -216,10 +225,12 @@ class EvalConfig:
             return 1
         elif EvalType.is_double(eval_type):
             return 2
+        elif EvalType.is_ranking(eval_type):
+            return 2
         elif EvalType.is_triple(eval_type):
             return 3
         else:
-            raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}}.')
+            raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808, RANKING, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}}.')
 
     # TODO: allow floating point hours, e.g. 0.5.
     @validate_args(due_hours=Rules.positive_not_none)
