@@ -1,5 +1,6 @@
 import unittest
-from podonos.common.enum import Language, EvalType, AIEvalType
+
+from podonos.common.enum import AIEvalType, EvalType, Language
 
 
 class TestLanguageEnum(unittest.TestCase):
@@ -12,6 +13,7 @@ class TestLanguageEnum(unittest.TestCase):
         self.assertEqual(Language.ENGLISH_AUSTRALIAN.value, "en-au")
         self.assertEqual(Language.ENGLISH_CANADIAN.value, "en-ca")
         self.assertEqual(Language.ENGLISH_INDIA.value, "en-in")
+        self.assertEqual(Language.ENGLISH_SINGAPOREAN.value, "en-sg")
         self.assertEqual(Language.PORTUGUESE_PORTUGAL.value, "pt-pt")
         self.assertEqual(Language.PORTUGUESE_BRAZIL.value, "pt-br")
         self.assertEqual(Language.KOREAN.value, "ko-kr")
@@ -41,6 +43,7 @@ class TestLanguageEnum(unittest.TestCase):
             ("en-au", Language.ENGLISH_AUSTRALIAN),
             ("en-ca", Language.ENGLISH_CANADIAN),
             ("en-in", Language.ENGLISH_INDIA),
+            ("en-sg", Language.ENGLISH_SINGAPOREAN),
         ]
 
         for value, expected_enum in english_variants:
