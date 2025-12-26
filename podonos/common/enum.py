@@ -154,6 +154,7 @@ class Language(Enum):
     ENGLISH_AUSTRALIAN = "en-au"
     ENGLISH_CANADIAN = "en-ca"
     ENGLISH_INDIA = "en-in"
+    ENGLISH_SINGAPOREAN = "en-sg"
     PORTUGUESE_PORTUGAL = "pt-pt"
     PORTUGUESE_BRAZIL = "pt-br"
     KOREAN = "ko-kr"

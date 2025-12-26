@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-from podonos.core.base import *
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
 from podonos.common.enum import AIEvalType, EvalType, Language
 from podonos.common.validator import Rules, validate_args
+from podonos.core.base import *
 
 
 class EvalConfigDefault:
@@ -167,7 +167,7 @@ class EvalConfig:
             EvalType.RANKING.value,
         ]:
             raise ValueError(
-                f'"type" must be one of {{NMOS, QMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING}}. \n'
+                '"type" must be one of {NMOS, QMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING}. \n'
                 + f"Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}"
             )
         return EvalType(eval_type)
@@ -180,6 +180,7 @@ class EvalConfig:
             Language.ENGLISH_BRITISH.value,
             Language.ENGLISH_CANADIAN.value,
             Language.ENGLISH_INDIA.value,
+            Language.ENGLISH_SINGAPOREAN.value,
             Language.PORTUGUESE_PORTUGAL.value,
             Language.PORTUGUESE_BRAZIL.value,
             Language.KOREAN.value,
@@ -195,8 +196,8 @@ class EvalConfig:
             Language.AUDIO.value,
         ]:
             raise ValueError(
-                f'"lan" must be one of the supported language strings. '
-                + f"See https://www.podonos.com/docs/reference#create-evaluator \n"
+                '"lan" must be one of the supported language strings. '
+                + "See https://www.podonos.com/docs/reference#create-evaluator \n"
                 + f"Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}."
             )
         return Language(eval_language)
@@ -204,19 +205,19 @@ class EvalConfig:
     @validate_args(eval_ai_type=Rules.optional_instance_of(AIEvalType))
     def _validate_eval_ai_type(self, eval_ai_type: Optional[AIEvalType]) -> Optional[AIEvalType]:
         if eval_ai_type and eval_ai_type not in [AIEvalType.ALL]:
-            raise ValueError(f'"ai_type" must be one of {{ALL}}.')
+            raise ValueError('"ai_type" must be one of {ALL}.')
         return eval_ai_type
 
     @validate_args(num_eval=Rules.positive_not_none)
     def _validate_eval_num(self, num_eval: int) -> int:
         if num_eval < 1:
-            raise ValueError(f'"num_eval" must be >= 1.')
+            raise ValueError('"num_eval" must be >= 1.')
         return num_eval
 
     @validate_args(granularity=Rules.float_not_none)
     def _validate_eval_granularity(self, granularity: float) -> float:
         if granularity not in [0.5, 1.0]:
-            raise ValueError(f'"granularity" must be one of 0.5 and 1.0')
+            raise ValueError('"granularity" must be one of 0.5 and 1.0')
         return granularity
 
     @validate_args(eval_type=Rules.str_non_empty)
@@ -230,7 +231,7 @@ class EvalConfig:
         elif EvalType.is_triple(eval_type):
             return 3
         else:
-            raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808, RANKING, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}}.')
+            raise ValueError('"eval_type" must be one of {NMOS, QMOS, P808, RANKING, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}.')
 
     # TODO: allow floating point hours, e.g. 0.5.
     @validate_args(due_hours=Rules.positive_not_none)
@@ -255,7 +256,7 @@ class EvalConfig:
             EvalType.P808.value,
             EvalType.CUSTOM_SINGLE.value,
         ]:
-            raise ValueError(f'"eval_type" must be one of {{NMOS, QMOS, P808, CUSTOM_SINGLE}} when using "use_annotation"')
+            raise ValueError('"eval_type" must be one of {NMOS, QMOS, P808, CUSTOM_SINGLE} when using "use_annotation"')
         return eval_use_annotation
 
     def to_dict(self) -> Dict[str, Any]:
