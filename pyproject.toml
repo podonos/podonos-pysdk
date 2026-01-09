@@ -14,7 +14,7 @@ license = "MIT"
 authors = [
     {name = "David Anderson", email = "david@podonos.com"}
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "glog",
     "packaging",
@@ -26,11 +26,11 @@ keywords = ["ai", "speech", "synthesis"]
 classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Sound/Audio :: Analysis",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
