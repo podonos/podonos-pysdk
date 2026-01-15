@@ -20,7 +20,7 @@ Usage:
 
     4. Run SDK with proxy:
        HTTPS_PROXY=http://localhost:8080 REQUESTS_CA_BUNDLE=~/.mitmproxy/mitmproxy-ca-cert.pem \
-         python tests/integration/test_upload_verification.py --api_key=<KEY> --test=success
+         python tests/integration/upload_verification.py --api_key=<KEY> --test=success
 
 Configuration:
     - CORRUPT_PROBABILITY: Chance of corrupting each upload (0.0 to 1.0)
@@ -28,8 +28,8 @@ Configuration:
 """
 
 import random
-from mitmproxy import http
 
+from mitmproxy import http
 
 CORRUPT_PROBABILITY = 1.0
 CORRUPT_BYTES = 10
@@ -55,17 +55,10 @@ class UploadCorruptor:
             corrupted_content = self._corrupt_bytes(flow.request.content)
             flow.request.content = corrupted_content
             self.corrupted_count += 1
-            print(
-                f"[CORRUPT] Upload #{self.total_count}: corrupted {CORRUPT_BYTES} bytes in {original_size} byte payload"
-            )
+            print(f"[CORRUPT] Upload #{self.total_count}: corrupted {CORRUPT_BYTES} bytes in {original_size} byte payload")
 
     def _is_s3_upload(self, flow: http.HTTPFlow) -> bool:
-        return (
-            flow.request.method == "PUT"
-            and "s3" in flow.request.host
-            and flow.request.content
-            and len(flow.request.content) > 100
-        )
+        return flow.request.method == "PUT" and "s3" in flow.request.host and flow.request.content and len(flow.request.content) > 100
 
     def _corrupt_bytes(self, content: bytes) -> bytes:
         content_list = bytearray(content)
@@ -73,9 +66,7 @@ class UploadCorruptor:
 
         for _ in range(min(CORRUPT_BYTES, content_length)):
             position = random.randint(0, content_length - 1)
-            content_list[position] = (
-                content_list[position] + random.randint(1, 255)
-            ) % 256
+            content_list[position] = (content_list[position] + random.randint(1, 255)) % 256
 
         return bytes(content_list)
 

@@ -2,18 +2,18 @@
 Integration tests for upload verification system.
 
 Usage:
-    pytest tests/integration/test_upload_verification.py -v --api_key=<KEY> --base_url=<URL>
+    pytest tests/integration/upload_verification.py -v --api_key=<KEY> --base_url=<URL>
 
-    python tests/integration/test_upload_verification.py --api_key=<KEY> --base_url=<URL>
+    python tests/integration/upload_verification.py --api_key=<KEY> --base_url=<URL>
 """
 
 import argparse
+import math
 import os
+import struct
 import sys
 import tempfile
 import wave
-import struct
-import math
 
 import podonos
 from podonos import File
@@ -21,9 +21,7 @@ from podonos.core.base import log
 from podonos.errors import UploadRetryExhaustedError
 
 
-def create_test_wav(
-    path: str, duration_seconds: float = 1.0, sample_rate: int = 16000
-) -> None:
+def create_test_wav(path: str, duration_seconds: float = 1.0, sample_rate: int = 16000) -> None:
     num_samples = int(sample_rate * duration_seconds)
     frequency = 440
 
@@ -37,9 +35,7 @@ def create_test_wav(
             wav_file.writeframes(struct.pack("<h", value))
 
 
-def test_verification_with_corrupted_md5(
-    api_key: str, base_url: str | None = None
-) -> bool:
+def test_verification_with_corrupted_md5(api_key: str, base_url: str | None = None) -> bool:
     """
     Corrupts MD5 after upload to simulate network corruption.
     Expects UploadRetryExhaustedError since verification will always fail.
@@ -98,9 +94,7 @@ def test_verification_with_corrupted_md5(
             )
 
             etor.close()
-            log.error(
-                "TEST FAILED: Expected UploadRetryExhaustedError but close() succeeded"
-            )
+            log.error("TEST FAILED: Expected UploadRetryExhaustedError but close() succeeded")
             return False
 
         except UploadRetryExhaustedError as e:
@@ -110,9 +104,7 @@ def test_verification_with_corrupted_md5(
             log.info(f"  Max retries: {e.max_retries}")
             log.info(f"  Failed files: {len(e.failures)}")
             for failure in e.failures:
-                log.info(
-                    f"    - {failure.original_name}: {failure.error_code} - {failure.message}"
-                )
+                log.info(f"    - {failure.original_name}: {failure.error_code} - {failure.message}")
             return True
 
         except Exception as e:
@@ -161,9 +153,7 @@ def test_verification_success(api_key: str, base_url: str | None = None) -> bool
             log.info("TEST PASSED: close() succeeded as expected")
             return True
         except Exception as e:
-            log.error(
-                f"TEST FAILED: Unexpected error during close(): {type(e).__name__}: {e}"
-            )
+            log.error(f"TEST FAILED: Unexpected error during close(): {type(e).__name__}: {e}")
             return False
 
     finally:
@@ -172,13 +162,9 @@ def test_verification_success(api_key: str, base_url: str | None = None) -> bool
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run upload verification integration tests."
-    )
+    parser = argparse.ArgumentParser(description="Run upload verification integration tests.")
     parser.add_argument("--api_key", required=True, help="API Key")
-    parser.add_argument(
-        "--base_url", required=False, help="Base URL for the backend APIs."
-    )
+    parser.add_argument("--base_url", required=False, help="Base URL for the backend APIs.")
     parser.add_argument(
         "--test",
         choices=["all", "success", "corrupted"],
@@ -194,9 +180,7 @@ def main():
     results = []
 
     if args.test in ("all", "success"):
-        results.append(
-            ("success", test_verification_success(args.api_key, args.base_url))
-        )
+        results.append(("success", test_verification_success(args.api_key, args.base_url)))
 
     if args.test in ("all", "corrupted"):
         results.append(
