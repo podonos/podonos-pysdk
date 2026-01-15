@@ -21,7 +21,11 @@ class TestEvaluationService(unittest.TestCase):
         self.mock_api_client = Mock(spec=APIClient)
         self.service = EvaluationService(self.mock_api_client)
         self.sample_eval_config = EvalConfig(
-            name="test_eval", type=EvalType.NMOS.value, lan=Language.ENGLISH_AMERICAN.value, granularity=0.5, num_eval=10
+            name="test_eval",
+            type=EvalType.NMOS.value,
+            lan=Language.ENGLISH_AMERICAN.value,
+            granularity=0.5,
+            num_eval=10,
         )
         self.test_audio = Audio(
             path=TESTDATA_SPEECH_TWO_CH1_WAV,
@@ -50,7 +54,9 @@ class TestEvaluationService(unittest.TestCase):
             "created_time": current_time.isoformat(),
             "updated_time": current_time.isoformat(),
         }
-        self.mock_api_client.post.return_value = Mock(status_code=200, json=lambda: expected_response)
+        self.mock_api_client.post.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
 
         # When
         evaluation = self.service.create(self.sample_eval_config)
@@ -63,13 +69,18 @@ class TestEvaluationService(unittest.TestCase):
     def test_should_raise_error_on_creation_failure(self):
         # Given
         error_response = Mock(status_code=500)
-        error_response.raise_for_status.side_effect = HTTPError("Failed to create evaluation", 500)
+        error_response.raise_for_status.side_effect = HTTPError(
+            "Failed to create evaluation", 500
+        )
         self.mock_api_client.post.return_value = error_response
 
         # When/Then
         with self.assertRaises(HTTPError) as context:
             self.service.create(self.sample_eval_config)
-        self.assertEqual(context.exception.args[0], "Failed to create the evaluation: Failed to create evaluation")
+        self.assertEqual(
+            context.exception.args[0],
+            "Failed to create the evaluation: Failed to create evaluation",
+        )
 
     def test_should_get_evaluation_successfully(self):
         # Given
@@ -85,7 +96,9 @@ class TestEvaluationService(unittest.TestCase):
             "created_time": current_time.isoformat(),
             "updated_time": current_time.isoformat(),
         }
-        self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_response)
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
 
         # When
         evaluation = self.service.get_evaluation(eval_id)
@@ -109,7 +122,9 @@ class TestEvaluationService(unittest.TestCase):
             "created_time": current_time.isoformat(),
             "updated_time": current_time.isoformat(),
         }
-        self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_response)
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
 
         # When
         evaluation = self.service.get_evaluation(eval_id)
@@ -125,19 +140,26 @@ class TestEvaluationService(unittest.TestCase):
         # Given
         eval_id = str(uuid4())
         error_response = Mock(status_code=404)
-        error_response.raise_for_status.side_effect = HTTPError("Failed to get evaluation", 404)
+        error_response.raise_for_status.side_effect = HTTPError(
+            "Failed to get evaluation", 404
+        )
         self.mock_api_client.get.return_value = error_response
 
         # When/Then
         with self.assertRaises(HTTPError) as context:
             self.service.get_evaluation(eval_id)
-        self.assertEqual(context.exception.args[0], "Failed to get evaluation: Failed to get evaluation")
+        self.assertEqual(
+            context.exception.args[0],
+            "Failed to get evaluation: Failed to get evaluation",
+        )
 
     def test_should_create_evaluation_files_successfully(self):
         # Given
         eval_id = str(uuid4())
         expected_response = {"message": "Files created successfully"}
-        self.mock_api_client.put.return_value = Mock(status_code=200, json=lambda: expected_response)
+        self.mock_api_client.put.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
 
         # When
         self.service.create_evaluation_files(eval_id, [self.test_audio])
@@ -148,7 +170,9 @@ class TestEvaluationService(unittest.TestCase):
     def test_should_handle_create_evaluation_files_failure(self):
         # Given
         eval_id = str(uuid4())
-        self.mock_api_client.put.side_effect = Exception("Failed to create evaluation files")
+        self.mock_api_client.put.side_effect = Exception(
+            "Failed to create evaluation files"
+        )
 
         # When/Then
         with self.assertRaises(HTTPError) as context:
@@ -170,7 +194,9 @@ class TestEvaluationService(unittest.TestCase):
                 "updated_time": "2021-01-01T00:00:00Z",
             }
         ]
-        self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_evaluations)
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200, json=lambda: expected_evaluations
+        )
 
         # When
         evaluations = self.service.get_evaluation_list()
@@ -189,7 +215,14 @@ class TestEvaluationService(unittest.TestCase):
         evaluation_id = str(uuid4())
         expected_stats = [
             {
-                "files": [{"name": "file1.wav", "model_tag": "model1", "tags": ["tag1", "tag2"], "type": "A"}],
+                "files": [
+                    {
+                        "name": "file1.wav",
+                        "model_tag": "model1",
+                        "tags": ["tag1", "tag2"],
+                        "type": "A",
+                    }
+                ],
                 "question": {"title": "question1", "order": 1},
                 "mean": 0.5,
                 "median": 0.5,
@@ -198,19 +231,25 @@ class TestEvaluationService(unittest.TestCase):
                 "ci_95": 0.2,
             }
         ]
-        self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_stats)
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200, json=lambda: expected_stats
+        )
 
         # When
         stats = self.service.get_stats_json_by_id(evaluation_id)
 
         # Then
-        self.mock_api_client.get.assert_called_once_with(f"evaluations/{evaluation_id}/stats?group-by=question")
+        self.mock_api_client.get.assert_called_once_with(
+            f"evaluations/{evaluation_id}/stats?group-by=question"
+        )
         self.assertEqual(stats, expected_stats)
 
     @patch("os.makedirs")
     @patch("builtins.open", create=True)
     @patch("json.dump")
-    def test_download_evaluation_files_by_evaluation_id_success(self, mock_json_dump: Mock, mock_open: Mock, mock_makedirs: Mock):
+    def test_download_evaluation_files_by_evaluation_id_success(
+        self, mock_json_dump: Mock, mock_open: Mock, mock_makedirs: Mock
+    ):
         # Given
         evaluation_id = str(uuid4())
         eval_file_1_id = str(uuid4())
@@ -220,7 +259,11 @@ class TestEvaluationService(unittest.TestCase):
         output_dir = "./output"
         expected_response = {
             "evaluation_id": evaluation_id,
-            "cookie": {"CloudFront-Policy": "test_policy", "CloudFront-Signature": "test_signature", "CloudFront-Key-Pair-Id": "test_key_pair_id"},
+            "cookie": {
+                "CloudFront-Policy": "test_policy",
+                "CloudFront-Signature": "test_signature",
+                "CloudFront-Key-Pair-Id": "test_key_pair_id",
+            },
             "files": [
                 {
                     "evaluation_file_id": eval_file_1_id,
@@ -242,28 +285,47 @@ class TestEvaluationService(unittest.TestCase):
         }
 
         # Mock API responses
-        self.mock_api_client.get.return_value = Mock(status_code=200, json=lambda: expected_response)
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
 
         # Mock external_get responses for file downloads
-        mock_file_response1 = Mock(status_code=200, content=b"test_content1", headers={"Content-Type": "audio/wav"})
-        mock_file_response2 = Mock(status_code=200, content=b"test_content2", headers={"Content-Type": "audio/wav"})
-        self.mock_api_client.external_get.side_effect = [mock_file_response1, mock_file_response2]
+        mock_file_response1 = Mock(
+            status_code=200,
+            content=b"test_content1",
+            headers={"Content-Type": "audio/wav"},
+        )
+        mock_file_response2 = Mock(
+            status_code=200,
+            content=b"test_content2",
+            headers={"Content-Type": "audio/wav"},
+        )
+        self.mock_api_client.external_get.side_effect = [
+            mock_file_response1,
+            mock_file_response2,
+        ]
 
         # Mock file operations
         mock_file = Mock()
         mock_open.return_value.__enter__.return_value = mock_file
 
         # When
-        result = self.service.download_evaluation_files_by_evaluation_id(evaluation_id, output_dir)
+        result = self.service.download_evaluation_files_by_evaluation_id(
+            evaluation_id, output_dir
+        )
 
         # Then
-        self.mock_api_client.get.assert_called_once_with(f"evaluation-files/download?evaluation-id={evaluation_id}")
+        self.mock_api_client.get.assert_called_once_with(
+            f"evaluation-files/download?evaluation-id={evaluation_id}"
+        )
         self.assertEqual(self.mock_api_client.external_get.call_count, 2)
         self.assertEqual(result, "Files downloaded successfully.")
 
     @patch("os.path.isfile")
     @patch("os.access")
-    def test_should_upload_evaluation_file_successfully(self, mock_access: Mock, mock_isfile: Mock):
+    def test_should_upload_evaluation_file_successfully(
+        self, mock_access: Mock, mock_isfile: Mock
+    ):
         # Given
         url = "https://presigned-url.com/upload"
         path = "/tmp/test.wav"
@@ -284,7 +346,9 @@ class TestEvaluationService(unittest.TestCase):
             response = self.service.upload_evaluation_file(url, path)
 
             # Then
-            self.mock_api_client.external_put.assert_called_once_with(url, data=mock_file, headers={"Content-Type": "audio/wav"})
+            self.mock_api_client.external_put.assert_called_once_with(
+                url, data=mock_file, headers={"Content-Type": "audio/wav"}
+            )
             self.assertEqual(response, mock_response)
 
     def test_should_upload_session_json_successfully(self):
@@ -300,7 +364,9 @@ class TestEvaluationService(unittest.TestCase):
         response = self.service.put_session_json(url, data, headers)
 
         # Then
-        self.mock_api_client.external_put.assert_called_once_with(url, json_data=data, headers=headers)
+        self.mock_api_client.external_put.assert_called_once_with(
+            url, json_data=data, headers=headers
+        )
         self.assertEqual(response, mock_response)
 
     def test_should_upload_session_json_without_headers(self):
@@ -315,12 +381,16 @@ class TestEvaluationService(unittest.TestCase):
         response = self.service.put_session_json(url, data)
 
         # Then
-        self.mock_api_client.external_put.assert_called_once_with(url, json_data=data, headers=None)
+        self.mock_api_client.external_put.assert_called_once_with(
+            url, json_data=data, headers=None
+        )
         self.assertEqual(response, mock_response)
 
     @patch("os.path.isfile")
     @patch("os.access")
-    def test_should_handle_upload_evaluation_file_failure(self, mock_access: Mock, mock_isfile: Mock):
+    def test_should_handle_upload_evaluation_file_failure(
+        self, mock_access: Mock, mock_isfile: Mock
+    ):
         # Given
         url = "https://presigned-url.com/upload"
         path = "/tmp/test.wav"
@@ -407,7 +477,8 @@ class TestEvaluationService(unittest.TestCase):
 
         # Then
         self.mock_api_client.put.assert_called_once_with(
-            f"evaluations/{evaluation_id}/uploading-presigned-url", data={"uploaded_file_name": remote_object_name}
+            f"evaluations/{evaluation_id}/uploading-presigned-url",
+            data={"uploaded_file_name": remote_object_name},
         )
         self.assertEqual(result, expected_url)
 
@@ -438,11 +509,17 @@ class TestEvaluationService(unittest.TestCase):
             "created_time": current_time.isoformat(),
             "updated_time": current_time.isoformat(),
         }
-        self.mock_api_client.post.return_value = Mock(status_code=200, json=lambda: expected_response)
+        self.mock_api_client.post.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
 
         # Create config with en-in language
         en_in_eval_config = EvalConfig(
-            name="test_en_in_eval", type=EvalType.NMOS.value, lan=Language.ENGLISH_INDIA.value, granularity=0.5, num_eval=10
+            name="test_en_in_eval",
+            type=EvalType.NMOS.value,
+            lan=Language.ENGLISH_INDIA.value,
+            granularity=0.5,
+            num_eval=10,
         )
 
         # When
@@ -457,8 +534,12 @@ class TestEvaluationService(unittest.TestCase):
         """Test creating evaluation files with en-in language context"""
         # Given
         eval_id = str(uuid4())
-        expected_response = {"message": "Files created successfully for Indian English evaluation"}
-        self.mock_api_client.put.return_value = Mock(status_code=200, json=lambda: expected_response)
+        expected_response = {
+            "message": "Files created successfully for Indian English evaluation"
+        }
+        self.mock_api_client.put.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
 
         # Create test audio with en-in context
         en_in_test_audio = Audio(
@@ -495,7 +576,8 @@ class TestEvaluationService(unittest.TestCase):
 
         # Then
         self.mock_api_client.put.assert_called_once_with(
-            f"evaluations/{evaluation_id}/uploading-presigned-url", data={"uploaded_file_name": remote_object_name}
+            f"evaluations/{evaluation_id}/uploading-presigned-url",
+            data={"uploaded_file_name": remote_object_name},
         )
         self.assertEqual(result, expected_url)
 
@@ -519,7 +601,9 @@ class TestEvaluationService(unittest.TestCase):
         self.service.update_specific_fields(eval_id, payload)
 
         # Then
-        self.mock_api_client.patch.assert_called_once_with(f"evaluations/{eval_id}/specific-fields", data=payload)
+        self.mock_api_client.patch.assert_called_once_with(
+            f"evaluations/{eval_id}/specific-fields", data=payload
+        )
 
     def test_update_specific_fields_handles_failure(self):
         """Test update_specific_fields handles failure correctly"""
@@ -539,7 +623,138 @@ class TestEvaluationService(unittest.TestCase):
         # When/Then
         with self.assertRaises(HTTPError) as context:
             self.service.update_specific_fields(eval_id, payload)
-        self.assertIn("Failed to update evaluation specific fields", str(context.exception))
+        self.assertIn(
+            "Failed to update evaluation specific fields", str(context.exception)
+        )
+
+    def test_verify_files_success(self):
+        # Given
+        eval_id = str(uuid4())
+        expected_response = {
+            "all_verified": True,
+            "verified_count": 1,
+            "failed_count": 0,
+            "results": [
+                {
+                    "uploaded_file_name": "remote/speech_two_ch1.wav",
+                    "verified": True,
+                    "file_meta_id": str(uuid4()),
+                    "error": None,
+                }
+            ],
+        }
+        self.mock_api_client.post.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
+
+        self.test_audio.set_integrity_info("AA259hLYqLX6hjV81ve5Cg==", 17920)
+
+        # When
+        result = self.service.verify_files(eval_id, [self.test_audio])
+
+        # Then
+        self.mock_api_client.post.assert_called_once()
+        self.assertTrue(result.all_verified)
+        self.assertEqual(result.verified_count, 1)
+        self.assertEqual(result.failed_count, 0)
+
+    def test_verify_files_partial_failure(self):
+        # Given
+        eval_id = str(uuid4())
+        expected_response = {
+            "all_verified": False,
+            "verified_count": 0,
+            "failed_count": 1,
+            "results": [
+                {
+                    "uploaded_file_name": "remote/speech_two_ch1.wav",
+                    "verified": False,
+                    "file_meta_id": str(uuid4()),
+                    "error": {
+                        "code": "FILE_MD5_MISMATCH",
+                        "message": "MD5 hash mismatch",
+                        "expected": "AA259hLYqLX6hjV81ve5Cg==",
+                        "actual": "rqXc34Ir5GRBYFV++6Traw==",
+                    },
+                }
+            ],
+        }
+        self.mock_api_client.post.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
+
+        self.test_audio.set_integrity_info("AA259hLYqLX6hjV81ve5Cg==", 17920)
+
+        # When
+        result = self.service.verify_files(eval_id, [self.test_audio])
+
+        # Then
+        self.assertFalse(result.all_verified)
+        self.assertEqual(result.failed_count, 1)
+        self.assertIsNotNone(result.results[0].error)
+        self.assertEqual(result.results[0].error.code, "FILE_MD5_MISMATCH")
+
+    def test_verify_files_handles_failure(self):
+        # Given
+        eval_id = str(uuid4())
+        self.mock_api_client.post.side_effect = Exception("Verify failed")
+
+        self.test_audio.set_integrity_info("AA259hLYqLX6hjV81ve5Cg==", 17920)
+
+        # When/Then
+        with self.assertRaises(HTTPError) as context:
+            self.service.verify_files(eval_id, [self.test_audio])
+        self.assertIn("Failed to verify evaluation files", str(context.exception))
+
+    def test_process_files_success(self):
+        # Given
+        eval_id = str(uuid4())
+        file_meta_ids = [str(uuid4()), str(uuid4())]
+        expected_response = {
+            "processing_count": 2,
+            "file_meta_ids": file_meta_ids,
+        }
+        self.mock_api_client.post.return_value = Mock(
+            status_code=202, json=lambda: expected_response
+        )
+
+        # When
+        result = self.service.process_files(eval_id, file_meta_ids)
+
+        # Then
+        self.mock_api_client.post.assert_called_once()
+        self.assertEqual(result.processing_count, 2)
+        self.assertEqual(result.file_meta_ids, file_meta_ids)
+
+    def test_process_files_without_ids(self):
+        # Given
+        eval_id = str(uuid4())
+        expected_response = {
+            "processing_count": 5,
+            "file_meta_ids": [str(uuid4()) for _ in range(5)],
+        }
+        self.mock_api_client.post.return_value = Mock(
+            status_code=202, json=lambda: expected_response
+        )
+
+        # When
+        result = self.service.process_files(eval_id)
+
+        # Then
+        self.mock_api_client.post.assert_called_once_with(
+            f"evaluations/{eval_id}/files/process", data={}
+        )
+        self.assertEqual(result.processing_count, 5)
+
+    def test_process_files_handles_failure(self):
+        # Given
+        eval_id = str(uuid4())
+        self.mock_api_client.post.side_effect = Exception("Process failed")
+
+        # When/Then
+        with self.assertRaises(HTTPError) as context:
+            self.service.process_files(eval_id)
+        self.assertIn("Failed to trigger file processing", str(context.exception))
 
 
 if __name__ == "__main__":

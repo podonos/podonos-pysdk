@@ -5,11 +5,19 @@ from datetime import datetime
 from podonos.core.file import File, Audio, AudioGroup, AudioMeta
 from podonos.common.enum import QuestionFileType
 
-TESTDATA_SPEECH_TWO_CH1_M4A = os.path.join(os.path.dirname(__file__), "speech_two_ch1.m4a")
-TESTDATA_SPEECH_TWO_CH1_FLAC = os.path.join(os.path.dirname(__file__), "speech_two_ch1.flac")
+TESTDATA_SPEECH_TWO_CH1_M4A = os.path.join(
+    os.path.dirname(__file__), "speech_two_ch1.m4a"
+)
+TESTDATA_SPEECH_TWO_CH1_FLAC = os.path.join(
+    os.path.dirname(__file__), "speech_two_ch1.flac"
+)
 TESTDATA_SPEECH_CH1_MP3 = os.path.join(os.path.dirname(__file__), "speech_ch1.mp3")
-TESTDATA_SPEECH_TWO_CH1_WAV = os.path.join(os.path.dirname(__file__), "speech_two_ch1.wav")
-TESTDATA_SPEECH_TWO_CH2_WAV = os.path.join(os.path.dirname(__file__), "speech_two_ch2.wav")
+TESTDATA_SPEECH_TWO_CH1_WAV = os.path.join(
+    os.path.dirname(__file__), "speech_two_ch1.wav"
+)
+TESTDATA_SPEECH_TWO_CH2_WAV = os.path.join(
+    os.path.dirname(__file__), "speech_two_ch2.wav"
+)
 
 
 class TestAudioMeta(unittest.TestCase):
@@ -67,7 +75,13 @@ class TestAudio(unittest.TestCase):
     def setUp(self):
         self.test_dir = os.path.dirname(__file__)
         self.test_wav = os.path.join(self.test_dir, "speech_two_ch1.wav")
-        self.test_file = File(path=self.test_wav, model_tag="test_model", tags=["test", "mono"], script="test script", is_ref=False)
+        self.test_file = File(
+            path=self.test_wav,
+            model_tag="test_model",
+            tags=["test", "mono"],
+            script="test script",
+            is_ref=False,
+        )
 
     def test_should_create_audio_from_file_correctly(self):
         # Given
@@ -147,6 +161,70 @@ class TestAudio(unittest.TestCase):
         assert audio._upload_start_at is not None  # type: ignore[attr-defined]
         assert audio._upload_finish_at is not None  # type: ignore[attr-defined]
 
+    def test_should_set_integrity_info(self):
+        # Given
+        audio = Audio(
+            path=self.test_wav,
+            name=os.path.basename(self.test_wav),
+            remote_object_name="remote.wav",
+            script="test script",
+            tags=["test", "mono"],
+            model_tag="test_model",
+            is_ref=False,
+            group="test",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
+
+        # When
+        audio.set_integrity_info("AA259hLYqLX6hjV81ve5Cg==", 17920)
+
+        # Then
+        self.assertEqual(audio.content_md5, "AA259hLYqLX6hjV81ve5Cg==")
+        self.assertEqual(audio.file_size, 17920)
+
+    def test_should_include_integrity_info_in_create_file_dict(self):
+        # Given
+        audio = Audio(
+            path=self.test_wav,
+            name=os.path.basename(self.test_wav),
+            remote_object_name="remote.wav",
+            script="test script",
+            tags=["test", "mono"],
+            model_tag="test_model",
+            is_ref=False,
+            group="test",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
+        audio.set_integrity_info("AA259hLYqLX6hjV81ve5Cg==", 17920)
+
+        # When
+        file_dict = audio.to_create_file_dict()
+
+        # Then
+        self.assertEqual(file_dict["content_md5"], "AA259hLYqLX6hjV81ve5Cg==")
+        self.assertEqual(file_dict["file_size"], 17920)
+
+    def test_should_have_none_integrity_info_before_set(self):
+        # Given
+        audio = Audio(
+            path=self.test_wav,
+            name=os.path.basename(self.test_wav),
+            remote_object_name="remote.wav",
+            script="test script",
+            tags=["test", "mono"],
+            model_tag="test_model",
+            is_ref=False,
+            group="test",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
+
+        # Then
+        self.assertIsNone(audio.content_md5)
+        self.assertIsNone(audio.file_size)
+
     def test_should_create_file_dict_correctly(self):
         # Given
         audio = Audio(
@@ -212,7 +290,9 @@ class TestAudioGroup(unittest.TestCase):
         created_at = datetime.now()
 
         # When
-        group = AudioGroup(group_id=group_id, audios=[audio1, audio2], created_at=created_at)
+        group = AudioGroup(
+            group_id=group_id, audios=[audio1, audio2], created_at=created_at
+        )
 
         # Then
         self.assertEqual(group.group_id, group_id)
@@ -250,7 +330,9 @@ class TestAudioGroup(unittest.TestCase):
         )
 
         # When
-        group = AudioGroup(group_id=group_id, audios=[audio1, audio2], created_at=datetime.now())
+        group = AudioGroup(
+            group_id=group_id, audios=[audio1, audio2], created_at=datetime.now()
+        )
 
         # Then
         self.assertEqual(group.audios[0].order_in_group, 0)
@@ -280,7 +362,9 @@ class TestAudioGroup(unittest.TestCase):
         self.assertEqual(group_dict["group_id"], group_id)
         self.assertEqual(len(group_dict["audios"]), 1)
         self.assertEqual(group_dict["audios"][0]["remote_name"], "remote.wav")
-        self.assertEqual(group_dict["audios"][0]["type"], QuestionFileType.STIMULUS.value)
+        self.assertEqual(
+            group_dict["audios"][0]["type"], QuestionFileType.STIMULUS.value
+        )
 
     def test_should_raise_error_for_mismatched_group_ids(self):
         # Given
@@ -313,7 +397,9 @@ class TestAudioGroup(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError):
-            AudioGroup(group_id=group_id, audios=[audio1, audio2], created_at=created_at)
+            AudioGroup(
+                group_id=group_id, audios=[audio1, audio2], created_at=created_at
+            )
 
 
 if __name__ == "__main__":

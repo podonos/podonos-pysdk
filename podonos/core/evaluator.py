@@ -1,15 +1,17 @@
-from typing import Dict, List, Optional, cast, Any
-
+from typing import Any, Dict, List, Optional, cast
 
 from podonos.common.enum import EvalType
 from podonos.common.validator import Rules, validate_args
 from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.core.config import EvalConfig
-from podonos.core.file import File, Audio, AudioGroup, FileTransformer, FileValidator
+from podonos.core.file import Audio, AudioGroup, File, FileTransformer, FileValidator
 from podonos.core.upload_manager import UploadManager
 from podonos.entity.evaluation import EvaluationEntity
+from podonos.errors.error import FileVerificationFailure, UploadRetryExhaustedError
 from podonos.service.evaluation_service import EvaluationService
+
+MAX_UPLOAD_RETRIES = 3
 
 
 class Evaluator:
@@ -26,7 +28,12 @@ class Evaluator:
     _upload_manager: Optional[UploadManager] = None  # Upload manager. Lazy initialization when used for saving resources.
     _ordered_file_groups: List[AudioGroup]  # ordered evaluation files groups
 
-    def __init__(self, api_client: APIClient, eval_config: EvalConfig, supported_eval_types: List[EvalType]):
+    def __init__(
+        self,
+        api_client: APIClient,
+        eval_config: EvalConfig,
+        supported_eval_types: List[EvalType],
+    ):
         """Initialize the evaluator.
 
         Args:
@@ -37,8 +44,17 @@ class Evaluator:
         self._validate_initialization(api_client, eval_config, supported_eval_types)
         self._initialize_attributes(api_client, eval_config, supported_eval_types)
 
-    @validate_args(api_client=Rules.instance_of(APIClient), eval_config=Rules.instance_of(EvalConfig), supported_eval_types=Rules.list_not_none)
-    def _validate_initialization(self, api_client: APIClient, eval_config: EvalConfig, supported_eval_types: List[EvalType]) -> None:
+    @validate_args(
+        api_client=Rules.instance_of(APIClient),
+        eval_config=Rules.instance_of(EvalConfig),
+        supported_eval_types=Rules.list_not_none,
+    )
+    def _validate_initialization(
+        self,
+        api_client: APIClient,
+        eval_config: EvalConfig,
+        supported_eval_types: List[EvalType],
+    ) -> None:
         """Validate the initialization parameters.
 
         Args:
@@ -56,8 +72,17 @@ class Evaluator:
         if eval_config.eval_type not in supported_eval_types:
             raise ValueError("Not supported evaluation type")
 
-    @validate_args(api_client=Rules.instance_of(APIClient), eval_config=Rules.instance_of(EvalConfig), supported_eval_types=Rules.list_not_none)
-    def _initialize_attributes(self, api_client: APIClient, eval_config: EvalConfig, supported_eval_types: List[EvalType]) -> None:
+    @validate_args(
+        api_client=Rules.instance_of(APIClient),
+        eval_config=Rules.instance_of(EvalConfig),
+        supported_eval_types=Rules.list_not_none,
+    )
+    def _initialize_attributes(
+        self,
+        api_client: APIClient,
+        eval_config: EvalConfig,
+        supported_eval_types: List[EvalType],
+    ) -> None:
         """Initialize class attributes.
 
         Args:
@@ -85,13 +110,25 @@ class Evaluator:
             ValueError: If evaluation type is not supported for the method
         """
         if method_name == "add_file":
-            supported_types = [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]
+            supported_types = [
+                EvalType.NMOS,
+                EvalType.QMOS,
+                EvalType.P808,
+                EvalType.CUSTOM_SINGLE,
+            ]
             error_msg = f"The '{method_name}' is only supported for single file evaluation types: " f"{supported_types}"
         elif method_name == "add_ranking_set":
             supported_types = [EvalType.RANKING]
             error_msg = f"The '{method_name}' is only supported for ranking evaluation types: " f"{supported_types}"
         else:  # add_files
-            supported_types = [EvalType.CMOS, EvalType.DMOS, EvalType.PREF, EvalType.SMOS, EvalType.CSMOS, EvalType.CUSTOM_DOUBLE]
+            supported_types = [
+                EvalType.CMOS,
+                EvalType.DMOS,
+                EvalType.PREF,
+                EvalType.SMOS,
+                EvalType.CSMOS,
+                EvalType.CUSTOM_DOUBLE,
+            ]
             error_msg = f"The '{method_name}' is only supported for comparison evaluation types: " f"{supported_types}"
 
         if self._eval_config.eval_type not in supported_types:
@@ -110,20 +147,11 @@ class Evaluator:
         return self._evaluation.id
 
     def close(self) -> Dict[str, str]:
-        """Close the evaluation session and upload results.
-
-        Returns:
-            Dict[str, str]: Status of the operation
-
-        Raises:
-            ValueError: If session is not initialized or upload manager is not defined
-        """
         self._validate_close()
-        # For RANKING, update batch_size to the canonical group size before any further uploads/metadata writes
         if self._eval_config.eval_type == EvalType.RANKING:
             self._update_ranking_batch_size_before_upload()
         self._wait_for_uploads()
-        self._process_audio_files()
+        self._process_audio_files_with_verification()
         self._upload_session_json()
         self._cleanup()
         return {"status": "ok"}
@@ -156,11 +184,13 @@ class Evaluator:
         file = self._file_validator.validate_file(file)
         audio_group = self._file_transformer.transform_into_audio_group([file])
         self._ordered_file_groups.append(audio_group)
-        self._upload_one_file(
-            evaluation_id=self.get_evaluation_id(), remote_object_name=audio_group.audios[0].remote_object_name, path=audio_group.audios[0].path
-        )
+        self._upload_one_file(evaluation_id=self.get_evaluation_id(), audio=audio_group.audios[0])
 
-    @validate_args(file0=Rules.instance_of(File), file1=Rules.instance_of(File), file2=Rules.optional_instance_of(File))
+    @validate_args(
+        file0=Rules.instance_of(File),
+        file1=Rules.instance_of(File),
+        file2=Rules.optional_instance_of(File),
+    )
     def add_files(self, file0: File, file1: File, file2: Optional[File] = None) -> None:
         """Add two files for speech evaluation. The files will be securely uploaded to Podonos service system.
 
@@ -199,7 +229,7 @@ class Evaluator:
         audio_group = self._file_transformer.transform_into_audio_group(files)
         self._ordered_file_groups.append(audio_group)
         for audio in audio_group.audios:
-            self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio.remote_object_name, path=audio.path)
+            self._upload_one_file(evaluation_id=self.get_evaluation_id(), audio=audio)
 
     @validate_args(files=Rules.list_not_none)
     def add_ranking_set(self, files: List[File]) -> None:
@@ -215,12 +245,11 @@ class Evaluator:
 
         self._validate_eval_type("add_ranking_set")
 
-        # Validator expects List[Optional[File]] for shared path; we accept only File here.
         validated_files = self._file_validator.validate_files(cast(List[Optional[File]], files))
         audio_group = self._file_transformer.transform_into_audio_group(validated_files)
         self._ordered_file_groups.append(audio_group)
         for audio in audio_group.audios:
-            self._upload_one_file(evaluation_id=self.get_evaluation_id(), remote_object_name=audio.remote_object_name, path=audio.path)
+            self._upload_one_file(evaluation_id=self.get_evaluation_id(), audio=audio)
 
     def _validate_close(self) -> None:
         """Validate the state before closing.
@@ -236,14 +265,85 @@ class Evaluator:
         log.debug("Wait until the upload manager shuts down all the upload workers")
         assert self._upload_manager and self._upload_manager.wait_and_close()
 
-    def _process_audio_files(self) -> None:
-        """Process and upload audio files metadata."""
-        log.info("Uploading the final pieces...")
-        audios = [audio for group in self._ordered_file_groups for audio in group.audios]
-        for i in range(0, len(audios), 500):
-            self._evaluation_service.create_evaluation_files(self.get_evaluation_id(), audios[i : i + 500])
+    def _process_audio_files_with_verification(self) -> None:
+        log.info("Uploading file metadata...")
+        all_audios = [audio for group in self._ordered_file_groups for audio in group.audios]
 
-        self._process_upload_times()
+        for i in range(0, len(all_audios), 500):
+            batch = all_audios[i : i + 500]
+            self._evaluation_service.create_evaluation_files(self.get_evaluation_id(), batch)
+
+        log.info(f"Verifying {len(all_audios)} files...")
+        verify_response = self._evaluation_service.verify_files(self.get_evaluation_id(), all_audios)
+
+        if verify_response.all_verified:
+            log.info(f"All {verify_response.verified_count} files verified successfully.")
+        else:
+            failed_results = [r for r in verify_response.results if not r.verified]
+            failed_audios = self._get_failed_audios(all_audios, failed_results)
+
+            for retry_num in range(1, MAX_UPLOAD_RETRIES + 1):
+                log.warning(f"{len(failed_audios)} files failed verification, " f"retrying ({retry_num}/{MAX_UPLOAD_RETRIES})...")
+
+                self._retry_failed_uploads(failed_audios)
+                verify_response = self._evaluation_service.verify_files(self.get_evaluation_id(), failed_audios)
+
+                if verify_response.all_verified:
+                    log.info(f"All files verified successfully after {retry_num} retry(ies).")
+                    break
+
+                failed_results = [r for r in verify_response.results if not r.verified]
+                failed_audios = self._get_failed_audios(failed_audios, failed_results)
+            else:
+                failures = [
+                    FileVerificationFailure(
+                        uploaded_file_name=r.uploaded_file_name,
+                        original_name=self._find_original_name(r.uploaded_file_name),
+                        error_code=r.error.code if r.error else "UNKNOWN",
+                        message=r.error.message if r.error else "Unknown error",
+                        expected=r.error.expected if r.error else None,
+                        actual=r.error.actual if r.error else None,
+                    )
+                    for r in failed_results
+                ]
+                raise UploadRetryExhaustedError(
+                    f"Upload verification failed after {MAX_UPLOAD_RETRIES} retries. " f"{len(failures)} file(s) could not be verified:",
+                    failures=failures,
+                    retry_count=MAX_UPLOAD_RETRIES,
+                    max_retries=MAX_UPLOAD_RETRIES,
+                )
+
+        log.info("Triggering file processing...")
+        process_response = self._evaluation_service.process_files(self.get_evaluation_id())
+        log.info(f"Processing triggered for {process_response.processing_count} files.")
+
+    def _get_failed_audios(self, audios: List[Audio], failed_results: List) -> List[Audio]:
+        failed_names = {r.uploaded_file_name for r in failed_results}
+        return [a for a in audios if a.remote_object_name in failed_names]
+
+    def _retry_failed_uploads(self, failed_audios: List[Audio]) -> None:
+        log.info(f"Re-uploading {len(failed_audios)} failed files...")
+
+        retry_manager = UploadManager(
+            evaluation_service=self._evaluation_service,
+            max_workers=min(len(failed_audios), self._eval_config.max_upload_workers),
+        )
+
+        for audio in failed_audios:
+            retry_manager.add_file_to_queue(self.get_evaluation_id(), audio)
+
+        retry_manager.wait_and_close()
+
+        for i in range(0, len(failed_audios), 500):
+            batch = failed_audios[i : i + 500]
+            self._evaluation_service.create_evaluation_files(self.get_evaluation_id(), batch)
+
+    def _find_original_name(self, remote_object_name: str) -> str:
+        for group in self._ordered_file_groups:
+            for audio in group.audios:
+                if audio.remote_object_name == remote_object_name:
+                    return audio.path
+        return remote_object_name
 
     def _process_upload_times(self) -> None:
         """Process and store upload times for audio files."""
@@ -255,7 +355,11 @@ class Evaluator:
             for audio in group.audios:
                 self._update_audio_upload_times(audio, upload_start, upload_finish)
 
-    @validate_args(audio=Rules.instance_of(Audio), upload_start=Rules.dict_not_none, upload_finish=Rules.dict_not_none)
+    @validate_args(
+        audio=Rules.instance_of(Audio),
+        upload_start=Rules.dict_not_none,
+        upload_finish=Rules.dict_not_none,
+    )
     def _update_audio_upload_times(self, audio: Audio, upload_start: Dict[str, str], upload_finish: Dict[str, str]) -> None:
         """Update upload times for a single audio file.
 
@@ -284,29 +388,12 @@ class Evaluator:
             return self._evaluation_service.create_from_template(eval_config)
         return self._evaluation_service.create(eval_config)
 
-    @validate_args(evaluation_id=Rules.str_non_empty, remote_object_name=Rules.str_non_empty, path=Rules.file_path_not_none)
-    def _upload_one_file(
-        self,
-        evaluation_id: str,
-        remote_object_name: str,
-        path: str,
-    ) -> None:
-        """
-        Start uploading one file to server.
-
-        Args:
-            evaluation_id: New evaluation's id.
-            remote_object_name: Path to the remote file name.
-            path: Path to the local file.
-        Returns:
-            None
-        """
-        # Get the presigned URL for one file
-        log.debug(f"Adding to queue: {path}")
+    @validate_args(evaluation_id=Rules.str_non_empty, audio=Rules.instance_of(Audio))
+    def _upload_one_file(self, evaluation_id: str, audio: Audio) -> None:
+        log.debug(f"Adding to queue: {audio.path}")
         if not self._eval_config:
             raise ValueError("No evaluation session is open.")
 
-        # Lazy initialization of upload manager.
         if self._upload_manager is None:
             log.debug(f"max_upload_workers: {self._eval_config.max_upload_workers}")
             self._upload_manager = UploadManager(
@@ -315,8 +402,7 @@ class Evaluator:
             )
 
         if self._upload_manager:
-            self._upload_manager.add_file_to_queue(evaluation_id, remote_object_name, path)
-        return
+            self._upload_manager.add_file_to_queue(evaluation_id, audio)
 
     def _update_ranking_batch_size_before_upload(self) -> None:
         """Adjust batch_size for RANKING to match the group size (N) before uploads/metadata."""

@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from podonos.common.enum import EvalType, QuestionFileType
-from podonos.common.util import generate_random_group_name, generate_random_name, process_paths_to_posix
+from podonos.common.util import (
+    generate_random_group_name,
+    generate_random_name,
+    process_paths_to_posix,
+)
 from podonos.common.validator import Rules, validate_args
 from podonos.core.base import log
 from podonos.core.config import EvalConfig
@@ -191,7 +195,9 @@ class File:
         seen: Set[str] = set()
         for i, tag in enumerate(tags):
             if not isinstance(tag, (str, int, float)):  # type: ignore
-                raise ValueError(f"tag at index {i} must be a string, number, or boolean, got {type(tag)}")
+                raise ValueError(
+                    f"tag at index {i} must be a string, number, or boolean, got {type(tag)}"
+                )
 
             str_tag = str(tag)
             if str_tag not in seen:
@@ -212,12 +218,18 @@ class File:
         validated: Dict[str, Any] = {}
         for k, v in meta_data.items():
             if not isinstance(k, str):  # type: ignore
-                raise ValueError(f"meta_data key must be a string, got key type {type(k)}")
+                raise ValueError(
+                    f"meta_data key must be a string, got key type {type(k)}"
+                )
             # Disallow common iterable/container types except str
             if isinstance(v, (list, tuple, set, dict)):
-                raise ValueError(f"meta_data[{k}] must be a non-iterable JSON-primitive (got {type(v)})")  # type: ignore
+                raise ValueError(
+                    f"meta_data[{k}] must be a non-iterable JSON-primitive (got {type(v)})"
+                )  # type: ignore
             if not isinstance(v, allowed_value_types):
-                raise ValueError(f"meta_data[{k}] must be one of (str, int, float, bool, None), got {type(v)}")
+                raise ValueError(
+                    f"meta_data[{k}] must be one of (str, int, float, bool, None), got {type(v)}"
+                )
             validated[k] = v
         return validated
 
@@ -234,14 +246,25 @@ class FileValidator:
     @validate_args(file=Rules.instance_of(File))
     def validate_file(self, file: File) -> File:
         """Validate file based on evaluation type"""
-        if self._eval_config.eval_type not in [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]:
-            raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
+        if self._eval_config.eval_type not in [
+            EvalType.NMOS,
+            EvalType.QMOS,
+            EvalType.P808,
+            EvalType.CUSTOM_SINGLE,
+        ]:
+            raise ValueError(
+                f"Unsupported evaluation type: {self._eval_config.eval_type}"
+            )
         return self._validate_file_common(file)
 
     @validate_args(files=Rules.list_not_none)
     def validate_files(self, files: List[Optional[File]]) -> List[File]:
         """Main method to validate files based on evaluation type"""
-        if self._eval_config.eval_type in [EvalType.PREF, EvalType.CUSTOM_DOUBLE, EvalType.SMOS]:
+        if self._eval_config.eval_type in [
+            EvalType.PREF,
+            EvalType.CUSTOM_DOUBLE,
+            EvalType.SMOS,
+        ]:
             return self._validate_double_stimuli_files(files)
         elif self._eval_config.eval_type in [EvalType.CMOS, EvalType.DMOS]:
             return self._validate_one_stimulus_and_one_ref_files(files)
@@ -250,21 +273,31 @@ class FileValidator:
         elif self._eval_config.eval_type in [EvalType.RANKING]:
             return self._validate_ranking_files(files)
         else:
-            raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
+            raise ValueError(
+                f"Unsupported evaluation type: {self._eval_config.eval_type}"
+            )
 
     @validate_args(files=Rules.list_not_none)
     def _validate_double_stimuli_files(self, files: List[Optional[File]]) -> List[File]:
         """Validate files for stimuli-based evaluations"""
-        valid_files = [self._validate_file_common(file) for file in files if file is not None and file.is_ref == False]
+        valid_files = [
+            self._validate_file_common(file)
+            for file in files
+            if file is not None and file.is_ref == False
+        ]
         if len(valid_files) != 2:
             raise ValueError("Stimuli evaluations require exactly two files")
 
         return self._validate_double_stimuli_model_tags(valid_files[0], valid_files[1])
 
     @validate_args(files=Rules.list_not_none)
-    def _validate_one_stimulus_and_one_ref_files(self, files: List[Optional[File]]) -> List[File]:
+    def _validate_one_stimulus_and_one_ref_files(
+        self, files: List[Optional[File]]
+    ) -> List[File]:
         """Validate files for reference-stimulus evaluations"""
-        valid_files = [self._validate_file_common(file) for file in files if file is not None]
+        valid_files = [
+            self._validate_file_common(file) for file in files if file is not None
+        ]
         if len(valid_files) != 2:
             raise ValueError("Reference-stimulus evaluations require exactly two files")
 
@@ -274,14 +307,22 @@ class FileValidator:
         return valid_files
 
     @validate_args(files=Rules.list_not_none)
-    def _validate_two_stimuli_and_one_ref_files(self, files: List[Optional[File]]) -> List[File]:
+    def _validate_two_stimuli_and_one_ref_files(
+        self, files: List[Optional[File]]
+    ) -> List[File]:
         """Validate files for two-stimuli-one-reference evaluations"""
-        valid_files = [self._validate_file_common(file) for file in files if file is not None]
+        valid_files = [
+            self._validate_file_common(file) for file in files if file is not None
+        ]
         if len(valid_files) != 3:
-            raise ValueError("Two-stimuli-one-reference evaluations require exactly three files")
+            raise ValueError(
+                "Two-stimuli-one-reference evaluations require exactly three files"
+            )
 
         if valid_files[2].is_ref == False:
-            raise ValueError("Reference file must be at the third position in add_files")
+            raise ValueError(
+                "Reference file must be at the third position in add_files"
+            )
 
         if valid_files[0].is_ref or valid_files[1].is_ref:
             raise ValueError("First and second files must be stimuli in CSMOS")
@@ -290,7 +331,9 @@ class FileValidator:
         ref = [file for file in valid_files if file.is_ref == True]
 
         if len(stimuli) != 2 or len(ref) != 1:
-            raise ValueError("Two-stimuli-one-reference evaluations require exactly two stimuli and one reference")
+            raise ValueError(
+                "Two-stimuli-one-reference evaluations require exactly two stimuli and one reference"
+            )
 
         return self._validate_double_stimuli_model_tags(stimuli[0], stimuli[1]) + ref
 
@@ -307,13 +350,17 @@ class FileValidator:
         This method maintains canonical state for length and model_tag order
         within the validator instance across successive calls.
         """
-        valid_files = [self._validate_file_common(file) for file in files if file is not None]
+        valid_files = [
+            self._validate_file_common(file) for file in files if file is not None
+        ]
         if len(valid_files) < 2:
             raise ValueError("RANKING requires at least two files in a group")
 
         for i, f in enumerate(valid_files):
             if f.is_ref:
-                raise ValueError(f"RANKING groups cannot include reference files (index {i} has is_ref=True)")
+                raise ValueError(
+                    f"RANKING groups cannot include reference files (index {i} has is_ref=True)"
+                )
 
         # Check for duplicate model_tags within the group (case-insensitive)
         model_tags_lower = [f.model_tag.lower() for f in valid_files]
@@ -334,7 +381,8 @@ class FileValidator:
         else:
             if current_size != self._ranking_expected_length:
                 raise ValueError(
-                    f"RANKING requires consistent group size across groups. " f"Expected {self._ranking_expected_length}, got {current_size}."
+                    f"RANKING requires consistent group size across groups. "
+                    f"Expected {self._ranking_expected_length}, got {current_size}."
                 )
 
         if self._ranking_canonical_order is None:
@@ -342,7 +390,8 @@ class FileValidator:
         else:
             if current_order != self._ranking_canonical_order:
                 raise ValueError(
-                    "RANKING requires identical model_tag order across groups. " f"Expected {self._ranking_canonical_order}, got {current_order}."
+                    "RANKING requires identical model_tag order across groups. "
+                    f"Expected {self._ranking_canonical_order}, got {current_order}."
                 )
 
         return valid_files
@@ -353,12 +402,14 @@ class FileValidator:
 
         if self._eval_config.eval_use_annotation and file.script is None:
             raise ValueError(
-                "Annotation evaluation is enabled (use_annotation=True), " "but no script is provided in File. Please provide a corresponding script."
+                "Annotation evaluation is enabled (use_annotation=True), "
+                "but no script is provided in File. Please provide a corresponding script."
             )
 
         if self._eval_config.eval_ai_type and file.script is None:
             raise ValueError(
-                "ASR evaluation is enabled (eval_ai_type=ASR), " "but no script is provided in File. Please provide a corresponding script."
+                "ASR evaluation is enabled (eval_ai_type=ASR), "
+                "but no script is provided in File. Please provide a corresponding script."
             )
 
         if not file.model_tag or len(file.model_tag.strip()) == 0:
@@ -386,7 +437,10 @@ class FileValidator:
         # file0_model_tag = file0.model_tag.lower()
         # file1_model_tag = file1.model_tag.lower()
         if file0.model_tag == file1.model_tag:
-            raise ValueError("The model tags must differ in `add_files` " "for double (or more) stimuli evaluations")
+            raise ValueError(
+                "The model tags must differ in `add_files` "
+                "for double (or more) stimuli evaluations"
+            )
 
         if len(self._stimulus_model_tags) == 0:
             self._stimulus_model_tags.add(file0.model_tag)
@@ -425,7 +479,9 @@ class AudioMeta:
 
     @validate_args(path=Rules.str_non_empty)
     def __init__(self, path: str) -> None:
-        self._nchannels, self._framerate, self._duration_in_ms = self._set_audio_meta(path)
+        self._nchannels, self._framerate, self._duration_in_ms = self._set_audio_meta(
+            path
+        )
         log.check_ge(self._nchannels, 0)  # type: ignore
         log.check_ge(self._framerate, 0)  # type: ignore
         log.check_ge(self._duration_in_ms, 0)  # type: ignore
@@ -569,8 +625,10 @@ class Audio(File):
         self._type = type
         self._metadata = AudioMeta(path)
         self._order_in_group = order_in_group
-        self._upload_start_at = None
-        self._upload_finish_at = None
+        self._upload_start_at: Optional[str] = None
+        self._upload_finish_at: Optional[str] = None
+        self._content_md5: Optional[str] = None
+        self._file_size: Optional[int] = None
 
     @classmethod
     @validate_args(
@@ -601,7 +659,9 @@ class Audio(File):
             New Audio instance
         """
         remote_object_name = os.path.join(creation_timestamp, generate_random_name())
-        original_path, remote_path = process_paths_to_posix(file.path, str(remote_object_name))
+        original_path, remote_path = process_paths_to_posix(
+            file.path, str(remote_object_name)
+        )
 
         return cls(
             path=file.path,
@@ -637,10 +697,23 @@ class Audio(File):
     def order_in_group(self) -> int:
         return self._order_in_group
 
+    @property
+    def content_md5(self) -> Optional[str]:
+        return self._content_md5
+
+    @property
+    def file_size(self) -> Optional[int]:
+        return self._file_size
+
     @validate_args(start_at=Rules.str_not_none, finish_at=Rules.str_not_none)
     def set_upload_at(self, start_at: str, finish_at: str) -> None:
         self._upload_start_at = start_at
         self._upload_finish_at = finish_at
+
+    @validate_args(content_md5=Rules.str_non_empty, file_size=Rules.positive_not_none)
+    def set_integrity_info(self, content_md5: str, file_size: int) -> None:
+        self._content_md5 = content_md5
+        self._file_size = file_size
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -673,6 +746,8 @@ class Audio(File):
             "meta_data": self._meta_data,
             "group": self._group,
             "order_in_group": self._order_in_group,
+            "content_md5": self._content_md5,
+            "file_size": self._file_size,
         }
 
 
@@ -684,8 +759,14 @@ class AudioGroup:
     audios: List[Audio]
     created_at: datetime
 
-    @validate_args(group_id=Rules.str_not_none_or_none, audios=Rules.list_not_none, created_at=Rules.datetime_not_none)
-    def __init__(self, group_id: Optional[str], audios: List[Audio], created_at: datetime):
+    @validate_args(
+        group_id=Rules.str_not_none_or_none,
+        audios=Rules.list_not_none,
+        created_at=Rules.datetime_not_none,
+    )
+    def __init__(
+        self, group_id: Optional[str], audios: List[Audio], created_at: datetime
+    ):
         self.group_id = group_id
         self.created_at = created_at
         self.audios = self.set_audios(audios)
@@ -701,9 +782,13 @@ class AudioGroup:
         """
         for i, audio in enumerate(audios):
             if audio.group != self.group_id:
-                raise ValueError(f"All audios must have the same group_id. Expected {self.group_id}, got {audio.group}.")
+                raise ValueError(
+                    f"All audios must have the same group_id. Expected {self.group_id}, got {audio.group}."
+                )
             if audio.order_in_group != i:
-                raise ValueError(f"Order in group must be unique. Got {audio.order_in_group}.")
+                raise ValueError(
+                    f"Order in group must be unique. Got {audio.order_in_group}."
+                )
 
         return audios
 
@@ -726,11 +811,20 @@ class FileTransformer:
         if len(files) == 0:
             raise ValueError("No files to transform into audio group")
 
-        if self._eval_config.eval_type in [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]:
+        if self._eval_config.eval_type in [
+            EvalType.NMOS,
+            EvalType.QMOS,
+            EvalType.P808,
+            EvalType.CUSTOM_SINGLE,
+        ]:
             return self._transform_single_file(files[0])
         elif self._eval_config.eval_type in [EvalType.CMOS, EvalType.DMOS]:
             return self._transform_one_stimulus_and_one_ref_files(files)
-        elif self._eval_config.eval_type in [EvalType.PREF, EvalType.SMOS, EvalType.CUSTOM_DOUBLE]:
+        elif self._eval_config.eval_type in [
+            EvalType.PREF,
+            EvalType.SMOS,
+            EvalType.CUSTOM_DOUBLE,
+        ]:
             return self._transform_double_stimuli_files(files)
         elif self._eval_config.eval_type in [EvalType.CMOS]:
             return self._transform_one_stimulus_and_one_ref_files(files)
@@ -739,13 +833,22 @@ class FileTransformer:
         elif self._eval_config.eval_type in [EvalType.RANKING]:
             return self._transform_ranking_files(files)
         else:
-            raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
+            raise ValueError(
+                f"Unsupported evaluation type: {self._eval_config.eval_type}"
+            )
 
     @validate_args(file=Rules.instance_of(File))
     def _transform_single_file(self, file: File) -> AudioGroup:
         return AudioGroup(
             group_id=None,
-            audios=[self._create_audio(file=file, group=None, type=file.get_question_type_by_is_ref(), order_in_group=0)],
+            audios=[
+                self._create_audio(
+                    file=file,
+                    group=None,
+                    type=file.get_question_type_by_is_ref(),
+                    order_in_group=0,
+                )
+            ],
             created_at=datetime.now(),
         )
 
@@ -755,19 +858,31 @@ class FileTransformer:
         return AudioGroup(
             group_id=group_id,
             audios=[
-                self._create_audio(file=file, group=group_id, type=file.get_question_type_by_is_ref(), order_in_group=i)
+                self._create_audio(
+                    file=file,
+                    group=group_id,
+                    type=file.get_question_type_by_is_ref(),
+                    order_in_group=i,
+                )
                 for i, file in enumerate(files)
             ],
             created_at=datetime.now(),
         )
 
     @validate_args(files=Rules.list_not_none)
-    def _transform_one_stimulus_and_one_ref_files(self, files: List[File]) -> AudioGroup:
+    def _transform_one_stimulus_and_one_ref_files(
+        self, files: List[File]
+    ) -> AudioGroup:
         group_id = generate_random_group_name()
         return AudioGroup(
             group_id=group_id,
             audios=[
-                self._create_audio(file=file, group=group_id, type=file.get_question_type_by_is_ref(), order_in_group=i)
+                self._create_audio(
+                    file=file,
+                    group=group_id,
+                    type=file.get_question_type_by_is_ref(),
+                    order_in_group=i,
+                )
                 for i, file in enumerate(files)
             ],
             created_at=datetime.now(),
@@ -779,7 +894,12 @@ class FileTransformer:
         return AudioGroup(
             group_id=group_id,
             audios=[
-                self._create_audio(file=file, group=group_id, type=file.get_question_type_by_is_ref(), order_in_group=i)
+                self._create_audio(
+                    file=file,
+                    group=group_id,
+                    type=file.get_question_type_by_is_ref(),
+                    order_in_group=i,
+                )
                 for i, file in enumerate(files)
             ],
             created_at=datetime.now(),
@@ -791,7 +911,12 @@ class FileTransformer:
         return AudioGroup(
             group_id=group_id,
             audios=[
-                self._create_audio(file=file, group=group_id, type=file.get_question_type_by_is_ref(), order_in_group=i)
+                self._create_audio(
+                    file=file,
+                    group=group_id,
+                    type=file.get_question_type_by_is_ref(),
+                    order_in_group=i,
+                )
                 for i, file in enumerate(files)
             ],
             created_at=datetime.now(),
@@ -811,5 +936,9 @@ class FileTransformer:
         order_in_group: int = 0,
     ) -> Audio:
         return Audio.from_file(
-            file=file, creation_timestamp=self._eval_config.eval_creation_timestamp, group=group, type=type, order_in_group=order_in_group
+            file=file,
+            creation_timestamp=self._eval_config.eval_creation_timestamp,
+            group=group,
+            type=type,
+            order_in_group=order_in_group,
         )

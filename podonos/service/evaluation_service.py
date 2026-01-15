@@ -1,19 +1,21 @@
+import hashlib
 import json
 import os
-from requests import Response
 from typing import Any, Dict, List, Literal, Optional
-import hashlib
+
+from requests import Response
 from tqdm import tqdm
 
 from podonos.common.constant import CONTENT_TYPE_TO_EXTENSION
 from podonos.common.exception import HTTPError
 from podonos.common.util import get_content_type_by_filename
-from podonos.core.base import log
+from podonos.common.validator import Rules, validate_args
 from podonos.core.api import APIClient
+from podonos.core.base import log
 from podonos.core.config import EvalConfig
 from podonos.core.file import Audio, AudioGroup
 from podonos.entity.evaluation import EvaluationEntity
-from podonos.common.validator import Rules, validate_args
+from podonos.entity.verification import ProcessFilesResponse, VerifyFilesResponse
 
 
 class EvaluationService:
@@ -71,7 +73,10 @@ class EvaluationService:
         """
         log.debug("Create Evaluation from Template")
         try:
-            response = self.api_client.post("evaluations/templates", data=config.to_create_from_template_request_dto())
+            response = self.api_client.post(
+                "evaluations/templates",
+                data=config.to_create_from_template_request_dto(),
+            )
             response.raise_for_status()
             evaluation = EvaluationEntity.from_dict(response.json())
             log.info(f"Evaluation is generated: {evaluation.id}")
@@ -106,7 +111,11 @@ class EvaluationService:
             raise HTTPError(f"Failed to get evaluation list: {e}")
 
     @validate_args(evaluation_id=Rules.uuid_not_none, group_by=Rules.str_not_none)
-    def get_stats_json_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
+    def get_stats_json_by_id(
+        self,
+        evaluation_id: str,
+        group_by: Literal["question", "script", "model"] = "question",
+    ) -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
         Args:
@@ -173,18 +182,30 @@ class EvaluationService:
                 status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
 
-    @validate_args(evaluation_id=Rules.uuid_not_none, config=Rules.instance_of(EvalConfig), audio_groups=Rules.list_not_none)
+    @validate_args(
+        evaluation_id=Rules.uuid_not_none,
+        config=Rules.instance_of(EvalConfig),
+        audio_groups=Rules.list_not_none,
+    )
     def upload_session_json(self, evaluation_id: str, config: EvalConfig, audio_groups: List[AudioGroup]) -> None:
         """Upload session JSON data"""
         try:
             session_json = config.to_dict()
             session_json["files"] = [group.to_dict() for group in audio_groups]
             presigned_url = self.get_presigned_url(evaluation_id, "session.json")
-            self.put_session_json(presigned_url, session_json, headers={"Content-type": "application/json"})
+            self.put_session_json(
+                presigned_url,
+                session_json,
+                headers={"Content-type": "application/json"},
+            )
         except Exception as e:
             raise HTTPError(f"Failed to upload session JSON: {e}")
 
-    @validate_args(url=Rules.str_not_none, data=Rules.dict_not_none, headers=Rules.dict_not_none_or_none)
+    @validate_args(
+        url=Rules.str_not_none,
+        data=Rules.dict_not_none,
+        headers=Rules.dict_not_none_or_none,
+    )
     def put_session_json(self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Response:
         log.debug("JSON data")
         for key, value in data.items():
@@ -231,7 +252,7 @@ class EvaluationService:
 
                 # Generate a hash for the original file name
                 file_original_name = file["original_name"]
-                hash_object = hashlib.md5(file_original_name.encode())
+                hash_object = hashlib.md5(file_original_name.encode(), usedforsecurity=False)
                 hashed_file_name = hash_object.hexdigest()
 
                 # Construct the file path using the model tag and hashed file name
@@ -265,3 +286,38 @@ class EvaluationService:
             return "Files downloaded successfully."
         except Exception as e:
             raise HTTPError(f"Failed to download evaluation files: {e}")
+
+    @validate_args(evaluation_id=Rules.uuid_not_none, audios=Rules.list_not_none)
+    def verify_files(self, evaluation_id: str, audios: List[Audio]) -> VerifyFilesResponse:
+        try:
+            payload = {
+                "files": [
+                    {
+                        "uploaded_file_name": audio.remote_object_name,
+                        "content_md5": audio.content_md5,
+                        "file_size": audio.file_size,
+                    }
+                    for audio in audios
+                ]
+            }
+            response = self.api_client.post(f"evaluations/{evaluation_id}/files/verify", data=payload)
+            response.raise_for_status()
+            return VerifyFilesResponse.from_dict(response.json())
+        except Exception as e:
+            raise HTTPError(
+                f"Failed to verify evaluation files: {e}",
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
+            )
+
+    @validate_args(evaluation_id=Rules.uuid_not_none, file_meta_ids=Rules.list_not_none_or_none)
+    def process_files(self, evaluation_id: str, file_meta_ids: Optional[List[str]] = None) -> ProcessFilesResponse:
+        try:
+            payload: Dict[str, Any] = {"file_meta_ids": file_meta_ids} if file_meta_ids else {}
+            response = self.api_client.post(f"evaluations/{evaluation_id}/files/process", data=payload)
+            response.raise_for_status()
+            return ProcessFilesResponse.from_dict(response.json())
+        except Exception as e:
+            raise HTTPError(
+                f"Failed to trigger file processing: {e}",
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
+            )
