@@ -1,13 +1,18 @@
 import os
-import filetype  # type: ignore
-import soundfile as sf  # type: ignore
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import filetype  # type: ignore
+import soundfile as sf  # type: ignore
+
 from podonos.common.enum import EvalType, QuestionFileType
-from podonos.common.util import generate_random_group_name, generate_random_name, process_paths_to_posix
+from podonos.common.util import (
+    generate_random_group_name,
+    generate_random_name,
+    process_paths_to_posix,
+)
 from podonos.common.validator import Rules, validate_args
 from podonos.core.base import log
 from podonos.core.config import EvalConfig
@@ -231,14 +236,23 @@ class FileValidator:
     @validate_args(file=Rules.instance_of(File))
     def validate_file(self, file: File) -> File:
         """Validate file based on evaluation type"""
-        if self._eval_config.eval_type not in [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]:
+        if self._eval_config.eval_type not in [
+            EvalType.NMOS,
+            EvalType.QMOS,
+            EvalType.P808,
+            EvalType.CUSTOM_SINGLE,
+        ]:
             raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
         return self._validate_file_common(file)
 
     @validate_args(files=Rules.list_not_none)
     def validate_files(self, files: List[Optional[File]]) -> List[File]:
         """Main method to validate files based on evaluation type"""
-        if self._eval_config.eval_type in [EvalType.PREF, EvalType.CUSTOM_DOUBLE, EvalType.SMOS]:
+        if self._eval_config.eval_type in [
+            EvalType.PREF,
+            EvalType.CUSTOM_DOUBLE,
+            EvalType.SMOS,
+        ]:
             return self._validate_double_stimuli_files(files)
         elif self._eval_config.eval_type in [EvalType.CMOS, EvalType.DMOS]:
             return self._validate_one_stimulus_and_one_ref_files(files)
@@ -334,7 +348,7 @@ class FileValidator:
             self._stimulus_model_tags.add(file0.model_tag)
             self._stimulus_model_tags.add(file1.model_tag)
         else:
-            message = f"The number of model tags should be 2 in `add_files` for double (or more) stimuli evaluations"
+            message = "The number of model tags should be 2 in `add_files` for double (or more) stimuli evaluations"
             if file0.model_tag not in self._stimulus_model_tags:
                 raise ValueError(message)
             if file1.model_tag not in self._stimulus_model_tags:
@@ -511,8 +525,10 @@ class Audio(File):
         self._type = type
         self._metadata = AudioMeta(path)
         self._order_in_group = order_in_group
-        self._upload_start_at = None
-        self._upload_finish_at = None
+        self._upload_start_at: Optional[str] = None
+        self._upload_finish_at: Optional[str] = None
+        self._content_md5: Optional[str] = None
+        self._file_size: Optional[int] = None
 
     @classmethod
     @validate_args(
@@ -579,10 +595,23 @@ class Audio(File):
     def order_in_group(self) -> int:
         return self._order_in_group
 
+    @property
+    def content_md5(self) -> Optional[str]:
+        return self._content_md5
+
+    @property
+    def file_size(self) -> Optional[int]:
+        return self._file_size
+
     @validate_args(start_at=Rules.str_not_none, finish_at=Rules.str_not_none)
     def set_upload_at(self, start_at: str, finish_at: str) -> None:
         self._upload_start_at = start_at
         self._upload_finish_at = finish_at
+
+    @validate_args(content_md5=Rules.str_non_empty, file_size=Rules.positive_not_none)
+    def set_integrity_info(self, content_md5: str, file_size: int) -> None:
+        self._content_md5 = content_md5
+        self._file_size = file_size
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -615,6 +644,8 @@ class Audio(File):
             "meta_data": self._meta_data,
             "group": self._group,
             "order_in_group": self._order_in_group,
+            "content_md5": self._content_md5,
+            "file_size": self._file_size,
         }
 
 
@@ -626,7 +657,11 @@ class AudioGroup:
     audios: List[Audio]
     created_at: datetime
 
-    @validate_args(group_id=Rules.str_not_none_or_none, audios=Rules.list_not_none, created_at=Rules.datetime_not_none)
+    @validate_args(
+        group_id=Rules.str_not_none_or_none,
+        audios=Rules.list_not_none,
+        created_at=Rules.datetime_not_none,
+    )
     def __init__(self, group_id: Optional[str], audios: List[Audio], created_at: datetime):
         self.group_id = group_id
         self.created_at = created_at
@@ -668,11 +703,20 @@ class FileTransformer:
         if len(files) == 0:
             raise ValueError("No files to transform into audio group")
 
-        if self._eval_config.eval_type in [EvalType.NMOS, EvalType.QMOS, EvalType.P808, EvalType.CUSTOM_SINGLE]:
+        if self._eval_config.eval_type in [
+            EvalType.NMOS,
+            EvalType.QMOS,
+            EvalType.P808,
+            EvalType.CUSTOM_SINGLE,
+        ]:
             return self._transform_single_file(files[0])
         elif self._eval_config.eval_type in [EvalType.CMOS, EvalType.DMOS]:
             return self._transform_one_stimulus_and_one_ref_files(files)
-        elif self._eval_config.eval_type in [EvalType.PREF, EvalType.SMOS, EvalType.CUSTOM_DOUBLE]:
+        elif self._eval_config.eval_type in [
+            EvalType.PREF,
+            EvalType.SMOS,
+            EvalType.CUSTOM_DOUBLE,
+        ]:
             return self._transform_double_stimuli_files(files)
         elif self._eval_config.eval_type in [EvalType.CMOS]:
             return self._transform_one_stimulus_and_one_ref_files(files)
@@ -685,7 +729,14 @@ class FileTransformer:
     def _transform_single_file(self, file: File) -> AudioGroup:
         return AudioGroup(
             group_id=None,
-            audios=[self._create_audio(file=file, group=None, type=file.get_question_type_by_is_ref(), order_in_group=0)],
+            audios=[
+                self._create_audio(
+                    file=file,
+                    group=None,
+                    type=file.get_question_type_by_is_ref(),
+                    order_in_group=0,
+                )
+            ],
             created_at=datetime.now(),
         )
 
@@ -695,7 +746,12 @@ class FileTransformer:
         return AudioGroup(
             group_id=group_id,
             audios=[
-                self._create_audio(file=file, group=group_id, type=file.get_question_type_by_is_ref(), order_in_group=i)
+                self._create_audio(
+                    file=file,
+                    group=group_id,
+                    type=file.get_question_type_by_is_ref(),
+                    order_in_group=i,
+                )
                 for i, file in enumerate(files)
             ],
             created_at=datetime.now(),
@@ -707,7 +763,12 @@ class FileTransformer:
         return AudioGroup(
             group_id=group_id,
             audios=[
-                self._create_audio(file=file, group=group_id, type=file.get_question_type_by_is_ref(), order_in_group=i)
+                self._create_audio(
+                    file=file,
+                    group=group_id,
+                    type=file.get_question_type_by_is_ref(),
+                    order_in_group=i,
+                )
                 for i, file in enumerate(files)
             ],
             created_at=datetime.now(),
@@ -719,7 +780,12 @@ class FileTransformer:
         return AudioGroup(
             group_id=group_id,
             audios=[
-                self._create_audio(file=file, group=group_id, type=file.get_question_type_by_is_ref(), order_in_group=i)
+                self._create_audio(
+                    file=file,
+                    group=group_id,
+                    type=file.get_question_type_by_is_ref(),
+                    order_in_group=i,
+                )
                 for i, file in enumerate(files)
             ],
             created_at=datetime.now(),
@@ -739,5 +805,9 @@ class FileTransformer:
         order_in_group: int = 0,
     ) -> Audio:
         return Audio.from_file(
-            file=file, creation_timestamp=self._eval_config.eval_creation_timestamp, group=group, type=type, order_in_group=order_in_group
+            file=file,
+            creation_timestamp=self._eval_config.eval_creation_timestamp,
+            group=group,
+            type=type,
+            order_in_group=order_in_group,
         )

@@ -4,6 +4,7 @@ import datetime
 import queue
 import threading
 import time
+from typing import TYPE_CHECKING
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
@@ -17,7 +18,11 @@ except Exception:  # pragma: no cover
 
 from podonos.core.base import *
 from podonos.service.evaluation_service import EvaluationService
+from podonos.common.util import calculate_file_md5_base64
 from podonos.common.validator import Rules, validate_args
+
+if TYPE_CHECKING:
+    from podonos.core.file import Audio
 
 
 class UploadManager:
@@ -26,8 +31,15 @@ class UploadManager:
     """
 
     class UploadQueue(Protocol):
-        def put(self, item: Tuple[str, str, str], block: bool = True, timeout: Optional[float] = None) -> None: ...
-        def get(self, block: bool = True, timeout: Optional[float] = None) -> Tuple[str, str, str]: ...
+        def put(
+            self,
+            item: Tuple[str, "Audio"],
+            block: bool = True,
+            timeout: Optional[float] = None,
+        ) -> None: ...
+        def get(
+            self, block: bool = True, timeout: Optional[float] = None
+        ) -> Tuple[str, "Audio"]: ...
         def empty(self) -> bool: ...
         def task_done(self) -> None: ...
         def join(self) -> None: ...
@@ -60,7 +72,10 @@ class UploadManager:
 
         return self._upload_start, self._upload_finish
 
-    @validate_args(evaluation_service=Rules.instance_of(EvaluationService), max_workers=Rules.positive_not_none)
+    @validate_args(
+        evaluation_service=Rules.instance_of(EvaluationService),
+        max_workers=Rules.positive_not_none,
+    )
     def __init__(
         self,
         evaluation_service: EvaluationService,
@@ -73,7 +88,9 @@ class UploadManager:
         self._total_files = 0
         self._max_workers = max_workers
         self._worker_event = Event()
-        self._daemon_thread = threading.Thread(target=self._uploader_daemon, daemon=True)
+        self._daemon_thread = threading.Thread(
+            target=self._uploader_daemon, daemon=True
+        )
         self._daemon_thread.start()
         self._status = True
 
@@ -89,7 +106,6 @@ class UploadManager:
 
     @validate_args(index=Rules.int_not_none, worker_event=Rules.instance_of(Event))
     def _upload_worker(self, index: int, worker_event: Event) -> None:
-        # Individual worker for uploading files. The upload manager creates multiple threads for each of this worker.
         if not (
             self._queue is not None
             and self._worker_event is not None
@@ -103,27 +119,43 @@ class UploadManager:
         log.debug(f"Worker is {index} ready")
         while True:
             if not self._queue.empty():
-                item: Tuple[str, str, str] = self._queue.get()
+                item: Tuple[str, "Audio"] = self._queue.get()
                 evaluation_id = item[0]
-                remote_object_name = item[1]
-                path = item[2]
+                audio = item[1]
+
+                log.debug(f"Worker {index} calculating MD5 for {audio.path}")
+                content_md5, file_size = calculate_file_md5_base64(audio.path)
+                audio.set_integrity_info(content_md5, file_size)
+                log.debug(f"Worker {index} MD5: {content_md5}, size: {file_size}")
 
                 log.debug(f"Worker {index} presigned url request")
                 presigned_url = self._evaluation_service.get_presigned_url(
                     evaluation_id,
-                    remote_object_name,
+                    audio.remote_object_name,
                 )
                 log.debug(f"Worker {index} presigned url obtained")
 
-                log.debug(f"Worker {index} uploading {path}")
-                # Timestamp in ISO 8601.
-                upload_start_at = datetime.datetime.now().astimezone().isoformat(timespec="milliseconds")
-                self._evaluation_service.upload_evaluation_file(presigned_url, path)
-                upload_finish_at = datetime.datetime.now().astimezone().isoformat(timespec="milliseconds")
-                log.debug(f"Worker {index} finished uploading {item}")
+                log.debug(f"Worker {index} uploading {audio.path}")
+                upload_start_at = (
+                    datetime.datetime.now()
+                    .astimezone()
+                    .isoformat(timespec="milliseconds")
+                )
+                self._evaluation_service.upload_evaluation_file(
+                    presigned_url, audio.path
+                )
+                upload_finish_at = (
+                    datetime.datetime.now()
+                    .astimezone()
+                    .isoformat(timespec="milliseconds")
+                )
+                log.debug(
+                    f"Worker {index} finished uploading {audio.remote_object_name}"
+                )
 
-                self._upload_start[remote_object_name] = upload_start_at
-                self._upload_finish[remote_object_name] = upload_finish_at
+                audio.set_upload_at(upload_start_at, upload_finish_at)
+                self._upload_start[audio.remote_object_name] = upload_start_at
+                self._upload_finish[audio.remote_object_name] = upload_finish_at
                 self._queue.task_done()
                 self._total_uploaded += 1
                 log.debug(f"Worker {index} total_uploaded: {self._total_uploaded}")
@@ -135,7 +167,7 @@ class UploadManager:
                 log.debug(f"Worker {index} is done")
                 return
 
-    def add_file_to_queue(self, evaluation_id: str, remote_object_name: str, path: str) -> None:
+    def add_file_to_queue(self, evaluation_id: str, audio: "Audio") -> None:
         if not (
             self._queue is not None
             and self._worker_event is not None
@@ -146,15 +178,19 @@ class UploadManager:
         ):
             raise ValueError("Upload Manager is not initialized")
 
-        log.debug(f"Added: {path}")
-        self._queue.put((evaluation_id, remote_object_name, path))
+        log.debug(f"Added: {audio.path}")
+        self._queue.put((evaluation_id, audio))
         self._total_files += 1
 
     def wait_and_close(self) -> bool:
         if not self._status:
             return False
 
-        if not (self._queue is not None and self._worker_event is not None and self._daemon_thread is not None):
+        if not (
+            self._queue is not None
+            and self._worker_event is not None
+            and self._daemon_thread is not None
+        ):
             raise ValueError("Upload Manager is not initialized")
         log.debug(f"total_files: {self._total_files}")
         self._pbar = tqdm(total=self._total_files, dynamic_ncols=True)
