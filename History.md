@@ -1,3 +1,7 @@
+## 0.30.0
+
+- Add upload integrity verification with MD5 checksums
+
 ## 0.28.0
 
 - Add runtime parameter validation via `validate_args`/`Rules` across core and services
