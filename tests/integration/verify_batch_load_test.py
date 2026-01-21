@@ -142,7 +142,7 @@ def run_large_file_count_verification(
 
         # Close evaluator (this triggers upload completion and verification)
         log.info("Closing evaluator (upload + verification)...")
-        log.info("  This will verify files in batches of 500...")
+        log.info(f"  This will verify files in batches of {verify_batch_size}...")
         start_close = time.time()
 
         try:
