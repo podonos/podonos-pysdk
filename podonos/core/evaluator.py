@@ -8,10 +8,12 @@ from podonos.core.config import EvalConfig
 from podonos.core.file import Audio, AudioGroup, File, FileTransformer, FileValidator
 from podonos.core.upload_manager import UploadManager
 from podonos.entity.evaluation import EvaluationEntity
+from podonos.entity.verification import FileVerificationResult, VerifyFilesResponse
 from podonos.errors.error import FileVerificationFailure, UploadRetryExhaustedError
 from podonos.service.evaluation_service import EvaluationService
 
 MAX_UPLOAD_RETRIES = 3
+VERIFY_BATCH_SIZE = 500
 
 
 class Evaluator:
@@ -25,7 +27,9 @@ class Evaluator:
     _file_validator: FileValidator
     _supported_eval_types: List[EvalType]
     _initialized: bool = False
-    _upload_manager: Optional[UploadManager] = None  # Upload manager. Lazy initialization when used for saving resources.
+    _upload_manager: Optional[UploadManager] = (
+        None  # Upload manager. Lazy initialization when used for saving resources.
+    )
     _ordered_file_groups: List[AudioGroup]  # ordered evaluation files groups
 
     def __init__(
@@ -116,10 +120,16 @@ class Evaluator:
                 EvalType.P808,
                 EvalType.CUSTOM_SINGLE,
             ]
-            error_msg = f"The '{method_name}' is only supported for single file evaluation types: " f"{supported_types}"
+            error_msg = (
+                f"The '{method_name}' is only supported for single file evaluation types: "
+                f"{supported_types}"
+            )
         elif method_name == "add_ranking_set":
             supported_types = [EvalType.RANKING]
-            error_msg = f"The '{method_name}' is only supported for ranking evaluation types: " f"{supported_types}"
+            error_msg = (
+                f"The '{method_name}' is only supported for ranking evaluation types: "
+                f"{supported_types}"
+            )
         else:  # add_files
             supported_types = [
                 EvalType.CMOS,
@@ -129,7 +139,10 @@ class Evaluator:
                 EvalType.CSMOS,
                 EvalType.CUSTOM_DOUBLE,
             ]
-            error_msg = f"The '{method_name}' is only supported for comparison evaluation types: " f"{supported_types}"
+            error_msg = (
+                f"The '{method_name}' is only supported for comparison evaluation types: "
+                f"{supported_types}"
+            )
 
         if self._eval_config.eval_type not in supported_types:
             raise ValueError(error_msg)
@@ -184,7 +197,9 @@ class Evaluator:
         file = self._file_validator.validate_file(file)
         audio_group = self._file_transformer.transform_into_audio_group([file])
         self._ordered_file_groups.append(audio_group)
-        self._upload_one_file(evaluation_id=self.get_evaluation_id(), audio=audio_group.audios[0])
+        self._upload_one_file(
+            evaluation_id=self.get_evaluation_id(), audio=audio_group.audios[0]
+        )
 
     @validate_args(
         file0=Rules.instance_of(File),
@@ -245,7 +260,9 @@ class Evaluator:
 
         self._validate_eval_type("add_ranking_set")
 
-        validated_files = self._file_validator.validate_files(cast(List[Optional[File]], files))
+        validated_files = self._file_validator.validate_files(
+            cast(List[Optional[File]], files)
+        )
         audio_group = self._file_transformer.transform_into_audio_group(validated_files)
         self._ordered_file_groups.append(audio_group)
         for audio in audio_group.audios:
@@ -267,29 +284,44 @@ class Evaluator:
 
     def _process_audio_files_with_verification(self) -> None:
         log.info("Uploading file metadata...")
-        all_audios = [audio for group in self._ordered_file_groups for audio in group.audios]
+        all_audios = [
+            audio for group in self._ordered_file_groups for audio in group.audios
+        ]
 
         for i in range(0, len(all_audios), 500):
             batch = all_audios[i : i + 500]
-            self._evaluation_service.create_evaluation_files(self.get_evaluation_id(), batch)
+            self._evaluation_service.create_evaluation_files(
+                self.get_evaluation_id(), batch
+            )
 
         log.info(f"Verifying {len(all_audios)} files...")
-        verify_response = self._evaluation_service.verify_files(self.get_evaluation_id(), all_audios)
+        verify_response = self._verify_files_in_batches(
+            self.get_evaluation_id(), all_audios
+        )
 
         if verify_response.all_verified:
-            log.info(f"All {verify_response.verified_count} files verified successfully.")
+            log.info(
+                f"All {verify_response.verified_count} files verified successfully."
+            )
         else:
             failed_results = [r for r in verify_response.results if not r.verified]
             failed_audios = self._get_failed_audios(all_audios, failed_results)
 
             for retry_num in range(1, MAX_UPLOAD_RETRIES + 1):
-                log.warning(f"{len(failed_audios)} files failed verification, " f"retrying ({retry_num}/{MAX_UPLOAD_RETRIES})...")
+                log.warning(
+                    f"{len(failed_audios)} files failed verification, "
+                    f"retrying ({retry_num}/{MAX_UPLOAD_RETRIES})..."
+                )
 
                 self._retry_failed_uploads(failed_audios)
-                verify_response = self._evaluation_service.verify_files(self.get_evaluation_id(), failed_audios)
+                verify_response = self._verify_files_in_batches(
+                    self.get_evaluation_id(), failed_audios
+                )
 
                 if verify_response.all_verified:
-                    log.info(f"All files verified successfully after {retry_num} retry(ies).")
+                    log.info(
+                        f"All files verified successfully after {retry_num} retry(ies)."
+                    )
                     break
 
                 failed_results = [r for r in verify_response.results if not r.verified]
@@ -307,17 +339,53 @@ class Evaluator:
                     for r in failed_results
                 ]
                 raise UploadRetryExhaustedError(
-                    f"Upload verification failed after {MAX_UPLOAD_RETRIES} retries. " f"{len(failures)} file(s) could not be verified:",
+                    f"Upload verification failed after {MAX_UPLOAD_RETRIES} retries. "
+                    f"{len(failures)} file(s) could not be verified:",
                     failures=failures,
                     retry_count=MAX_UPLOAD_RETRIES,
                     max_retries=MAX_UPLOAD_RETRIES,
                 )
 
         log.info("Triggering file processing...")
-        process_response = self._evaluation_service.process_files(self.get_evaluation_id())
+        process_response = self._evaluation_service.process_files(
+            self.get_evaluation_id()
+        )
         log.info(f"Processing triggered for {process_response.processing_count} files.")
 
-    def _get_failed_audios(self, audios: List[Audio], failed_results: List) -> List[Audio]:
+    def _verify_files_in_batches(
+        self, evaluation_id: str, audios: List[Audio]
+    ) -> VerifyFilesResponse:
+        """Verify files in batches to avoid timeout issues with large file counts.
+
+        Args:
+            evaluation_id: The evaluation ID
+            audios: List of audio files to verify
+
+        Returns:
+            VerifyFilesResponse: Aggregated verification response from all batches
+        """
+        all_results: List[FileVerificationResult] = []
+        total_verified = 0
+        total_failed = 0
+
+        for i in range(0, len(audios), VERIFY_BATCH_SIZE):
+            batch = audios[i : i + VERIFY_BATCH_SIZE]
+            batch_response = self._evaluation_service.verify_files(evaluation_id, batch)
+
+            all_results.extend(batch_response.results)
+            total_verified += batch_response.verified_count
+            total_failed += batch_response.failed_count
+
+        return VerifyFilesResponse(
+            all_verified=(total_failed == 0),
+            verified_count=total_verified,
+            failed_count=total_failed,
+            results=all_results,
+        )
+
+    def _get_failed_audios(
+        self, audios: List[Audio], failed_results: List
+    ) -> List[Audio]:
         failed_names = {r.uploaded_file_name for r in failed_results}
         return [a for a in audios if a.remote_object_name in failed_names]
 
@@ -336,7 +404,9 @@ class Evaluator:
 
         for i in range(0, len(failed_audios), 500):
             batch = failed_audios[i : i + 500]
-            self._evaluation_service.create_evaluation_files(self.get_evaluation_id(), batch)
+            self._evaluation_service.create_evaluation_files(
+                self.get_evaluation_id(), batch
+            )
 
     def _find_original_name(self, remote_object_name: str) -> str:
         for group in self._ordered_file_groups:
@@ -360,7 +430,9 @@ class Evaluator:
         upload_start=Rules.dict_not_none,
         upload_finish=Rules.dict_not_none,
     )
-    def _update_audio_upload_times(self, audio: Audio, upload_start: Dict[str, str], upload_finish: Dict[str, str]) -> None:
+    def _update_audio_upload_times(
+        self, audio: Audio, upload_start: Dict[str, str], upload_finish: Dict[str, str]
+    ) -> None:
         """Update upload times for a single audio file.
 
         Args:
@@ -375,7 +447,9 @@ class Evaluator:
 
     def _upload_session_json(self) -> None:
         """Upload the session JSON data."""
-        self._evaluation_service.upload_session_json(self.get_evaluation_id(), self._eval_config, self._ordered_file_groups)
+        self._evaluation_service.upload_session_json(
+            self.get_evaluation_id(), self._eval_config, self._ordered_file_groups
+        )
 
     def _cleanup(self) -> None:
         """Clean up the evaluation session."""
@@ -407,7 +481,9 @@ class Evaluator:
     def _update_ranking_batch_size_before_upload(self) -> None:
         """Adjust batch_size for RANKING to match the group size (N) before uploads/metadata."""
         if not self._ordered_file_groups or not self._ordered_file_groups[0].audios:
-            raise ValueError("RANKING requires at least one group with files before closing the session")
+            raise ValueError(
+                "RANKING requires at least one group with files before closing the session"
+            )
         group_size = len(self._ordered_file_groups[0].audios)
         if group_size < 2:
             raise ValueError("RANKING requires at least two files per group")
@@ -420,5 +496,7 @@ class Evaluator:
             "batch_size": group_size,
             "meta_data": {},
         }
-        self._evaluation_service.update_specific_fields(self.get_evaluation_id(), payload)
+        self._evaluation_service.update_specific_fields(
+            self.get_evaluation_id(), payload
+        )
         self._eval_config.eval_batch_size = group_size
