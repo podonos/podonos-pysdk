@@ -1,3 +1,7 @@
+## 0.31.0
+
+- Fix batch processing for validation logic
+
 ## 0.30.0
 
 - Add upload integrity verification with MD5 checksums
