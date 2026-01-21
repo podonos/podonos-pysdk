@@ -19,6 +19,7 @@ class EvalConfigDefault:
     GRANULARITY = 1.0
     BATCH_SIZE = 1
     MAX_UPLOAD_WORKERS = 20
+    VERIFY_BATCH_SIZE = 500
 
 
 class EvalConfig:
@@ -35,10 +36,13 @@ class EvalConfig:
     _eval_num: int = EvalConfigDefault.NUM_EVAL
     _eval_expected_due_tzname: Optional[str] = None
     _eval_use_annotation: bool = False
-    _eval_use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION
+    _eval_use_loudness_normalization: bool = (
+        EvalConfigDefault.USE_LOUDNESS_NORMALIZATION
+    )
     _eval_auto_start: bool = False
     _eval_template_id: Optional[str] = None
     _max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
+    _verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE
 
     def __init__(
         self,
@@ -55,6 +59,7 @@ class EvalConfig:
         auto_start: bool = EvalConfigDefault.AUTO_START,
         template_id: Optional[str] = None,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+        verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
     ) -> None:
         self._eval_name = self._valudate_eval_name(name)
         self._eval_description = desc
@@ -68,11 +73,14 @@ class EvalConfig:
         self._eval_expected_due_tzname = self._validate_eval_expected_due_tzname()
         self._eval_creation_timestamp = self._validate_eval_creation_timestamp()
         self._eval_id = self._eval_creation_timestamp
-        self._eval_use_annotation = self._validate_eval_use_annotation(use_annotation, type)
+        self._eval_use_annotation = self._validate_eval_use_annotation(
+            use_annotation, type
+        )
         self._eval_use_loudness_normalization = use_loudness_normalization
         self._eval_auto_start = auto_start
         self._eval_template_id = template_id
         self._max_upload_workers = max_upload_workers
+        self._verify_batch_size = self._validate_verify_batch_size(verify_batch_size)
         self.log_eval_config()
 
     def log_eval_config(self) -> None:
@@ -82,13 +90,18 @@ class EvalConfig:
         log.debug(f"Language: {self._eval_language}")
         log.debug(f"AI type: {self._eval_ai_type}")
         log.debug(f"num_eval: {self._eval_num}")
-        log.debug(f"Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}")
+        log.debug(
+            f"Expected due: {self._eval_expected_due} {self._eval_expected_due_tzname}"
+        )
         log.debug(f"Evaluation ID: {self._eval_id}")
         log.debug(f"Evaluation use annotation: {self._eval_use_annotation}")
-        log.debug(f"Evaluation use loudness normalization: {self._eval_use_loudness_normalization}")
+        log.debug(
+            f"Evaluation use loudness normalization: {self._eval_use_loudness_normalization}"
+        )
         log.debug(f"Evaluation auto start: {self._eval_auto_start}")
         log.debug(f"Evaluation Template ID: {self._eval_template_id}")
         log.debug(f"Max upload workers: {self._max_upload_workers}")
+        log.debug(f"Verify batch size: {self._verify_batch_size}")
 
     @property
     def eval_id(self) -> str:
@@ -129,6 +142,10 @@ class EvalConfig:
     @property
     def max_upload_workers(self) -> int:
         return self._max_upload_workers
+
+    @property
+    def verify_batch_size(self) -> int:
+        return self._verify_batch_size
 
     @property
     def eval_batch_size(self) -> int:
@@ -203,7 +220,9 @@ class EvalConfig:
         return Language(eval_language)
 
     @validate_args(eval_ai_type=Rules.optional_instance_of(AIEvalType))
-    def _validate_eval_ai_type(self, eval_ai_type: Optional[AIEvalType]) -> Optional[AIEvalType]:
+    def _validate_eval_ai_type(
+        self, eval_ai_type: Optional[AIEvalType]
+    ) -> Optional[AIEvalType]:
         if eval_ai_type and eval_ai_type not in [AIEvalType.ALL]:
             raise ValueError('"ai_type" must be one of {ALL}.')
         return eval_ai_type
@@ -231,7 +250,9 @@ class EvalConfig:
         elif EvalType.is_triple(eval_type):
             return 3
         else:
-            raise ValueError('"eval_type" must be one of {NMOS, QMOS, P808, RANKING, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}.')
+            raise ValueError(
+                '"eval_type" must be one of {NMOS, QMOS, P808, RANKING, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}.'
+            )
 
     # TODO: allow floating point hours, e.g. 0.5.
     @validate_args(due_hours=Rules.positive_not_none)
@@ -248,16 +269,30 @@ class EvalConfig:
     def _validate_eval_creation_timestamp(self) -> str:
         return datetime.now().isoformat(timespec="milliseconds")
 
-    @validate_args(eval_use_annotation=Rules.bool_not_none, eval_type=Rules.str_non_empty)
-    def _validate_eval_use_annotation(self, eval_use_annotation: bool, eval_type: str) -> bool:
+    @validate_args(
+        eval_use_annotation=Rules.bool_not_none, eval_type=Rules.str_non_empty
+    )
+    def _validate_eval_use_annotation(
+        self, eval_use_annotation: bool, eval_type: str
+    ) -> bool:
         if eval_use_annotation and eval_type not in [
             EvalType.NMOS.value,
             EvalType.QMOS.value,
             EvalType.P808.value,
             EvalType.CUSTOM_SINGLE.value,
         ]:
-            raise ValueError('"eval_type" must be one of {NMOS, QMOS, P808, CUSTOM_SINGLE} when using "use_annotation"')
+            raise ValueError(
+                '"eval_type" must be one of {NMOS, QMOS, P808, CUSTOM_SINGLE} when using "use_annotation"'
+            )
         return eval_use_annotation
+
+    @validate_args(verify_batch_size=Rules.positive_not_none)
+    def _validate_verify_batch_size(self, verify_batch_size: int) -> int:
+        if verify_batch_size < 1:
+            raise ValueError('"verify_batch_size" must be >= 1.')
+        if verify_batch_size > 1000:
+            raise ValueError('"verify_batch_size" must be <= 1000.')
+        return verify_batch_size
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -274,6 +309,7 @@ class EvalConfig:
             "eval_template_id": self._eval_template_id,
             "use_loudness_normalization": self._eval_use_loudness_normalization,
             "max_upload_workers": self._max_upload_workers,
+            "verify_batch_size": self._verify_batch_size,
         }
 
     def to_create_request_dto(self) -> Dict[str, Any]:
