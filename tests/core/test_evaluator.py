@@ -9,7 +9,7 @@ from glog import FailedCheckException  # type: ignore
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig, EvalConfigDefault
-from podonos.core.evaluator import DEFAULT_VERIFY_BATCH_SIZE, Evaluator
+from podonos.core.evaluator import Evaluator
 from podonos.core.file import Audio, AudioGroup, File
 from podonos.entity.evaluation import EvaluationEntity
 from podonos.entity.verification import FileVerificationResult, VerifyFilesResponse
