@@ -8,8 +8,8 @@ from glog import FailedCheckException  # type: ignore
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.core.api import APIClient
-from podonos.core.config import EvalConfig
-from podonos.core.evaluator import VERIFY_BATCH_SIZE, Evaluator
+from podonos.core.config import EvalConfig, EvalConfigDefault
+from podonos.core.evaluator import DEFAULT_VERIFY_BATCH_SIZE, Evaluator
 from podonos.core.file import Audio, AudioGroup, File
 from podonos.entity.evaluation import EvaluationEntity
 from podonos.entity.verification import FileVerificationResult, VerifyFilesResponse
@@ -533,9 +533,10 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(mock_service.verify_files.call_count, 3)
 
         # Verify batch sizes
+        batch_size = self.evaluator._eval_config.verify_batch_size
         calls = mock_service.verify_files.call_args_list
-        self.assertEqual(len(calls[0][0][1]), VERIFY_BATCH_SIZE)  # First batch: 500
-        self.assertEqual(len(calls[1][0][1]), VERIFY_BATCH_SIZE)  # Second batch: 500
+        self.assertEqual(len(calls[0][0][1]), batch_size)  # First batch: 500
+        self.assertEqual(len(calls[1][0][1]), batch_size)  # Second batch: 500
         self.assertEqual(len(calls[2][0][1]), 200)  # Third batch: 200
 
         # Verify aggregated results
@@ -547,7 +548,8 @@ class TestEvaluator(unittest.TestCase):
     def test_verify_files_in_batches_exact_batch_size(self):
         """Test _verify_files_in_batches with file count exactly equal to batch size."""
         # Given
-        audios = [self._create_test_audio(i) for i in range(VERIFY_BATCH_SIZE)]
+        batch_size = self.evaluator._eval_config.verify_batch_size
+        audios = [self._create_test_audio(i) for i in range(batch_size)]
         mock_service = Mock()
         mock_response = self._create_mock_verify_response(audios)
         mock_service.verify_files.return_value = mock_response
@@ -558,7 +560,7 @@ class TestEvaluator(unittest.TestCase):
 
         # Then
         mock_service.verify_files.assert_called_once()
-        self.assertEqual(result.verified_count, VERIFY_BATCH_SIZE)
+        self.assertEqual(result.verified_count, batch_size)
 
     def test_verify_files_in_batches_aggregates_failures_correctly(self):
         """Test _verify_files_in_batches correctly aggregates failed results."""
@@ -631,7 +633,8 @@ class TestEvaluator(unittest.TestCase):
         result = self.evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
 
         # Then
-        expected_batches = (total_files + VERIFY_BATCH_SIZE - 1) // VERIFY_BATCH_SIZE
+        batch_size = self.evaluator._eval_config.verify_batch_size
+        expected_batches = (total_files + batch_size - 1) // batch_size
         self.assertEqual(
             mock_service.verify_files.call_count, expected_batches
         )  # 4 batches
@@ -1272,6 +1275,91 @@ class TestEvaluator(unittest.TestCase):
         self.assertIn("language", payload)
         self.assertIn("meta_data", payload)
         self.assertEqual(payload["meta_data"], {})
+
+    def test_verify_files_in_batches_with_custom_batch_size(self):
+        """Test _verify_files_in_batches respects custom verify_batch_size from config."""
+        # Given
+        custom_batch_size = 100
+        eval_config = EvalConfig(
+            type=EvalType.NMOS.value, verify_batch_size=custom_batch_size
+        )
+
+        with patch.object(
+            Evaluator, "_set_evaluation", return_value=self.mock_evaluation
+        ):
+            evaluator = Evaluator(
+                api_client=self.api_client,
+                eval_config=eval_config,
+                supported_eval_types=[EvalType.NMOS],
+            )
+
+        total_files = 350  # Should create 4 batches: 100 + 100 + 100 + 50
+        audios = [self._create_test_audio(i) for i in range(total_files)]
+        mock_service = Mock()
+
+        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+            return self._create_mock_verify_response(batch)
+
+        mock_service.verify_files.side_effect = mock_verify_files
+        evaluator._evaluation_service = mock_service  # type: ignore
+
+        # When
+        result = evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
+
+        # Then
+        self.assertEqual(mock_service.verify_files.call_count, 4)  # 4 batches
+
+        # Verify batch sizes
+        calls = mock_service.verify_files.call_args_list
+        self.assertEqual(len(calls[0][0][1]), 100)  # First batch
+        self.assertEqual(len(calls[1][0][1]), 100)  # Second batch
+        self.assertEqual(len(calls[2][0][1]), 100)  # Third batch
+        self.assertEqual(len(calls[3][0][1]), 50)  # Fourth batch
+
+        # Verify aggregated results
+        self.assertTrue(result.all_verified)
+        self.assertEqual(result.verified_count, total_files)
+
+    def test_eval_config_verify_batch_size_default(self):
+        """Test EvalConfig uses default verify_batch_size when not specified."""
+        # Given/When
+        eval_config = EvalConfig(type=EvalType.NMOS.value)
+
+        # Then
+        self.assertEqual(
+            eval_config.verify_batch_size, EvalConfigDefault.VERIFY_BATCH_SIZE
+        )
+
+    def test_eval_config_verify_batch_size_custom(self):
+        """Test EvalConfig accepts custom verify_batch_size."""
+        # Given/When
+        eval_config = EvalConfig(type=EvalType.NMOS.value, verify_batch_size=200)
+
+        # Then
+        self.assertEqual(eval_config.verify_batch_size, 200)
+
+    def test_eval_config_verify_batch_size_validation_too_low(self):
+        """Test EvalConfig rejects verify_batch_size < 1."""
+        # When/Then - 0 raises FailedCheckException from glog
+        with self.assertRaises(FailedCheckException):
+            EvalConfig(type=EvalType.NMOS.value, verify_batch_size=0)
+
+    def test_eval_config_verify_batch_size_validation_too_high(self):
+        """Test EvalConfig rejects verify_batch_size > 1000."""
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            EvalConfig(type=EvalType.NMOS.value, verify_batch_size=1001)
+        self.assertIn("verify_batch_size", str(context.exception).lower())
+
+    def test_verify_batch_size_boundary_values(self):
+        """Test verify_batch_size accepts boundary values (1 and 1000)."""
+        # Given/When/Then - minimum value
+        eval_config_min = EvalConfig(type=EvalType.NMOS.value, verify_batch_size=1)
+        self.assertEqual(eval_config_min.verify_batch_size, 1)
+
+        # Given/When/Then - maximum value
+        eval_config_max = EvalConfig(type=EvalType.NMOS.value, verify_batch_size=1000)
+        self.assertEqual(eval_config_max.verify_batch_size, 1000)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ when uploading a large number of files (e.g., 1900+ files) that previously cause
 30-second timeout errors.
 
 Usage:
-    python tests/integration/verify_batch_load_test.py --api_key=<KEY> [--base_url=<URL>] [--file_count=1000]
+    python tests/integration/verify_batch_load_test.py --api_key=<KEY> [--base_url=<URL>] [--file_count=1000] [--verify_batch_size=500]
 
 Example:
     # Test with 1000 files (default)
@@ -17,6 +17,9 @@ Example:
 
     # Test with custom backend URL
     python tests/integration/verify_batch_load_test.py --api_key=<KEY> --base_url=https://dev.podonosapi.com
+
+    # Test with custom verify batch size
+    python tests/integration/verify_batch_load_test.py --api_key=<KEY> --file_count=1000 --verify_batch_size=200
 """
 
 import argparse
@@ -53,11 +56,12 @@ def create_test_wav(
             wav_file.writeframes(struct.pack("<h", value))
 
 
-def test_large_file_count_verification(
+def run_large_file_count_verification(
     api_key: str,
     base_url: str | None = None,
     file_count: int = 1000,
     max_upload_workers: int = 10,
+    verify_batch_size: int = 500,
 ) -> bool:
     """
     Test that verify_files batch processing works correctly with large file counts.
@@ -67,7 +71,7 @@ def test_large_file_count_verification(
     2. Uploads them via the SDK
     3. Verifies that the batch processing doesn't timeout
 
-    The fix ensures verify_files is called in batches of 500 files instead of
+    The fix ensures verify_files is called in batches (default 500 files) instead of
     sending all files at once, which caused 30-second timeout errors with 1900+ files.
 
     Args:
@@ -75,6 +79,7 @@ def test_large_file_count_verification(
         base_url: Optional backend URL override
         file_count: Number of files to upload (default 1000)
         max_upload_workers: Number of parallel upload workers
+        verify_batch_size: Batch size for file verification API calls (default 500)
 
     Returns:
         True if test passed, False otherwise
@@ -83,7 +88,10 @@ def test_large_file_count_verification(
     log.info(f"TEST: Large file count verification ({file_count} files)")
     log.info("=" * 70)
     log.info(f"  File count: {file_count}")
-    log.info(f"  Expected verify batches: {(file_count + 499) // 500}")
+    log.info(f"  Verify batch size: {verify_batch_size}")
+    log.info(
+        f"  Expected verify batches: {(file_count + verify_batch_size - 1) // verify_batch_size}"
+    )
     log.info(f"  Max upload workers: {max_upload_workers}")
 
     # Initialize client
@@ -117,6 +125,7 @@ def test_large_file_count_verification(
             type="NMOS",
             num_eval=1,
             max_upload_workers=max_upload_workers,
+            verify_batch_size=verify_batch_size,
         )
         evaluation_id = etor.get_evaluation_id()
         log.info(f"Created evaluation: {evaluation_id}")
@@ -186,7 +195,7 @@ def test_large_file_count_verification(
         log.info("Cleanup complete.")
 
 
-def test_incremental_file_counts(
+def run_incremental_file_counts(
     api_key: str,
     base_url: str | None = None,
 ) -> bool:
@@ -204,7 +213,7 @@ def test_incremental_file_counts(
 
     for count in test_counts:
         log.info(f"\n--- Testing with {count} files ---")
-        passed = test_large_file_count_verification(
+        passed = run_large_file_count_verification(
             api_key=api_key,
             base_url=base_url,
             file_count=count,
@@ -265,6 +274,12 @@ Examples:
         help="Number of parallel upload workers (default: 10)",
     )
     parser.add_argument(
+        "--verify_batch_size",
+        type=int,
+        default=500,
+        help="Batch size for file verification API calls (default: 500, range: 1-1000)",
+    )
+    parser.add_argument(
         "--test",
         choices=["single", "incremental"],
         default="single",
@@ -276,18 +291,20 @@ Examples:
     log.info(f"Podonos package version: {podonos.__version__}")
     log.info(f"Base URL: {args.base_url}")
     log.info(f"Test mode: {args.test}")
+    log.info(f"Verify batch size: {args.verify_batch_size}")
 
     if args.test == "incremental":
-        passed = test_incremental_file_counts(
+        passed = run_incremental_file_counts(
             api_key=args.api_key,
             base_url=args.base_url,
         )
     else:
-        passed = test_large_file_count_verification(
+        passed = run_large_file_count_verification(
             api_key=args.api_key,
             base_url=args.base_url,
             file_count=args.file_count,
             max_upload_workers=args.max_workers,
+            verify_batch_size=args.verify_batch_size,
         )
 
     if passed:

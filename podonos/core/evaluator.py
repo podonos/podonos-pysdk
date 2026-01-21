@@ -13,7 +13,7 @@ from podonos.errors.error import FileVerificationFailure, UploadRetryExhaustedEr
 from podonos.service.evaluation_service import EvaluationService
 
 MAX_UPLOAD_RETRIES = 3
-VERIFY_BATCH_SIZE = 500
+DEFAULT_VERIFY_BATCH_SIZE = 500  # Default batch size, can be overridden via EvalConfig
 
 
 class Evaluator:
@@ -368,8 +368,10 @@ class Evaluator:
         total_verified = 0
         total_failed = 0
 
-        for i in range(0, len(audios), VERIFY_BATCH_SIZE):
-            batch = audios[i : i + VERIFY_BATCH_SIZE]
+        batch_size = self._eval_config.verify_batch_size
+
+        for i in range(0, len(audios), batch_size):
+            batch = audios[i : i + batch_size]
             batch_response = self._evaluation_service.verify_files(evaluation_id, batch)
 
             all_results.extend(batch_response.results)
