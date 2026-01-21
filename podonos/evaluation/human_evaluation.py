@@ -1,15 +1,16 @@
-from typing import Dict, Literal, Optional, Union, Any
+from typing import Any, Dict, Literal, Optional, Union
+
 from requests import HTTPError
 
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
 from podonos.common.enum import EvalType
+from podonos.common.validator import Rules, validate_args
 from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 from podonos.core.template import TemplateJsonLoader, TemplateValidator
 from podonos.service import EvaluationService, TemplateService
-from podonos.common.validator import Rules, validate_args
 
 
 class HumanEvaluation:
@@ -17,7 +18,12 @@ class HumanEvaluation:
     _evaluation_service: EvaluationService
     _template_service: TemplateService
 
-    def __init__(self, api_client: APIClient, evaluation_service: EvaluationService, template_service: TemplateService):
+    def __init__(
+        self,
+        api_client: APIClient,
+        evaluation_service: EvaluationService,
+        template_service: TemplateService,
+    ):
         self._api_client = api_client
         self._evaluation_service = evaluation_service
         self._template_service = template_service
@@ -34,6 +40,7 @@ class HumanEvaluation:
         use_loudness_normalization=Rules.bool_not_none,
         auto_start=Rules.bool_not_none,
         max_upload_workers=Rules.int_not_none,
+        verify_batch_size=Rules.int_not_none,
     )
     def create(
         self,
@@ -48,6 +55,7 @@ class HumanEvaluation:
         use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+        verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://www.podonos.com/docs/reference#param-lan
@@ -75,7 +83,8 @@ class HumanEvaluation:
 
         if not EvalType.is_eval_type(type):
             raise ValueError(
-                "Not supported evaluation types. Use one of the " "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE'}"
+                "Not supported evaluation types. Use one of the "
+                "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE'}"
             )
 
         eval_config = EvalConfig(
@@ -90,6 +99,7 @@ class HumanEvaluation:
             use_loudness_normalization=use_loudness_normalization,
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
+            verify_batch_size=verify_batch_size,
         )
 
         if EvalType.is_double(type):
@@ -101,7 +111,11 @@ class HumanEvaluation:
         else:
             raise ValueError(f"Invalid evaluation type: {type}")
 
-        return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
+        return Evaluator(
+            api_client=self._api_client,
+            eval_config=eval_config,
+            supported_eval_types=supported_types,
+        )
 
     @validate_args(
         name=Rules.str_not_none,
@@ -112,6 +126,7 @@ class HumanEvaluation:
         use_loudness_normalization=Rules.bool_not_none,
         auto_start=Rules.bool_not_none,
         max_upload_workers=Rules.int_not_none,
+        verify_batch_size=Rules.int_not_none,
     )
     def create_from_template(
         self,
@@ -123,6 +138,7 @@ class HumanEvaluation:
         use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+        verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
     ) -> Evaluator:
         """
         Creates a new evaluator using a predefined template.
@@ -158,6 +174,7 @@ class HumanEvaluation:
             auto_start=auto_start,
             template_id=str(template.id),
             max_upload_workers=max_upload_workers,
+            verify_batch_size=verify_batch_size,
         )
 
         if template.batch_size == 1:
@@ -168,8 +185,14 @@ class HumanEvaluation:
         elif template.batch_size == 3:
             supported_types = EvalType.get_triple_types()
         else:
-            raise ValueError(f"Template has invalid type so please contact {PODONOS_CONTACT_EMAIL}")
-        return Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
+            raise ValueError(
+                f"Template has invalid type so please contact {PODONOS_CONTACT_EMAIL}"
+            )
+        return Evaluator(
+            api_client=self._api_client,
+            eval_config=eval_config,
+            supported_eval_types=supported_types,
+        )
 
     @validate_args(
         json=Rules.dict_not_none_or_none,
@@ -183,6 +206,7 @@ class HumanEvaluation:
         use_loudness_normalization=Rules.bool_not_none,
         auto_start=Rules.bool_not_none,
         max_upload_workers=Rules.int_not_none,
+        verify_batch_size=Rules.int_not_none,
     )
     def create_from_template_json(
         self,
@@ -197,6 +221,7 @@ class HumanEvaluation:
         use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+        verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
 
@@ -226,13 +251,19 @@ class HumanEvaluation:
         if custom_type not in ["SINGLE", "DOUBLE"]:
             raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
 
-        eval_type = EvalType.CUSTOM_SINGLE if custom_type == "SINGLE" else EvalType.CUSTOM_DOUBLE
+        eval_type = (
+            EvalType.CUSTOM_SINGLE
+            if custom_type == "SINGLE"
+            else EvalType.CUSTOM_DOUBLE
+        )
         batch_size = 1 if custom_type == "SINGLE" else 2
         # Load template data
         template_data = TemplateJsonLoader.load_json(json, json_file)
 
         # Use the validator from template.py
-        instructions, core_questions = TemplateValidator.validate_and_create_questions(template_data, batch_size)
+        instructions, core_questions = TemplateValidator.validate_and_create_questions(
+            template_data, batch_size
+        )
         log.info("Template JSON is validated.")
 
         # Create an evaluator
@@ -246,6 +277,7 @@ class HumanEvaluation:
             use_loudness_normalization=use_loudness_normalization,
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
+            verify_batch_size=verify_batch_size,
         )
         log.info(f"Created evaluation config with type: {eval_type.value}")
 
@@ -258,14 +290,22 @@ class HumanEvaluation:
             raise ValueError('custom_type must be either "SINGLE" or "DOUBLE"')
 
         template_service = TemplateService(self._api_client)
-        evaluator = Evaluator(api_client=self._api_client, eval_config=eval_config, supported_eval_types=supported_types)
+        evaluator = Evaluator(
+            api_client=self._api_client,
+            eval_config=eval_config,
+            supported_eval_types=supported_types,
+        )
         try:
             if instructions:
                 log.debug(f"Creating {len(instructions)} instructions...")
-                instructions = template_service.create_template_questions_by_evaluation_id_and_questions(evaluator.get_evaluation_id(), instructions)
+                instructions = template_service.create_template_questions_by_evaluation_id_and_questions(
+                    evaluator.get_evaluation_id(), instructions
+                )
                 for instruction in instructions:
                     if instruction.id and instruction.reference_files:
-                        template_service.upload_reference_files_by_url_and_file_paths(instruction.reference_files, instruction.id)
+                        template_service.upload_reference_files_by_url_and_file_paths(
+                            instruction.reference_files, instruction.id
+                        )
 
             if core_questions:
                 log.debug(f"Creating {len(core_questions)} core questions...")
@@ -274,16 +314,28 @@ class HumanEvaluation:
                 )
 
             # Create options for questions that have options
-            questions_with_options = [q for q in (instructions + core_questions) if q.options]
+            questions_with_options = [
+                q for q in (instructions + core_questions) if q.options
+            ]
             if questions_with_options:
-                log.debug(f"Creating options for {len(questions_with_options)} questions...")
+                log.debug(
+                    f"Creating options for {len(questions_with_options)} questions..."
+                )
                 for question in questions_with_options:
                     if question.id:
-                        options = template_service.create_template_options_by_question_id_and_options(question.id, question.options)
+                        options = template_service.create_template_options_by_question_id_and_options(
+                            question.id, question.options
+                        )
                         for option in options:
                             if option.id and option.reference_file:
-                                presigned_url = template_service.get_presigned_url_by_template_option_id(option.id)
-                                template_service.upload_reference_file_by_url_and_file_path(presigned_url, option.reference_file, option_id=option.id)
+                                presigned_url = template_service.get_presigned_url_by_template_option_id(
+                                    option.id
+                                )
+                                template_service.upload_reference_file_by_url_and_file_path(
+                                    presigned_url,
+                                    option.reference_file,
+                                    option_id=option.id,
+                                )
 
         except Exception as e:
             log.error(f"Failed to create template: {str(e)}")

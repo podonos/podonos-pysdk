@@ -8,10 +8,11 @@ from glog import FailedCheckException
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.core.api import APIClient
-from podonos.core.config import EvalConfig
+from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 from podonos.core.file import Audio, AudioGroup, File
 from podonos.entity.evaluation import EvaluationEntity
+from podonos.entity.verification import FileVerificationResult, VerifyFilesResponse
 from tests.core.test_audio import TESTDATA_SPEECH_TWO_CH1_WAV
 
 
@@ -34,7 +35,9 @@ class TestEvaluator(unittest.TestCase):
         )
 
         # Patch _set_evaluation before initialization
-        with patch.object(Evaluator, "_set_evaluation", return_value=self.mock_evaluation):
+        with patch.object(
+            Evaluator, "_set_evaluation", return_value=self.mock_evaluation
+        ):
             self.eval_config = EvalConfig(type=EvalType.NMOS.value)
             self.evaluator = Evaluator(
                 api_client=self.api_client,
@@ -49,7 +52,9 @@ class TestEvaluator(unittest.TestCase):
         eval_config = EvalConfig(type=EvalType.NMOS.value)
 
         # When
-        with patch.object(Evaluator, "_set_evaluation", return_value=self.mock_evaluation):
+        with patch.object(
+            Evaluator, "_set_evaluation", return_value=self.mock_evaluation
+        ):
             evaluator = Evaluator(
                 api_client=self.api_client,
                 eval_config=eval_config,
@@ -74,7 +79,9 @@ class TestEvaluator(unittest.TestCase):
             "created_time": current_time.isoformat(),
             "updated_time": current_time.isoformat(),
         }
-        self.api_client.post.return_value = Mock(status_code=200, json=lambda: mock_response)
+        self.api_client.post.return_value = Mock(
+            status_code=200, json=lambda: mock_response
+        )
 
         # When
         evaluation = self.evaluator._set_evaluation(self.eval_config)  # type: ignore
@@ -97,7 +104,9 @@ class TestEvaluator(unittest.TestCase):
             "created_time": current_time.isoformat(),
             "updated_time": current_time.isoformat(),
         }
-        self.api_client.post.return_value = Mock(status_code=200, json=lambda: mock_response)
+        self.api_client.post.return_value = Mock(
+            status_code=200, json=lambda: mock_response
+        )
         self.eval_config._eval_template_id = "test_template_id"  # type: ignore
 
         # When
@@ -133,7 +142,9 @@ class TestEvaluator(unittest.TestCase):
     def test_should_cleanup_successfully(self):
         # Given
         self.evaluator._initialized = True  # type: ignore
-        self.evaluator._ordered_file_groups = [AudioGroup(group_id="group1", audios=[], created_at=datetime.now())]  # type: ignore
+        self.evaluator._ordered_file_groups = [
+            AudioGroup(group_id="group1", audios=[], created_at=datetime.now())
+        ]  # type: ignore
 
         # When
         self.evaluator._cleanup()  # type: ignore
@@ -196,7 +207,9 @@ class TestEvaluator(unittest.TestCase):
             type=QuestionFileType.STIMULUS,
             order_in_group=0,
         )
-        group = AudioGroup(group_id="test_group", audios=[audio], created_at=datetime.now())
+        group = AudioGroup(
+            group_id="test_group", audios=[audio], created_at=datetime.now()
+        )
         self.evaluator._ordered_file_groups = [group]  # type: ignore
         self.evaluator._upload_manager = Mock()  # type: ignore
         upload_start = {"remote/test.wav": "2024-01-01T00:00:00Z"}
@@ -263,7 +276,9 @@ class TestEvaluator(unittest.TestCase):
         """Test _validate_initialization raises error for invalid eval_config"""
         # When/Then
         with self.assertRaises(FailedCheckException):
-            self.evaluator._validate_initialization(self.api_client, None, [EvalType.NMOS])  # type: ignore
+            self.evaluator._validate_initialization(
+                self.api_client, None, [EvalType.NMOS]
+            )  # type: ignore
 
     def test_validate_initialization_with_unsupported_eval_type(self):
         """Test _validate_initialization raises error for unsupported eval type"""
@@ -272,7 +287,9 @@ class TestEvaluator(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.evaluator._validate_initialization(self.api_client, eval_config, [EvalType.NMOS])  # type: ignore
+            self.evaluator._validate_initialization(
+                self.api_client, eval_config, [EvalType.NMOS]
+            )  # type: ignore
         self.assertIn("Not supported evaluation type", str(context.exception))
 
     def test_initialize_attributes_sets_all_attributes(self):
@@ -282,8 +299,12 @@ class TestEvaluator(unittest.TestCase):
         evaluator = object.__new__(Evaluator)  # Create uninitialized instance
 
         # When
-        with patch.object(Evaluator, "_set_evaluation", return_value=self.mock_evaluation):
-            evaluator._initialize_attributes(self.api_client, eval_config, [EvalType.NMOS])  # type: ignore
+        with patch.object(
+            Evaluator, "_set_evaluation", return_value=self.mock_evaluation
+        ):
+            evaluator._initialize_attributes(
+                self.api_client, eval_config, [EvalType.NMOS]
+            )  # type: ignore
 
         # Then
         self.assertEqual(evaluator._api_client, self.api_client)  # type: ignore
@@ -296,7 +317,9 @@ class TestEvaluator(unittest.TestCase):
         self.assertIsNone(evaluator._upload_manager)  # type: ignore
 
     @patch("podonos.core.evaluator.UploadManager")
-    def test_upload_one_file_initializes_upload_manager_lazily(self, mock_upload_manager: Mock):
+    def test_upload_one_file_initializes_upload_manager_lazily(
+        self, mock_upload_manager: Mock
+    ):
         # Given
         self.evaluator._upload_manager = None  # type: ignore
         self.evaluator._evaluation = self.mock_evaluation  # type: ignore
@@ -368,32 +391,78 @@ class TestEvaluator(unittest.TestCase):
         self.evaluator._upload_one_file("eval_id", test_audio)  # type: ignore
 
         # Then
-        mock_upload_manager.add_file_to_queue.assert_called_once_with("eval_id", test_audio)
+        mock_upload_manager.add_file_to_queue.assert_called_once_with(
+            "eval_id", test_audio
+        )
+
+    def _create_test_audio(self, index: int) -> Audio:
+        """Helper method to create test Audio objects."""
+        audio = Audio(
+            path=self.test_wav,
+            name=f"test{index}.wav",
+            remote_object_name=f"remote/test{index}.wav",
+            script=None,
+            tags=[],
+            model_tag="test_model",
+            is_ref=False,
+            group=f"group{index}",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
+        audio.set_integrity_info("AA259hLYqLX6hjV81ve5Cg==", 17920)
+        return audio
+
+    def _create_mock_verify_response(
+        self,
+        audios: List[Audio],
+        all_verified: bool = True,
+        failed_indices: List[int] = None,
+    ) -> VerifyFilesResponse:
+        """Helper method to create mock VerifyFilesResponse."""
+        failed_indices = failed_indices or []
+        results = []
+        verified_count = 0
+        failed_count = 0
+
+        for i, audio in enumerate(audios):
+            is_verified = i not in failed_indices
+            results.append(
+                FileVerificationResult(
+                    uploaded_file_name=audio.remote_object_name,
+                    verified=is_verified,
+                    file_meta_id=f"meta_{i}" if is_verified else None,
+                    error=None,
+                )
+            )
+            if is_verified:
+                verified_count += 1
+            else:
+                failed_count += 1
+
+        return VerifyFilesResponse(
+            all_verified=all_verified and failed_count == 0,
+            verified_count=verified_count,
+            failed_count=failed_count,
+            results=results,
+        )
 
     def test_process_audio_files_with_verification_batches_correctly(self):
         # Given
         groups: List[AudioGroup] = []
         for i in range(600):
-            group_id = f"group{i}"
-            audio = Audio(
-                path=self.test_wav,
-                name=f"test{i}.wav",
-                remote_object_name=f"remote/test{i}.wav",
-                script=None,
-                tags=[],
-                model_tag="test_model",
-                is_ref=False,
-                group=group_id,
-                type=QuestionFileType.STIMULUS,
-                order_in_group=0,
+            audio = self._create_test_audio(i)
+            group = AudioGroup(
+                group_id=f"group{i}", audios=[audio], created_at=datetime.now()
             )
-            audio.set_integrity_info("AA259hLYqLX6hjV81ve5Cg==", 17920)
-            group = AudioGroup(group_id=group_id, audios=[audio], created_at=datetime.now())
             groups.append(group)
 
         self.evaluator._ordered_file_groups = groups  # type: ignore
         mock_service = Mock()
-        mock_service.verify_files.return_value = Mock(all_verified=True, verified_count=600)
+
+        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+            return self._create_mock_verify_response(batch)
+
+        mock_service.verify_files.side_effect = mock_verify_files
         mock_service.process_files.return_value = Mock(processing_count=600)
         self.evaluator._evaluation_service = mock_service  # type: ignore
         self.evaluator._upload_manager = None  # type: ignore
@@ -403,6 +472,188 @@ class TestEvaluator(unittest.TestCase):
 
         # Then
         self.assertEqual(mock_service.create_evaluation_files.call_count, 2)
+        # verify_files should be called 2 times (600 files / 500 batch size = 2 batches)
+        self.assertEqual(mock_service.verify_files.call_count, 2)
+
+    def test_verify_files_in_batches_single_batch(self):
+        """Test _verify_files_in_batches with file count less than batch size."""
+        # Given
+        audios = [self._create_test_audio(i) for i in range(100)]
+        mock_service = Mock()
+        mock_response = self._create_mock_verify_response(audios)
+        mock_service.verify_files.return_value = mock_response
+        self.evaluator._evaluation_service = mock_service  # type: ignore
+
+        # When
+        result = self.evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
+
+        # Then
+        mock_service.verify_files.assert_called_once_with("eval_id", audios)
+        self.assertTrue(result.all_verified)
+        self.assertEqual(result.verified_count, 100)
+        self.assertEqual(result.failed_count, 0)
+        self.assertEqual(len(result.results), 100)
+
+    def test_verify_files_in_batches_multiple_batches(self):
+        """Test _verify_files_in_batches with file count exceeding batch size."""
+        # Given
+        total_files = 1200  # Should create 3 batches: 500 + 500 + 200
+        audios = [self._create_test_audio(i) for i in range(total_files)]
+        mock_service = Mock()
+
+        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+            return self._create_mock_verify_response(batch)
+
+        mock_service.verify_files.side_effect = mock_verify_files
+        self.evaluator._evaluation_service = mock_service  # type: ignore
+
+        # When
+        result = self.evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
+
+        # Then
+        self.assertEqual(mock_service.verify_files.call_count, 3)
+
+        # Verify batch sizes
+        batch_size = self.evaluator._eval_config.verify_batch_size
+        calls = mock_service.verify_files.call_args_list
+        self.assertEqual(len(calls[0][0][1]), batch_size)  # First batch: 500
+        self.assertEqual(len(calls[1][0][1]), batch_size)  # Second batch: 500
+        self.assertEqual(len(calls[2][0][1]), 200)  # Third batch: 200
+
+        # Verify aggregated results
+        self.assertTrue(result.all_verified)
+        self.assertEqual(result.verified_count, total_files)
+        self.assertEqual(result.failed_count, 0)
+        self.assertEqual(len(result.results), total_files)
+
+    def test_verify_files_in_batches_exact_batch_size(self):
+        """Test _verify_files_in_batches with file count exactly equal to batch size."""
+        # Given
+        batch_size = self.evaluator._eval_config.verify_batch_size
+        audios = [self._create_test_audio(i) for i in range(batch_size)]
+        mock_service = Mock()
+        mock_response = self._create_mock_verify_response(audios)
+        mock_service.verify_files.return_value = mock_response
+        self.evaluator._evaluation_service = mock_service  # type: ignore
+
+        # When
+        result = self.evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
+
+        # Then
+        mock_service.verify_files.assert_called_once()
+        self.assertEqual(result.verified_count, batch_size)
+
+    def test_verify_files_in_batches_aggregates_failures_correctly(self):
+        """Test _verify_files_in_batches correctly aggregates failed results."""
+        # Given
+        total_files = 1000  # 2 batches of 500
+        audios = [self._create_test_audio(i) for i in range(total_files)]
+        mock_service = Mock()
+
+        call_count = [0]
+
+        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+            # First batch: 3 failures (indices 0, 10, 20)
+            # Second batch: 2 failures (indices 0, 5)
+            if call_count[0] == 0:
+                failed_indices = [0, 10, 20]
+            else:
+                failed_indices = [0, 5]
+            call_count[0] += 1
+            return self._create_mock_verify_response(
+                batch, all_verified=False, failed_indices=failed_indices
+            )
+
+        mock_service.verify_files.side_effect = mock_verify_files
+        self.evaluator._evaluation_service = mock_service  # type: ignore
+
+        # When
+        result = self.evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
+
+        # Then
+        self.assertFalse(result.all_verified)
+        self.assertEqual(result.verified_count, 995)  # 1000 - 5 failures
+        self.assertEqual(result.failed_count, 5)  # 3 from first batch + 2 from second
+        self.assertEqual(len(result.results), total_files)
+
+        # Verify failed results are in the correct positions
+        failed_results = [r for r in result.results if not r.verified]
+        self.assertEqual(len(failed_results), 5)
+
+    def test_verify_files_in_batches_empty_list(self):
+        """Test _verify_files_in_batches with empty file list."""
+        # Given
+        audios: List[Audio] = []
+        mock_service = Mock()
+        self.evaluator._evaluation_service = mock_service  # type: ignore
+
+        # When
+        result = self.evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
+
+        # Then
+        mock_service.verify_files.assert_not_called()
+        self.assertTrue(result.all_verified)
+        self.assertEqual(result.verified_count, 0)
+        self.assertEqual(result.failed_count, 0)
+        self.assertEqual(len(result.results), 0)
+
+    def test_verify_files_in_batches_large_file_count(self):
+        """Test _verify_files_in_batches with 1900 files (customer issue scenario)."""
+        # Given
+        total_files = 1900  # Customer's file count: 500 + 500 + 500 + 400 = 4 batches
+        audios = [self._create_test_audio(i) for i in range(total_files)]
+        mock_service = Mock()
+
+        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+            return self._create_mock_verify_response(batch)
+
+        mock_service.verify_files.side_effect = mock_verify_files
+        self.evaluator._evaluation_service = mock_service  # type: ignore
+
+        # When
+        result = self.evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
+
+        # Then
+        batch_size = self.evaluator._eval_config.verify_batch_size
+        expected_batches = (total_files + batch_size - 1) // batch_size
+        self.assertEqual(
+            mock_service.verify_files.call_count, expected_batches
+        )  # 4 batches
+        self.assertTrue(result.all_verified)
+        self.assertEqual(result.verified_count, total_files)
+        self.assertEqual(result.failed_count, 0)
+        self.assertEqual(len(result.results), total_files)
+
+    def test_process_audio_files_with_verification_uses_batched_verify(self):
+        """Test _process_audio_files_with_verification uses batched verification."""
+        # Given
+        total_files = 1200
+        groups: List[AudioGroup] = []
+        for i in range(total_files):
+            audio = self._create_test_audio(i)
+            group = AudioGroup(
+                group_id=f"group{i}", audios=[audio], created_at=datetime.now()
+            )
+            groups.append(group)
+
+        self.evaluator._ordered_file_groups = groups  # type: ignore
+        mock_service = Mock()
+
+        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+            return self._create_mock_verify_response(batch)
+
+        mock_service.verify_files.side_effect = mock_verify_files
+        mock_service.process_files.return_value = Mock(processing_count=total_files)
+        self.evaluator._evaluation_service = mock_service  # type: ignore
+
+        # When
+        self.evaluator._process_audio_files_with_verification()  # type: ignore
+
+        # Then
+        # verify_files should be called 3 times (1200 files / 500 batch size)
+        self.assertEqual(mock_service.verify_files.call_count, 3)
+        # create_evaluation_files should also be batched
+        self.assertEqual(mock_service.create_evaluation_files.call_count, 3)
 
     def test_process_upload_times_handles_no_upload_manager(self):
         """Test _process_upload_times handles case when upload_manager is None"""
@@ -528,6 +779,91 @@ class TestEvaluator(unittest.TestCase):
         # Then
         self.assertEqual(len(self.evaluator._ordered_file_groups), 1)  # type: ignore
         self.assertEqual(mock_upload.call_count, 2)
+
+    def test_verify_files_in_batches_with_custom_batch_size(self):
+        """Test _verify_files_in_batches respects custom verify_batch_size from config."""
+        # Given
+        custom_batch_size = 100
+        eval_config = EvalConfig(
+            type=EvalType.NMOS.value, verify_batch_size=custom_batch_size
+        )
+
+        with patch.object(
+            Evaluator, "_set_evaluation", return_value=self.mock_evaluation
+        ):
+            evaluator = Evaluator(
+                api_client=self.api_client,
+                eval_config=eval_config,
+                supported_eval_types=[EvalType.NMOS],
+            )
+
+        total_files = 350  # Should create 4 batches: 100 + 100 + 100 + 50
+        audios = [self._create_test_audio(i) for i in range(total_files)]
+        mock_service = Mock()
+
+        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+            return self._create_mock_verify_response(batch)
+
+        mock_service.verify_files.side_effect = mock_verify_files
+        evaluator._evaluation_service = mock_service  # type: ignore
+
+        # When
+        result = evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
+
+        # Then
+        self.assertEqual(mock_service.verify_files.call_count, 4)  # 4 batches
+
+        # Verify batch sizes
+        calls = mock_service.verify_files.call_args_list
+        self.assertEqual(len(calls[0][0][1]), 100)  # First batch
+        self.assertEqual(len(calls[1][0][1]), 100)  # Second batch
+        self.assertEqual(len(calls[2][0][1]), 100)  # Third batch
+        self.assertEqual(len(calls[3][0][1]), 50)  # Fourth batch
+
+        # Verify aggregated results
+        self.assertTrue(result.all_verified)
+        self.assertEqual(result.verified_count, total_files)
+
+    def test_eval_config_verify_batch_size_default(self):
+        """Test EvalConfig uses default verify_batch_size when not specified."""
+        # Given/When
+        eval_config = EvalConfig(type=EvalType.NMOS.value)
+
+        # Then
+        self.assertEqual(
+            eval_config.verify_batch_size, EvalConfigDefault.VERIFY_BATCH_SIZE
+        )
+
+    def test_eval_config_verify_batch_size_custom(self):
+        """Test EvalConfig accepts custom verify_batch_size."""
+        # Given/When
+        eval_config = EvalConfig(type=EvalType.NMOS.value, verify_batch_size=200)
+
+        # Then
+        self.assertEqual(eval_config.verify_batch_size, 200)
+
+    def test_eval_config_verify_batch_size_validation_too_low(self):
+        """Test EvalConfig rejects verify_batch_size < 1."""
+        # When/Then - 0 raises FailedCheckException from glog
+        with self.assertRaises(FailedCheckException):
+            EvalConfig(type=EvalType.NMOS.value, verify_batch_size=0)
+
+    def test_eval_config_verify_batch_size_validation_too_high(self):
+        """Test EvalConfig rejects verify_batch_size > 1000."""
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            EvalConfig(type=EvalType.NMOS.value, verify_batch_size=1001)
+        self.assertIn("verify_batch_size", str(context.exception).lower())
+
+    def test_verify_batch_size_boundary_values(self):
+        """Test verify_batch_size accepts boundary values (1 and 1000)."""
+        # Given/When/Then - minimum value
+        eval_config_min = EvalConfig(type=EvalType.NMOS.value, verify_batch_size=1)
+        self.assertEqual(eval_config_min.verify_batch_size, 1)
+
+        # Given/When/Then - maximum value
+        eval_config_max = EvalConfig(type=EvalType.NMOS.value, verify_batch_size=1000)
+        self.assertEqual(eval_config_max.verify_batch_size, 1000)
 
 
 if __name__ == "__main__":

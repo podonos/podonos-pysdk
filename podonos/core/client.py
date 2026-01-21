@@ -1,4 +1,4 @@
-from typing import Any, Dict, Literal, Optional, List, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from podonos.common.validator import Rules, validate_args
 from podonos.core.api import APIClient
@@ -6,7 +6,12 @@ from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 from podonos.evaluation import AIEvaluation, HumanEvaluation
-from podonos.service import CollectionService, EvaluationService, ScriptService, TemplateService
+from podonos.service import (
+    CollectionService,
+    EvaluationService,
+    ScriptService,
+    TemplateService,
+)
 
 
 class Client:
@@ -34,7 +39,9 @@ class Client:
         self._template_service = TemplateService(self._api_client)
 
         self._ai_evaluation = AIEvaluation(self._api_client)
-        self._human_evaluation = HumanEvaluation(self._api_client, self._evaluation_service, self._template_service)
+        self._human_evaluation = HumanEvaluation(
+            self._api_client, self._evaluation_service, self._template_service
+        )
 
     @validate_args(
         name=Rules.str_not_none_or_none,
@@ -48,6 +55,7 @@ class Client:
         use_loudness_normalization=Rules.bool_not_none,
         auto_start=Rules.bool_not_none,
         max_upload_workers=Rules.positive_not_none,
+        verify_batch_size=Rules.positive_not_none,
     )
     def create_evaluator(
         self,
@@ -62,6 +70,7 @@ class Client:
         use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+        verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://www.podonos.com/docs/reference#param-lan
@@ -79,6 +88,7 @@ class Client:
             use_loudness_normalization: Enable loudness normalization for evaluation.
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
+            verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 500
 
         Returns:
             Evaluator instance.
@@ -101,6 +111,7 @@ class Client:
             use_loudness_normalization,
             auto_start,
             max_upload_workers,
+            verify_batch_size,
         )
 
     @validate_args(
@@ -112,6 +123,7 @@ class Client:
         max_upload_workers=Rules.positive_not_none,
         use_annotation=Rules.bool_not_none,
         use_loudness_normalization=Rules.bool_not_none,
+        verify_batch_size=Rules.positive_not_none,
     )
     def create_evaluator_from_template(
         self,
@@ -123,6 +135,7 @@ class Client:
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
+        verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
     ) -> Evaluator:
         """
         Creates a new evaluator using a predefined template.
@@ -136,6 +149,7 @@ class Client:
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
             use_annotation: Enable detailed annotation on script for detailed comments. Default: False
             use_loudness_normalization: Enable loudness normalization for evaluation. Default: True
+            verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 500
 
         Returns:
             Evaluator instance.
@@ -147,7 +161,15 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         return self._human_evaluation.create_from_template(
-            name, template_id, num_eval, desc, use_annotation, use_loudness_normalization, auto_start, max_upload_workers
+            name,
+            template_id,
+            num_eval,
+            desc,
+            use_annotation,
+            use_loudness_normalization,
+            auto_start,
+            max_upload_workers,
+            verify_batch_size,
         )
 
     @validate_args(
@@ -162,6 +184,7 @@ class Client:
         use_loudness_normalization=Rules.bool_not_none,
         auto_start=Rules.bool_not_none,
         max_upload_workers=Rules.positive_not_none,
+        verify_batch_size=Rules.positive_not_none,
     )
     def create_evaluator_from_template_json(
         self,
@@ -176,6 +199,7 @@ class Client:
         use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+        verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
 
@@ -191,6 +215,7 @@ class Client:
             use_loudness_normalization: Enable loudness normalization for evaluation. Default: False
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
+            verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 500
 
         Returns:
             Evaluator instance.
@@ -216,6 +241,7 @@ class Client:
             use_loudness_normalization=use_loudness_normalization,
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
+            verify_batch_size=verify_batch_size,
         )
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
@@ -229,7 +255,11 @@ class Client:
         return self._evaluation_service.get_evaluation_list()
 
     @validate_args(evaluation_id=Rules.uuid_not_none, group_by=Rules.str_non_empty)
-    def get_stats_json_by_id(self, evaluation_id: str, group_by: Literal["question", "script", "model"] = "question") -> List[Dict[str, Any]]:
+    def get_stats_json_by_id(
+        self,
+        evaluation_id: str,
+        group_by: Literal["question", "script", "model"] = "question",
+    ) -> List[Dict[str, Any]]:
         """Gets a list of evaluation statistics referenced by id.
 
         Args:
@@ -243,9 +273,13 @@ class Client:
         return self._evaluation_service.get_stats_json_by_id(evaluation_id, group_by)
 
     @validate_args(evaluation_id=Rules.uuid_not_none, output_dir=Rules.str_not_none)
-    def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
+    def download_evaluation_files_by_evaluation_id(
+        self, evaluation_id: str, output_dir: str
+    ) -> str:
         """Download evaluation files"""
-        return self._evaluation_service.download_evaluation_files_by_evaluation_id(evaluation_id, output_dir)
+        return self._evaluation_service.download_evaluation_files_by_evaluation_id(
+            evaluation_id, output_dir
+        )
 
     @validate_args(template_id=Rules.str_non_empty)
     def get_eval_template_info(self, template_id: str) -> Dict[str, Any]:
@@ -264,7 +298,9 @@ class Client:
         try:
             template = self._template_service.get_template_by_code(template_id)
         except:
-            raise ValueError(f"Cannot find the template. Please check the id {template_id}.")
+            raise ValueError(
+                f"Cannot find the template. Please check the id {template_id}."
+            )
         json = {
             "id": template.id,
             "code": template.code,
