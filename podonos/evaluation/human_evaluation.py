@@ -341,11 +341,6 @@ class HumanEvaluation:
                                     option.reference_file,
                                     option_id=option.id,
                                 )
-                                template_service.upload_reference_file_by_url_and_file_path(
-                                    presigned_url,
-                                    option.reference_file,
-                                    option_id=option.id,
-                                )
 
         except Exception as e:
             log.error(f"Failed to create template: {str(e)}")
