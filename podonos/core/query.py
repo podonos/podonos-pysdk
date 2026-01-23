@@ -1,10 +1,21 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal, Optional, List, Dict, Any
+from typing import Any, Dict, List, Literal, Optional
 
-from podonos.common.enum import QuestionResponseCategory, QuestionUsageType, InstructionCategory, QuestionRelatedModel
-from podonos.core.types import QuestionMetadataColumn, QuestionMetadataLinearScale, QuestionMetadataPosition, TemplateQuestion, TemplateOption
+from podonos.common.enum import (
+    InstructionCategory,
+    QuestionRelatedModel,
+    QuestionResponseCategory,
+    QuestionUsageType,
+)
 from podonos.common.validator import Rules, validate_args
+from podonos.core.types import (
+    QuestionMetadataColumn,
+    QuestionMetadataLinearScale,
+    QuestionMetadataPosition,
+    TemplateOption,
+    TemplateQuestion,
+)
 
 TYPE_OF_OPTION_KEY = Literal["score", "label_text", "reference_file"]
 TYPE_OF_QUESTION_KEY = Literal[
@@ -34,18 +45,40 @@ class Option:
     reference_file: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, data: Dict[TYPE_OF_OPTION_KEY, Any], value: Optional[str] = None, order: int = 0, is_score: bool = True) -> "Option":
+    def from_dict(
+        cls,
+        data: Dict[TYPE_OF_OPTION_KEY, Any],
+        value: Optional[str] = None,
+        order: int = 0,
+        is_score: bool = True,
+    ) -> "Option":
         if not data.get("label_text"):
             raise ValueError("Option must have a non-empty 'label_text' field")
         if not is_score:
-            return cls(value=data["label_text"], order=order, reference_file=data.get("reference_file", None))
+            return cls(
+                value=data["label_text"],
+                order=order,
+                reference_file=data.get("reference_file", None),
+            )
         if not value:
             raise ValueError("Score question's option must have a value")
-        return cls(value=value, label_text=data.get("label_text"), order=order, reference_file=data.get("reference_file", None))
+        return cls(
+            value=value,
+            label_text=data.get("label_text"),
+            order=order,
+            reference_file=data.get("reference_file", None),
+        )
 
 
 class Question(ABC):
-    def __init__(self, title: str, type: str, batch_size: int, description: Optional[str] = None, order: int = 0):
+    def __init__(
+        self,
+        title: str,
+        type: str,
+        batch_size: int,
+        description: Optional[str] = None,
+        order: int = 0,
+    ):
         self.title = title  # title can be 'question' or 'instruction'
         self.type = type
         self.batch_size = batch_size
@@ -65,7 +98,12 @@ class Question(ABC):
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "Question":
+    def from_dict(
+        cls,
+        data: Dict[TYPE_OF_QUESTION_KEY, Any],
+        batch_size: int,
+        allow_ranking_only: bool = False,
+    ) -> "Question":
         """Create appropriate Question instance from dictionary."""
         question_type = data.get("type")
         if not question_type:
@@ -81,12 +119,15 @@ class Question(ABC):
                 InstructionCategory.EXAMPLE.value,
             }
             if question_type not in allowed_types:
-                raise ValueError("RANKING evaluation allows only Instruction (DO/WARNING/DONT/EXAMPLE) and COMPARISON question types")
+                raise ValueError(
+                    "RANKING evaluation allows only Instruction (DO/WARNING/DONT/EXAMPLE) and COMPARISON question types"
+                )
 
         question_map = {
             "SCORED": ScoredQuestion,
             "NON_SCORED": NonScoredQuestion,
             "COMPARISON": ComparisonQuestion,
+            "ANNOTATION": AnnotationQuestion,
             InstructionCategory.DO.value: Instruction,
             InstructionCategory.WARNING.value: Instruction,
             InstructionCategory.DONT.value: Instruction,
@@ -94,7 +135,9 @@ class Question(ABC):
         }
 
         if question_type not in question_map:
-            raise ValueError(f"Unknown question type: {question_type} (must be one of {', '.join(question_map.keys())})")
+            raise ValueError(
+                f"Unknown question type: {question_type} (must be one of {', '.join(question_map.keys())})"
+            )
 
         return question_map[question_type].from_dict(data, batch_size)
 
@@ -118,7 +161,10 @@ class ScoredQuestion(Question):
         if not self.options:
             raise ValueError("SCORED question must have options")
 
-        if not QuestionRelatedModel.is_member(self.related_model.value) and self.batch_size > 1:
+        if (
+            not QuestionRelatedModel.is_member(self.related_model.value)
+            and self.batch_size > 1
+        ):
             raise ValueError(
                 f"SCORED question must have one of the following valid related_models: {', '.join([item.value for item in QuestionRelatedModel])}"
             )
@@ -128,7 +174,9 @@ class ScoredQuestion(Question):
             try:
                 float(option.value)
             except ValueError:
-                raise ValueError(f"SCORED question option value '{option.value}' must be a number")
+                raise ValueError(
+                    f"SCORED question option value '{option.value}' must be a number"
+                )
 
     def to_template_question(self) -> TemplateQuestion:
         return TemplateQuestion(
@@ -139,14 +187,24 @@ class ScoredQuestion(Question):
             order=self.order,
             related_model=self.related_model,
             options=[
-                TemplateOption(value=opt.value, label_text=opt.label_text, order=i, reference_file=opt.reference_file)
+                TemplateOption(
+                    value=opt.value,
+                    label_text=opt.label_text,
+                    order=i,
+                    reference_file=opt.reference_file,
+                )
                 for i, opt in enumerate(self.options)
             ],
         )
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "ScoredQuestion":
+    def from_dict(
+        cls,
+        data: Dict[TYPE_OF_QUESTION_KEY, Any],
+        batch_size: int,
+        allow_ranking_only: bool = False,
+    ) -> "ScoredQuestion":
         if "options" not in data or not data["options"]:
             raise ValueError("SCORED question must have options")
 
@@ -155,10 +213,17 @@ class ScoredQuestion(Question):
             raise ValueError("SCORED question must have between 1 and 9 options")
 
         related_model = (
-            QuestionRelatedModel.from_value(data.get("related_model", QuestionRelatedModel.ALL.value)) if batch_size > 1 else QuestionRelatedModel.ALL
+            QuestionRelatedModel.from_value(
+                data.get("related_model", QuestionRelatedModel.ALL.value)
+            )
+            if batch_size > 1
+            else QuestionRelatedModel.ALL
         )
         option_values = [str(score) for score in range(option_length, 0, -1)]
-        options = [Option.from_dict(opt, value=option_values[i], order=i, is_score=True) for i, opt in enumerate(data["options"])]
+        options = [
+            Option.from_dict(opt, value=option_values[i], order=i, is_score=True)
+            for i, opt in enumerate(data["options"])
+        ]
         return cls(
             question=data["question"],
             description=data.get("description"),
@@ -194,13 +259,20 @@ class NonScoredQuestion(Question):
         if not self.options:
             raise ValueError("NON_SCORED question must have options")
 
-        if not QuestionRelatedModel.is_member(self.related_model.value) and self.batch_size > 1:
+        if (
+            not QuestionRelatedModel.is_member(self.related_model.value)
+            and self.batch_size > 1
+        ):
             raise ValueError(
                 f"NON_SCORED question must have one of the following valid related_models: {', '.join([item.value for item in QuestionRelatedModel])}"
             )
 
     def to_template_question(self) -> TemplateQuestion:
-        response_category = QuestionResponseCategory.CHOICE_MULTI if self.allow_multiple else QuestionResponseCategory.CHOICE_ONE_NO_SCORE
+        response_category = (
+            QuestionResponseCategory.CHOICE_MULTI
+            if self.allow_multiple
+            else QuestionResponseCategory.CHOICE_ONE_NO_SCORE
+        )
         return TemplateQuestion(
             title=self.title,  # question is stored as 'title' in database
             description=self.description,
@@ -211,14 +283,24 @@ class NonScoredQuestion(Question):
             has_other=self.has_other,
             has_none=self.has_none,
             options=[
-                TemplateOption(value=opt.value, label_text=opt.label_text, order=i, reference_file=opt.reference_file)
+                TemplateOption(
+                    value=opt.value,
+                    label_text=opt.label_text,
+                    order=i,
+                    reference_file=opt.reference_file,
+                )
                 for i, opt in enumerate(self.options)
             ],
         )
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "NonScoredQuestion":
+    def from_dict(
+        cls,
+        data: Dict[TYPE_OF_QUESTION_KEY, Any],
+        batch_size: int,
+        allow_ranking_only: bool = False,
+    ) -> "NonScoredQuestion":
         if "options" not in data or not data["options"]:
             raise ValueError("NON_SCORED question must have options")
         if "allow_multiple" not in data:
@@ -229,9 +311,16 @@ class NonScoredQuestion(Question):
             raise ValueError("NON_SCORED question must have between 1 and 9 options")
 
         related_model = (
-            QuestionRelatedModel.from_value(data.get("related_model", QuestionRelatedModel.ALL.value)) if batch_size > 1 else QuestionRelatedModel.ALL
+            QuestionRelatedModel.from_value(
+                data.get("related_model", QuestionRelatedModel.ALL.value)
+            )
+            if batch_size > 1
+            else QuestionRelatedModel.ALL
         )
-        options = [Option.from_dict(opt, value=None, order=i, is_score=False) for i, opt in enumerate(data["options"])]
+        options = [
+            Option.from_dict(opt, value=None, order=i, is_score=False)
+            for i, opt in enumerate(data["options"])
+        ]
         return cls(
             question=data["question"],
             description=data.get("description"),
@@ -266,7 +355,10 @@ class ComparisonQuestion(Question):
         if self.scale < 2 or self.scale > 9:
             raise ValueError("COMPARISON question scale must be between 2 and 9")
 
-        if not QuestionRelatedModel.is_member(self.related_model.value) and self.batch_size > 1:
+        if (
+            not QuestionRelatedModel.is_member(self.related_model.value)
+            and self.batch_size > 1
+        ):
             raise ValueError(
                 f"COMPARISON question must have one of the following valid related_models: {', '.join([item.value for item in QuestionRelatedModel])}"
             )
@@ -285,7 +377,12 @@ class ComparisonQuestion(Question):
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "ComparisonQuestion":
+    def from_dict(
+        cls,
+        data: Dict[TYPE_OF_QUESTION_KEY, Any],
+        batch_size: int,
+        allow_ranking_only: bool = False,
+    ) -> "ComparisonQuestion":
         error_message = "COMPARISON question must have 'anchor_label' in the format: {'anchor_label': {'title': optional string, 'label_text': {'left': string, 'right': string}}}"
         if "anchor_label" not in data or "label_text" not in data["anchor_label"]:
             raise ValueError(error_message)
@@ -295,7 +392,11 @@ class ComparisonQuestion(Question):
             raise ValueError(error_message)
 
         related_model = (
-            QuestionRelatedModel.from_value(data.get("related_model", QuestionRelatedModel.ALL.value)) if batch_size > 1 else QuestionRelatedModel.ALL
+            QuestionRelatedModel.from_value(
+                data.get("related_model", QuestionRelatedModel.ALL.value)
+            )
+            if batch_size > 1
+            else QuestionRelatedModel.ALL
         )
         return cls(
             question=data["question"],
@@ -306,7 +407,9 @@ class ComparisonQuestion(Question):
             meta_data=QuestionMetadataColumn(
                 linear_scale=QuestionMetadataLinearScale(
                     title=data.get("anchor_label", {}).get("title", None),
-                    label_text=QuestionMetadataPosition(left=f"A {label_text['left']}", right=f"B {label_text['right']}"),
+                    label_text=QuestionMetadataPosition(
+                        left=f"A {label_text['left']}", right=f"B {label_text['right']}"
+                    ),
                 )
             ),
             order=data.get("order", 0),
@@ -355,7 +458,12 @@ class Instruction(Question):
 
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
-    def from_dict(cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int, allow_ranking_only: bool = False) -> "Instruction":
+    def from_dict(
+        cls,
+        data: Dict[TYPE_OF_QUESTION_KEY, Any],
+        batch_size: int,
+        allow_ranking_only: bool = False,
+    ) -> "Instruction":
         try:
             category = InstructionCategory(data["type"])
         except ValueError:
@@ -364,7 +472,9 @@ class Instruction(Question):
             )
 
         if "reference_file" in data:
-            raise ValueError(f"The 'reference_file' field is not allowed for instruction questions. Please use 'reference_files' instead.")
+            raise ValueError(
+                f"The 'reference_file' field is not allowed for instruction questions. Please use 'reference_files' instead."
+            )
 
         if "reference_files" in data and not isinstance(data["reference_files"], list):
             raise ValueError("Reference files must be a List")
@@ -375,7 +485,9 @@ class Instruction(Question):
             if "path" not in reference_file or "type" not in reference_file:
                 raise ValueError("Reference files must have 'path' and 'type' fields")
             if reference_file["type"] not in ["reference", "target", "audio"]:
-                raise ValueError("Reference file type must be one of the following: reference, target, audio")
+                raise ValueError(
+                    "Reference file type must be one of the following: reference, target, audio"
+                )
 
         if len(data.get("reference_files", [])) > 3:
             raise ValueError("Instruction questions can have at most 3 reference files")
@@ -387,4 +499,117 @@ class Instruction(Question):
             batch_size=batch_size,
             order=data.get("order", 0),
             reference_files=data.get("reference_files", None),
+        )
+
+
+class AnnotationQuestion(Question):
+    """
+    Question type for collecting free-text annotations from evaluators.
+
+    Annotations allow evaluators to provide detailed feedback about audio files.
+    The related_model parameter controls which audio(s) the annotation applies to:
+    - For single-stimulus evaluations (batch_size=1): must be ALL or None
+    - For double/triple evaluations (batch_size>=2): must be MODEL_A or MODEL_B
+
+    Args:
+        title: The annotation prompt/question text shown to evaluators
+        batch_size: The evaluation's batch_size (1=single, 2=double, 3=triple)
+        related_model: Which audio the annotation applies to (ALL, MODEL_A, MODEL_B)
+        description: Optional additional description
+        order: Display order (default 0)
+
+    Raises:
+        ValueError: If title is empty/whitespace or related_model is invalid for batch_size
+    """
+
+    def __init__(
+        self,
+        title: str,
+        batch_size: int = 1,
+        related_model: Optional[QuestionRelatedModel] = None,
+        description: Optional[str] = None,
+        order: int = 0,
+    ):
+        super().__init__(
+            title=title,
+            type="ANNOTATION",
+            batch_size=batch_size,
+            description=description,
+            order=order,
+        )
+        self.related_model = related_model
+
+    def validate(self) -> None:
+        """Validate annotation question configuration."""
+        # Validate title is not empty or whitespace
+        if not self.title or not self.title.strip():
+            raise ValueError("AnnotationQuestion title cannot be empty or whitespace")
+
+        if self.batch_size == 1:
+            # Single-stimulus: related_model must be ALL or None
+            if (
+                self.related_model is not None
+                and self.related_model != QuestionRelatedModel.ALL
+            ):
+                raise ValueError(
+                    f"AnnotationQuestion related_model must be ALL for single-stimulus evaluations "
+                    f"(batch_size=1), got {self.related_model.value}"
+                )
+        else:
+            # Double/Triple (batch_size >= 2): related_model must be MODEL_A or MODEL_B
+            if self.related_model is None:
+                raise ValueError(
+                    f"AnnotationQuestion related_model is required for multi-stimulus evaluations "
+                    f"(batch_size={self.batch_size}). Must be MODEL_A or MODEL_B."
+                )
+            if self.related_model == QuestionRelatedModel.ALL:
+                raise ValueError(
+                    f"AnnotationQuestion related_model cannot be ALL for multi-stimulus evaluations "
+                    f"(batch_size={self.batch_size}). Must be MODEL_A or MODEL_B."
+                )
+
+    def to_template_question(self) -> TemplateQuestion:
+        """Convert to TemplateQuestion for API submission."""
+        # Determine related_model value (default to ALL for single-stimulus)
+        related_model = self.related_model
+        if related_model is None and self.batch_size == 1:
+            related_model = QuestionRelatedModel.ALL
+
+        return TemplateQuestion(
+            title=self.title,
+            response_category=QuestionResponseCategory.ANNOTATION,
+            usage_type=QuestionUsageType.ANNOTATION,
+            description=self.description,
+            order=self.order,
+            related_model=related_model,
+        )
+
+    @classmethod
+    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
+    def from_dict(
+        cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int
+    ) -> "AnnotationQuestion":
+        """Create AnnotationQuestion from dictionary (JSON parsing)."""
+        title = data.get("title", "")
+        description = data.get("description")
+        order = data.get("order", 0)
+
+        # Parse related_model
+        related_model_str = data.get("related_model")
+        related_model = None
+        if related_model_str:
+            try:
+                related_model = QuestionRelatedModel(related_model_str)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid related_model '{related_model_str}'. "
+                    f"Must be one of: ALL, MODEL_A, MODEL_B"
+                )
+
+        return cls(
+            title=title,
+            batch_size=batch_size,
+            related_model=related_model,
+            description=description,
+            order=order,
         )

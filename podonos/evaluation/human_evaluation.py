@@ -268,10 +268,19 @@ class HumanEvaluation:
         template_data = TemplateJsonLoader.load_json(json, json_file)
 
         # Use the validator from template.py (pass eval_type for RANKING restrictions)
-        instructions, core_questions = TemplateValidator.validate_and_create_questions(
-            template_data, batch_size, eval_type
+        instructions, core_questions, annotations = (
+            TemplateValidator.validate_and_create_questions(
+                template_data, batch_size, eval_type
+            )
         )
         log.info("Template JSON is validated.")
+
+        # Mutual exclusivity check: use_annotation and explicit AnnotationQuestion cannot be used together
+        if use_annotation and annotations:
+            raise ValueError(
+                "Cannot use both 'use_annotation=True' and explicit AnnotationQuestion objects. "
+                "Set 'use_annotation=False' when providing custom annotation questions in the template JSON."
+            )
 
         # Create an evaluator
         eval_config = EvalConfig(
@@ -316,6 +325,12 @@ class HumanEvaluation:
                 log.debug(f"Creating {len(core_questions)} core questions...")
                 core_questions = template_service.create_template_questions_by_evaluation_id_and_questions(
                     evaluator.get_evaluation_id(), core_questions
+                )
+
+            if annotations:
+                log.debug(f"Creating {len(annotations)} annotation questions...")
+                annotations = template_service.create_template_questions_by_evaluation_id_and_questions(
+                    evaluator.get_evaluation_id(), annotations
                 )
 
             # Create options for questions that have options
