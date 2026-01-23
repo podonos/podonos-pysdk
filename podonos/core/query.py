@@ -588,7 +588,10 @@ class AnnotationQuestion(Question):
     @classmethod
     @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none)
     def from_dict(
-        cls, data: Dict[TYPE_OF_QUESTION_KEY, Any], batch_size: int
+        cls,
+        data: Dict[TYPE_OF_QUESTION_KEY, Any],
+        batch_size: int,
+        allow_ranking_only: bool = False,
     ) -> "AnnotationQuestion":
         """Create AnnotationQuestion from dictionary (JSON parsing)."""
         title = data.get("title", "")

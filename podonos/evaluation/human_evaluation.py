@@ -329,7 +329,7 @@ class HumanEvaluation:
 
             if annotations:
                 log.debug(f"Creating {len(annotations)} annotation questions...")
-                annotations = template_service.create_template_questions_by_evaluation_id_and_questions(
+                template_service.create_template_questions_by_evaluation_id_and_questions(
                     evaluator.get_evaluation_id(), annotations
                 )
 
