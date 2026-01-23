@@ -37,7 +37,7 @@ class TestAnnotationQuestion:
     def test_empty_title_raises(self):
         """Test that empty title raises ValueError."""
         q = AnnotationQuestion(title="", batch_size=1)
-        with pytest.raises(ValueError, match="cannot be empty"):
+        with pytest.raises(ValueError, match="must have a 'question' or 'instruction'"):
             q.validate()
 
     def test_whitespace_title_raises(self):

@@ -541,6 +541,7 @@ class AnnotationQuestion(Question):
 
     def validate(self) -> None:
         """Validate annotation question configuration."""
+        super().validate()
         # Validate title is not empty or whitespace
         if not self.title or not self.title.strip():
             raise ValueError("AnnotationQuestion title cannot be empty or whitespace")
