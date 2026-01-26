@@ -610,21 +610,22 @@ class AudioMeta:
                 # Validate basic metadata
                 if nframes <= 0:
                     raise InvalidFileError(
-                        f"Audio file contains no audio data: {filepath}"
+                        f"Audio file contains no audio data (frames={nframes}): {filepath}"
                     )
                 if framerate <= 0:
                     raise InvalidFileError(
-                        f"Audio file has invalid sample rate (0 Hz): {filepath}"
+                        f"Audio file has invalid sample rate ({framerate} Hz): {filepath}"
                     )
                 if nchannels <= 0:
                     raise InvalidFileError(
-                        f"Audio file has invalid channel count (0): {filepath}"
+                        f"Audio file has invalid channel count ({nchannels}): {filepath}"
                     )
 
-                # Verify file isn't truncated by seeking to the end
+                # Verify file isn't truncated by seeking near EOF
                 # Using seek instead of read to avoid numpy dependency
                 try:
-                    f.seek(nframes - 1)
+                    # Seek to last frame to verify file integrity at the end
+                    f.seek(max(0, nframes - 1))
                 except Exception as seek_error:
                     raise InvalidFileError(
                         f"Audio file appears truncated or corrupted: {filepath}. "
