@@ -4,9 +4,6 @@ import unittest
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-import numpy as np
-import soundfile as sf
-
 from podonos.common.enum import QuestionFileType
 from podonos.core.file import Audio, AudioGroup, AudioMeta, File
 from podonos.errors import InvalidFileError
@@ -409,6 +406,16 @@ class TestAudioGroup(unittest.TestCase):
             )
 
 
+try:
+    import numpy as np
+    import soundfile as sf
+
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+
+
+@unittest.skipUnless(HAS_NUMPY, "numpy and soundfile required for validation tests")
 class TestAudioValidation(unittest.TestCase):
     """Tests for audio file validation before upload."""
 

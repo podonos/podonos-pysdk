@@ -22,7 +22,6 @@ from podonos.errors import InvalidFileError
 WARN_SHORT_DURATION_MS = 500  # Keep existing 500ms threshold
 WARN_LONG_DURATION_MS = 600000  # 10 minutes
 WARN_LOW_SAMPLE_RATE = 8000
-TRUNCATION_CHECK_FRAMES = 1024  # ~23ms at 44.1kHz, sufficient for truncation detection
 
 
 class File:
@@ -622,15 +621,15 @@ class AudioMeta:
                         f"Audio file has invalid channel count (0): {filepath}"
                     )
 
-                # Verify file isn't truncated by reading a small portion
+                # Verify file isn't truncated by seeking to the end
+                # Using seek instead of read to avoid numpy dependency
                 try:
-                    frames_to_read = min(TRUNCATION_CHECK_FRAMES, nframes)
-                    _ = f.read(frames=frames_to_read)
-                except Exception as read_error:
+                    f.seek(nframes - 1)
+                except Exception as seek_error:
                     raise InvalidFileError(
                         f"Audio file appears truncated or corrupted: {filepath}. "
-                        f"Error: {read_error}"
-                    ) from read_error
+                        f"Error: {seek_error}"
+                    ) from seek_error
 
                 # Calculate duration
                 duration_in_ms = int(nframes * 1000.0 / float(framerate))
