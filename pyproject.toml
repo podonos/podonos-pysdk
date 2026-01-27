@@ -38,7 +38,8 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-    "numpy",
+    "numpy>=2.0.0,<2.4.0; python_version < '3.14'",
+    "numpy>=2.4.0; python_version >= '3.14'",
     "pytest",
 ]
 
