@@ -1121,8 +1121,8 @@ class TestAudioMeta(unittest.TestCase):
                     detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
                     self.assertEqual(detected_format, "flac")
 
-    def test_set_audio_meta_with_supported_format(self):
-        """Test _set_audio_meta works with supported formats"""
+    def test_validate_audio_format_with_supported_format(self):
+        """Test _validate_audio_format works with supported formats"""
         audio_meta = AudioMeta(self.test_wav)
         # Should not raise an exception for supported WAV format
         self.assertIsInstance(audio_meta.nchannels, int)
@@ -1130,8 +1130,8 @@ class TestAudioMeta(unittest.TestCase):
         self.assertIsInstance(audio_meta.duration_in_ms, int)
 
     @patch("podonos.core.file.AudioMeta._detect_audio_format")
-    def test_set_audio_meta_with_unsupported_format(self, mock_detect: Any):
-        """Test _set_audio_meta raises error for unsupported formats"""
+    def test_validate_audio_format_with_unsupported_format(self, mock_detect: Any):
+        """Test _validate_audio_format raises error for unsupported formats"""
         # Mock format detection to return unsupported format
         mock_detect.return_value = "mp4"
 
@@ -1140,8 +1140,8 @@ class TestAudioMeta(unittest.TestCase):
         self.assertIn("Unsupported audio format", str(context.exception))
 
     @patch("podonos.core.file.AudioMeta._detect_audio_format")
-    def test_set_audio_meta_with_avi_format(self, mock_detect: Any):
-        """Test _set_audio_meta raises error for AVI format"""
+    def test_validate_audio_format_with_avi_format(self, mock_detect: Any):
+        """Test _validate_audio_format raises error for AVI format"""
         # Mock format detection to return AVI format
         mock_detect.return_value = "avi"
 
@@ -1150,8 +1150,8 @@ class TestAudioMeta(unittest.TestCase):
         self.assertIn("Unsupported audio format", str(context.exception))
 
     @patch("podonos.core.file.AudioMeta._detect_audio_format")
-    def test_set_audio_meta_with_mov_format(self, mock_detect: Any):
-        """Test _set_audio_meta raises error for MOV format"""
+    def test_validate_audio_format_with_mov_format(self, mock_detect: Any):
+        """Test _validate_audio_format raises error for MOV format"""
         # Mock format detection to return MOV format
         mock_detect.return_value = "mov"
 
@@ -1160,8 +1160,8 @@ class TestAudioMeta(unittest.TestCase):
         self.assertIn("Unsupported audio format", str(context.exception))
 
     @patch("podonos.core.file.AudioMeta._detect_audio_format")
-    def test_set_audio_meta_with_unknown_format(self, mock_detect: Any):
-        """Test _set_audio_meta raises error for unknown format"""
+    def test_validate_audio_format_with_unknown_format(self, mock_detect: Any):
+        """Test _validate_audio_format raises error for unknown format"""
         # Mock format detection to return unknown format
         mock_detect.return_value = "unknown"
 

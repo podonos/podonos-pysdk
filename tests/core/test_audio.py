@@ -406,6 +406,8 @@ class TestAudioGroup(unittest.TestCase):
             )
 
 
+from typing import TYPE_CHECKING
+
 try:
     import numpy as np
     import soundfile as sf
@@ -413,6 +415,10 @@ try:
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
+
+if TYPE_CHECKING:
+    import numpy as np
+    import soundfile as sf
 
 
 @unittest.skipUnless(HAS_NUMPY, "numpy and soundfile required for validation tests")
@@ -553,18 +559,14 @@ class TestAudioValidation(unittest.TestCase):
                 from podonos.core.file import AudioMeta
 
                 meta = AudioMeta.__new__(AudioMeta)
-                meta.filepath = "test.wav"
 
-                nchannels, framerate, duration = meta._validate_and_extract_audio_info(
-                    "test.wav"
-                )
+                meta._validate_audio_integrity("test.wav")
 
                 warning_calls = [str(call) for call in mock_log.warning.call_args_list]
                 self.assertTrue(
                     any("long" in call.lower() for call in warning_calls),
                     f"Expected warning about long audio, got: {warning_calls}",
                 )
-                self.assertGreater(duration, 600000)
 
     def test_valid_wav_passes_validation(self):
         """Test that valid WAV files pass validation."""
