@@ -601,7 +601,7 @@ class TestTemplateValidator(unittest.TestCase):
             "annotations": [
                 {
                     "type": "ANNOTATION",
-                    "title": "Describe any issues",
+                    "question": "Describe any issues",
                     "related_model": "ALL",
                 }
             ],
@@ -638,12 +638,12 @@ class TestTemplateValidator(unittest.TestCase):
             "annotations": [
                 {
                     "type": "ANNOTATION",
-                    "title": "Issues with A",
+                    "question": "Issues with A",
                     "related_model": "MODEL_A",
                 },
                 {
                     "type": "ANNOTATION",
-                    "title": "Issues with B",
+                    "question": "Issues with B",
                     "related_model": "MODEL_B",
                 },
             ],
@@ -676,7 +676,7 @@ class TestTemplateValidator(unittest.TestCase):
             "annotations": [
                 {
                     "type": "ANNOTATION",
-                    "title": "Test",
+                    "question": "Test",
                     "related_model": "ALL",  # Invalid for double
                 }
             ],
@@ -703,7 +703,7 @@ class TestTemplateValidator(unittest.TestCase):
             "annotations": [
                 {
                     "type": "ANNOTATION",
-                    "title": "Test",
+                    "question": "Test",
                     # No related_model - invalid for double
                 }
             ],
@@ -727,13 +727,13 @@ class TestTemplateValidator(unittest.TestCase):
             "annotations": [
                 {
                     "type": "ANNOTATION",
-                    "title": "First annotation",
+                    "question": "First annotation",
                     "description": "Describe first",
                     "order": 1,
                 },
                 {
                     "type": "ANNOTATION",
-                    "title": "Second annotation",
+                    "question": "Second annotation",
                     "description": "Describe second",
                     "order": 2,
                 },

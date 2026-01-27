@@ -220,6 +220,16 @@ class InstructionCategory(Enum):
     DONT = "DONT"
 
 
+class QuestionType(Enum):
+    """Type of question in evaluation templates."""
+
+    SCORED = "SCORED"
+    NON_SCORED = "NON_SCORED"
+    COMPARISON = "COMPARISON"
+    ANNOTATION = "ANNOTATION"
+    INSTRUCTION = "INSTRUCTION"
+
+
 class QuestionRelatedModel(Enum):
     ALL = "ALL"
     MODEL_A = "MODEL_A"

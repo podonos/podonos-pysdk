@@ -251,7 +251,7 @@ class TestHumanEvaluation(unittest.TestCase):
             "annotations": [
                 {
                     "type": "ANNOTATION",
-                    "title": "Describe issues",
+                    "question": "Describe issues",
                     "related_model": "ALL",
                 }
             ],
@@ -283,7 +283,7 @@ class TestHumanEvaluation(unittest.TestCase):
             "annotations": [
                 {
                     "type": "ANNOTATION",
-                    "title": "Describe issues",
+                    "question": "Describe issues",
                     "related_model": "ALL",
                 }
             ],
