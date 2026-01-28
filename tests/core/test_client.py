@@ -1,5 +1,4 @@
 import json
-import json as pyjson
 import os
 import tempfile
 import unittest
@@ -25,7 +24,7 @@ def _make_response(
     resp = Response()
     resp.status_code = status_code
     if json_data is not None:
-        resp._content = pyjson.dumps(json_data).encode("utf-8")
+        resp._content = json.dumps(json_data).encode("utf-8")
         resp.headers["Content-Type"] = "application/json"
     elif text is not None:
         resp._content = str(text).encode("utf-8")

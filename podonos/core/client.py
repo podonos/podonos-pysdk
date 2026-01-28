@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from podonos.common.enum import CustomType
-from podonos.common.validator import Rules, Validator, validate_args
+from podonos.common.validator import Rules, validate_args, validate_custom_type
 from podonos.core.api import APIClient
 from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
@@ -13,15 +13,6 @@ from podonos.service import (
     ScriptService,
     TemplateService,
 )
-
-
-def _validate_custom_type(value: Any, name: str) -> None:
-    """Validate custom_type accepts both CustomType enum and string values."""
-    Validator.check_not_none(value, name)
-    if not isinstance(value, (str, CustomType)):
-        raise TypeError(
-            f"Argument '{name}' must be str or CustomType, got {type(value)}"
-        )
 
 
 class Client:
@@ -186,7 +177,7 @@ class Client:
         json=Rules.dict_not_none_or_none,
         json_file=Rules.str_not_none_or_none,
         name=Rules.str_not_none_or_none,
-        custom_type=_validate_custom_type,
+        custom_type=validate_custom_type,
         desc=Rules.str_not_none_or_none,
         lan=Rules.str_non_empty,
         num_eval=Rules.positive_not_none,
