@@ -1,5 +1,6 @@
 ## 0.32.0
 
+- Add audio validator for file format and content validation
 - Add evaluation_type field to Template dataclass
 - Fix Python 3.8 compatibility for hashlib.md5() usedforsecurity parameter
 - Fix Python 3.8 compatibility for union type syntax (str | None → Optional[str])

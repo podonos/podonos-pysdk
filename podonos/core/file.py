@@ -16,6 +16,12 @@ from podonos.common.util import (
 from podonos.common.validator import Rules, validate_args
 from podonos.core.base import log
 from podonos.core.config import EvalConfig
+from podonos.errors import InvalidFileError
+
+# Audio validation constants
+WARN_SHORT_DURATION_MS = 500  # Keep existing 500ms threshold
+WARN_LONG_DURATION_MS = 600000  # 10 minutes
+WARN_LOW_SAMPLE_RATE = 8000
 
 
 class File:
@@ -196,7 +202,9 @@ class File:
         seen: Set[str] = set()
         for i, tag in enumerate(tags):
             if not isinstance(tag, (str, int, float)):  # type: ignore
-                raise ValueError(f"tag at index {i} must be a string, number, or boolean, got {type(tag)}")
+                raise ValueError(
+                    f"tag at index {i} must be a string, number, or boolean, got {type(tag)}"
+                )
 
             str_tag = str(tag)
             if str_tag not in seen:
@@ -217,12 +225,18 @@ class File:
         validated: Dict[str, Any] = {}
         for k, v in meta_data.items():
             if not isinstance(k, str):  # type: ignore
-                raise ValueError(f"meta_data key must be a string, got key type {type(k)}")
+                raise ValueError(
+                    f"meta_data key must be a string, got key type {type(k)}"
+                )
             # Disallow common iterable/container types except str
             if isinstance(v, (list, tuple, set, dict)):
-                raise ValueError(f"meta_data[{k}] must be a non-iterable JSON-primitive (got {type(v)})")  # type: ignore
+                raise ValueError(
+                    f"meta_data[{k}] must be a non-iterable JSON-primitive (got {type(v)})"
+                )  # type: ignore
             if not isinstance(v, allowed_value_types):
-                raise ValueError(f"meta_data[{k}] must be one of (str, int, float, bool, None), got {type(v)}")
+                raise ValueError(
+                    f"meta_data[{k}] must be one of (str, int, float, bool, None), got {type(v)}"
+                )
             validated[k] = v
         return validated
 
@@ -242,7 +256,9 @@ class FileValidator:
             EvalType.P808,
             EvalType.CUSTOM_SINGLE,
         ]:
-            raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
+            raise ValueError(
+                f"Unsupported evaluation type: {self._eval_config.eval_type}"
+            )
         return self._validate_file_common(file)
 
     @validate_args(files=Rules.list_not_none)
@@ -259,21 +275,31 @@ class FileValidator:
         elif self._eval_config.eval_type in [EvalType.CSMOS]:
             return self._validate_two_stimuli_and_one_ref_files(files)
         else:
-            raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
+            raise ValueError(
+                f"Unsupported evaluation type: {self._eval_config.eval_type}"
+            )
 
     @validate_args(files=Rules.list_not_none)
     def _validate_double_stimuli_files(self, files: List[Optional[File]]) -> List[File]:
         """Validate files for stimuli-based evaluations"""
-        valid_files = [self._validate_file_common(file) for file in files if file is not None and file.is_ref == False]
+        valid_files = [
+            self._validate_file_common(file)
+            for file in files
+            if file is not None and file.is_ref == False
+        ]
         if len(valid_files) != 2:
             raise ValueError("Stimuli evaluations require exactly two files")
 
         return self._validate_double_stimuli_model_tags(valid_files[0], valid_files[1])
 
     @validate_args(files=Rules.list_not_none)
-    def _validate_one_stimulus_and_one_ref_files(self, files: List[Optional[File]]) -> List[File]:
+    def _validate_one_stimulus_and_one_ref_files(
+        self, files: List[Optional[File]]
+    ) -> List[File]:
         """Validate files for reference-stimulus evaluations"""
-        valid_files = [self._validate_file_common(file) for file in files if file is not None]
+        valid_files = [
+            self._validate_file_common(file) for file in files if file is not None
+        ]
         if len(valid_files) != 2:
             raise ValueError("Reference-stimulus evaluations require exactly two files")
 
@@ -283,14 +309,22 @@ class FileValidator:
         return valid_files
 
     @validate_args(files=Rules.list_not_none)
-    def _validate_two_stimuli_and_one_ref_files(self, files: List[Optional[File]]) -> List[File]:
+    def _validate_two_stimuli_and_one_ref_files(
+        self, files: List[Optional[File]]
+    ) -> List[File]:
         """Validate files for two-stimuli-one-reference evaluations"""
-        valid_files = [self._validate_file_common(file) for file in files if file is not None]
+        valid_files = [
+            self._validate_file_common(file) for file in files if file is not None
+        ]
         if len(valid_files) != 3:
-            raise ValueError("Two-stimuli-one-reference evaluations require exactly three files")
+            raise ValueError(
+                "Two-stimuli-one-reference evaluations require exactly three files"
+            )
 
         if valid_files[2].is_ref == False:
-            raise ValueError("Reference file must be at the third position in add_files")
+            raise ValueError(
+                "Reference file must be at the third position in add_files"
+            )
 
         if valid_files[0].is_ref or valid_files[1].is_ref:
             raise ValueError("First and second files must be stimuli in CSMOS")
@@ -299,7 +333,9 @@ class FileValidator:
         ref = [file for file in valid_files if file.is_ref == True]
 
         if len(stimuli) != 2 or len(ref) != 1:
-            raise ValueError("Two-stimuli-one-reference evaluations require exactly two stimuli and one reference")
+            raise ValueError(
+                "Two-stimuli-one-reference evaluations require exactly two stimuli and one reference"
+            )
 
         return self._validate_double_stimuli_model_tags(stimuli[0], stimuli[1]) + ref
 
@@ -309,12 +345,14 @@ class FileValidator:
 
         if self._eval_config.eval_use_annotation and file.script is None:
             raise ValueError(
-                "Annotation evaluation is enabled (use_annotation=True), " "but no script is provided in File. Please provide a corresponding script."
+                "Annotation evaluation is enabled (use_annotation=True), "
+                "but no script is provided in File. Please provide a corresponding script."
             )
 
         if self._eval_config.eval_ai_type and file.script is None:
             raise ValueError(
-                "ASR evaluation is enabled (eval_ai_type=ASR), " "but no script is provided in File. Please provide a corresponding script."
+                "ASR evaluation is enabled (eval_ai_type=ASR), "
+                "but no script is provided in File. Please provide a corresponding script."
             )
 
         if not file.model_tag or len(file.model_tag.strip()) == 0:
@@ -342,7 +380,10 @@ class FileValidator:
         # file0_model_tag = file0.model_tag.lower()
         # file1_model_tag = file1.model_tag.lower()
         if file0.model_tag == file1.model_tag:
-            raise ValueError("The model tags must differ in `add_files` " "for double (or more) stimuli evaluations")
+            raise ValueError(
+                "The model tags must differ in `add_files` "
+                "for double (or more) stimuli evaluations"
+            )
 
         if len(self._stimulus_model_tags) == 0:
             self._stimulus_model_tags.add(file0.model_tag)
@@ -381,7 +422,14 @@ class AudioMeta:
 
     @validate_args(path=Rules.str_non_empty)
     def __init__(self, path: str) -> None:
-        self._nchannels, self._framerate, self._duration_in_ms = self._set_audio_meta(path)
+        # Validate first
+        self._validate_audio_format(path)
+        self._validate_audio_integrity(path)
+
+        # Then extract metadata
+        self._nchannels, self._framerate, self._duration_in_ms = (
+            self._extract_audio_info(path)
+        )
         log.check_ge(self._nchannels, 0)  # type: ignore
         log.check_ge(self._framerate, 0)  # type: ignore
         log.check_ge(self._duration_in_ms, 0)  # type: ignore
@@ -427,67 +475,146 @@ class AudioMeta:
             return "unknown"
 
     @validate_args(path=Rules.file_path_not_none)
-    def _set_audio_meta(self, path: str) -> Tuple[int, int, int]:
-        """Gets info from an audio file.
+    def _validate_audio_format(self, path: str) -> None:
+        """Validate audio file format before metadata extraction.
 
-        Returns:
-            nchannels: Number of channels
-            framerate: Number of frames per second. Same as the sampling rate.
-            duration_in_ms: Total length of the audio in milliseconds
+        Checks that:
+        - File extension is supported (WAV, MP3, FLAC)
+        - Actual audio format is supported
+        - File extension matches actual format
+
+        Args:
+            path: Path to the audio file
 
         Raises:
-            FileNotFoundError: if the file is not found.
-            wave.Error: if the file doesn't read properly.
-            AssertionError: if the file format is not wav.
+            InvalidFileError: If file format is unsupported or mismatched
         """
-        # Check if this is wav or mp3.
-        suffix = Path(path).suffix
+        suffix = Path(path).suffix.lower()
         actual_format = self._detect_audio_format(path)
-        support_file_type = ["wav", "mp3", "flac", ".wav", ".mp3", ".flac"]
-        assert suffix in support_file_type and actual_format in support_file_type, (
-            f"Unsupported file type. Extension: {suffix or 'N/A'}, Actual format: {actual_format or 'unknown'}. "
-            f"Supported: wav, mp3, flac. Please convert or re-export the audio so the content and extension match."
-        )
-        if actual_format in support_file_type:
-            return self._get_audio_info(path)
-        return 0, 0, 0
 
-    @validate_args(filepath=Rules.str_non_empty)
-    def _get_audio_info(self, filepath: str) -> Tuple[int, int, int]:
-        """Gets info from a wave file.
+        supported_extensions = {".wav", ".mp3", ".flac"}
+        supported_formats = {"wav", "mp3", "flac"}
 
-        Returns:
-            nchannels: Number of channels
-            framerate: Number of frames per second. Same as the sampling rate.
-            duration_in_ms: Total length of the audio in milliseconds
+        # Check extension is supported
+        if suffix not in supported_extensions:
+            raise InvalidFileError(
+                f"Unsupported file extension: {suffix}. "
+                f"Supported formats: WAV, MP3, FLAC. File: {path}"
+            )
+
+        # Check actual format is supported (handles "unknown" from _detect_audio_format)
+        if actual_format not in supported_formats:
+            raise InvalidFileError(
+                f"Unsupported audio format: {actual_format or 'unknown'}. "
+                f"Supported formats: WAV, MP3, FLAC. File: {path}"
+            )
+
+        # Check extension matches actual format
+        expected_format = suffix.lstrip(".")
+        if actual_format != expected_format:
+            raise InvalidFileError(
+                f"File extension ({suffix}) does not match actual format ({actual_format}). "
+                f"Please rename the file or convert it to match the extension. File: {path}"
+            )
+
+    @validate_args(path=Rules.file_path_not_none)
+    def _validate_audio_integrity(self, path: str) -> None:
+        """Validate audio file integrity.
+
+        Checks that:
+        - File is readable (not corrupted)
+        - File contains audio data (frames > 0)
+        - File has valid sample rate (> 0)
+        - File has valid channel count (> 0)
+        - File is not truncated
+
+        Also warns for edge cases (very short/long audio, low sample rate).
+
+        Args:
+            path: Path to the audio file
 
         Raises:
-            FileNotFoundError: if the file is not found.
-            wave.Error: if the file doesn't read properly.
+            InvalidFileError: If file is corrupted, empty, or truncated
         """
         try:
-            f = sf.SoundFile(filepath)
+            with sf.SoundFile(path) as f:
+                nframes = f.frames
+                nchannels = f.channels
+                framerate = f.samplerate
+
+                if nframes <= 0:
+                    raise InvalidFileError(
+                        f"Audio file contains no audio data (frames={nframes}): {path}"
+                    )
+                if framerate <= 0:
+                    raise InvalidFileError(
+                        f"Audio file has invalid sample rate ({framerate} Hz): {path}"
+                    )
+                if nchannels <= 0:
+                    raise InvalidFileError(
+                        f"Audio file has invalid channel count ({nchannels}): {path}"
+                    )
+
+                # Verify file isn't truncated by seeking near EOF
+                try:
+                    f.seek(max(0, nframes - 1))
+                except Exception as seek_error:
+                    raise InvalidFileError(
+                        f"Audio file appears truncated or corrupted: {path}. "
+                        f"Error: {seek_error}"
+                    ) from seek_error
+
+                # Warn for edge cases (don't fail)
+                duration_in_ms = int(nframes * 1000.0 / float(framerate))
+                if duration_in_ms < WARN_SHORT_DURATION_MS:
+                    log.warning(
+                        f"Audio is too short: {duration_in_ms}ms. "
+                        f"May not be suitable for evaluation. File: {path}"
+                    )
+                if duration_in_ms > WARN_LONG_DURATION_MS:
+                    log.warning(
+                        f"Audio is too long: {duration_in_ms}ms. "
+                        f"May exceed server limits. File: {path}"
+                    )
+                if framerate < WARN_LOW_SAMPLE_RATE:
+                    log.warning(
+                        f"Low sample rate: {framerate}Hz. "
+                        f"Quality may be insufficient for speech evaluation. "
+                        f"File: {path}"
+                    )
+
+        except sf.SoundFileError as e:
+            raise InvalidFileError(
+                f"Cannot read audio file: {path}. "
+                f"File may be corrupted or use an unsupported codec. "
+                f"Error: {e}"
+            ) from e
+        except InvalidFileError:
+            raise
+        except Exception as e:
+            raise InvalidFileError(
+                f"Unexpected error reading audio file: {path}. Error: {e}"
+            ) from e
+
+    @validate_args(path=Rules.file_path_not_none)
+    def _extract_audio_info(self, path: str) -> Tuple[int, int, int]:
+        """Extract audio metadata from file.
+
+        Assumes file has already been validated.
+
+        Args:
+            path: Path to the audio file
+
+        Returns:
+            Tuple of (nchannels, framerate, duration_in_ms)
+        """
+        with sf.SoundFile(path) as f:
             nframes = f.frames
             nchannels = f.channels
             framerate = f.samplerate
-            log.check_gt(nframes, 0)  # type: ignore
-            log.check_gt(nchannels, 0)  # type: ignore
-            log.check_gt(framerate, 0)  # type: ignore
-
             duration_in_ms = int(nframes * 1000.0 / float(framerate))
-            log.check_gt(duration_in_ms, 0)  # type: ignore
-            if duration_in_ms < 500:
-                log.warning(
-                    f"Audio length below 500ms (current {duration_in_ms} ms). "
-                    f"Please verify on the web whether this file is evaluable. File: {filepath}"
-                )
+
             return nchannels, framerate, duration_in_ms
-        except AttributeError as e:
-            log.error(f"Attribute error while getting audio info: {e}")
-            return 0, 0, 0
-        except Exception as e:
-            log.error(f"Error getting audio info: {e}")
-            return 0, 0, 0
 
 
 class Audio(File):
@@ -559,7 +686,9 @@ class Audio(File):
             New Audio instance
         """
         remote_object_name = os.path.join(creation_timestamp, generate_random_name())
-        original_path, remote_path = process_paths_to_posix(file.path, str(remote_object_name))
+        original_path, remote_path = process_paths_to_posix(
+            file.path, str(remote_object_name)
+        )
 
         return cls(
             path=file.path,
@@ -662,7 +791,9 @@ class AudioGroup:
         audios=Rules.list_not_none,
         created_at=Rules.datetime_not_none,
     )
-    def __init__(self, group_id: Optional[str], audios: List[Audio], created_at: datetime):
+    def __init__(
+        self, group_id: Optional[str], audios: List[Audio], created_at: datetime
+    ):
         self.group_id = group_id
         self.created_at = created_at
         self.audios = self.set_audios(audios)
@@ -678,9 +809,13 @@ class AudioGroup:
         """
         for i, audio in enumerate(audios):
             if audio.group != self.group_id:
-                raise ValueError(f"All audios must have the same group_id. Expected {self.group_id}, got {audio.group}.")
+                raise ValueError(
+                    f"All audios must have the same group_id. Expected {self.group_id}, got {audio.group}."
+                )
             if audio.order_in_group != i:
-                raise ValueError(f"Order in group must be unique. Got {audio.order_in_group}.")
+                raise ValueError(
+                    f"Order in group must be unique. Got {audio.order_in_group}."
+                )
 
         return audios
 
@@ -723,7 +858,9 @@ class FileTransformer:
         elif self._eval_config.eval_type in [EvalType.CSMOS]:
             return self._transform_two_stimuli_and_one_ref_files(files)
         else:
-            raise ValueError(f"Unsupported evaluation type: {self._eval_config.eval_type}")
+            raise ValueError(
+                f"Unsupported evaluation type: {self._eval_config.eval_type}"
+            )
 
     @validate_args(file=Rules.instance_of(File))
     def _transform_single_file(self, file: File) -> AudioGroup:
@@ -758,7 +895,9 @@ class FileTransformer:
         )
 
     @validate_args(files=Rules.list_not_none)
-    def _transform_one_stimulus_and_one_ref_files(self, files: List[File]) -> AudioGroup:
+    def _transform_one_stimulus_and_one_ref_files(
+        self, files: List[File]
+    ) -> AudioGroup:
         group_id = generate_random_group_name()
         return AudioGroup(
             group_id=group_id,
