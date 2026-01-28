@@ -29,7 +29,7 @@ _PODONOS_API_BASE_URL = "https://dev.podonosapi.com"
 _TEMPLATE_JSON_PATH = os.path.join(os.path.dirname(__file__), "cmos_template.json")
 
 
-def test_custom_type_enum_values():
+def custom_type_enum_values():
     """Test 1: Verify CustomType enum values (no API call)"""
     log.info("=" * 60)
     log.info("Test 1: CustomType enum values")
@@ -47,7 +47,7 @@ def test_custom_type_enum_values():
     return True
 
 
-def test_invalid_custom_type(client):
+def invalid_custom_type(client):
     """Test 2: Verify invalid custom_type raises error"""
     log.info("=" * 60)
     log.info("Test 2: Invalid custom_type error handling")
@@ -66,7 +66,7 @@ def test_invalid_custom_type(client):
         return True
 
 
-def test_create_from_template_json_with_string(client, reference_audio, target_audio):
+def create_from_template_json_with_string(client, reference_audio, target_audio):
     """Test 3: create_from_template_json with custom_type as string"""
     log.info("=" * 60)
     log.info("Test 3: create_from_template_json (custom_type='SINGLE_REF')")
@@ -107,7 +107,7 @@ def test_create_from_template_json_with_string(client, reference_audio, target_a
     return True
 
 
-def test_create_from_template_json_with_enum(client, reference_audio, target_audio):
+def create_from_template_json_with_enum(client, reference_audio, target_audio):
     """Test 4: create_from_template_json with CustomType enum"""
     log.info("=" * 60)
     log.info("Test 4: create_from_template_json (custom_type=CustomType.SINGLE_REF)")
@@ -164,7 +164,7 @@ def test_create_from_template_json_with_enum(client, reference_audio, target_aud
     return True
 
 
-def test_multiple_models_vs_reference(client, reference_audio, target_audio):
+def multiple_models_vs_reference(client, reference_audio, target_audio):
     """Test 5: Compare multiple models (A, B) against a single reference"""
     log.info("=" * 60)
     log.info("Test 5: Multiple models vs reference (ref vs A, ref vs B)")
@@ -265,19 +265,19 @@ def main():
     results = []
 
     # Test 1: CustomType enum (no API call)
-    results.append(("CustomType enum values", test_custom_type_enum_values()))
+    results.append(("CustomType enum values", custom_type_enum_values()))
 
     if not args.skip_api:
         client = podonos.init(api_key=args.api_key, api_url=args.base_url)
 
         # Test 2: Invalid custom_type
-        results.append(("Invalid custom_type", test_invalid_custom_type(client)))
+        results.append(("Invalid custom_type", invalid_custom_type(client)))
 
         # Test 3: create_from_template_json with string
         results.append(
             (
                 "create_from_template_json (string)",
-                test_create_from_template_json_with_string(
+                create_from_template_json_with_string(
                     client, args.reference, args.target
                 ),
             )
@@ -287,7 +287,7 @@ def main():
         results.append(
             (
                 "create_from_template_json (enum)",
-                test_create_from_template_json_with_enum(
+                create_from_template_json_with_enum(
                     client, args.reference, args.target
                 ),
             )
@@ -297,7 +297,7 @@ def main():
         results.append(
             (
                 "multiple models vs reference",
-                test_multiple_models_vs_reference(client, args.reference, args.target),
+                multiple_models_vs_reference(client, args.reference, args.target),
             )
         )
 
