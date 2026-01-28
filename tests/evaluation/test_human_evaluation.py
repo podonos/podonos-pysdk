@@ -4,7 +4,7 @@ from typing import Any, Dict
 from unittest.mock import Mock
 from uuid import uuid4
 
-from podonos.common.enum import EvalType, Language
+from podonos.common.enum import CustomType, EvalType, Language
 from podonos.core.api import APIClient
 from podonos.core.template import Template
 from podonos.entity.evaluation import EvaluationEntity
@@ -199,6 +199,39 @@ class TestHumanEvaluation(unittest.TestCase):
         self.assertEqual(evaluator._eval_config.eval_type, EvalType.RANKING)  # type: ignore
         self.assertEqual(evaluator._supported_eval_types, [EvalType.RANKING])  # type: ignore
 
+    def test_create_from_template_with_cmos_template(self):
+        """Test creating from CMOS template"""
+        # Given
+        template = Template(
+            id="template_id",
+            code="CMOS_TEMPLATE",
+            title="CMOS Template",
+            description="Test CMOS template",
+            language=Language.ENGLISH_AMERICAN,
+            batch_size=2,
+            evaluation_type="SPEECH_CMOS",
+            created_time=None,
+            updated_time=None,
+        )
+        eval_id = str(uuid4())
+        self.mock_template_service.get_template_by_code.return_value = template
+        self.mock_evaluation_service.create.return_value = make_evaluation_entity(
+            eval_id
+        )
+
+        # When
+        evaluator = self.human_eval.create_from_template(
+            name="Test CMOS", template_id="CMOS_TEMPLATE", num_eval=5
+        )
+
+        # Then
+        self.assertIsNotNone(evaluator)
+        self.assertEqual(evaluator._eval_config.eval_type, EvalType.CMOS)  # type: ignore
+        self.assertIn(EvalType.CMOS, evaluator._supported_eval_types)  # type: ignore
+        self.mock_template_service.get_template_by_code.assert_called_once_with(
+            "CMOS_TEMPLATE"
+        )
+
     def test_create_from_template_with_no_batch_size_raises_error(self):
         """Test creating from template with no batch_size raises ValueError"""
         # Given
@@ -233,7 +266,7 @@ class TestHumanEvaluation(unittest.TestCase):
                 json=template_json, name="Test Invalid", custom_type="INVALID"
             )  # type: ignore
         self.assertIn(
-            'custom_type must be one of "SINGLE", "DOUBLE", "RANKING"',
+            "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, RANKING",
             str(context.exception),
         )
 
@@ -304,6 +337,78 @@ class TestHumanEvaluation(unittest.TestCase):
 
         # Then
         self.assertIsNotNone(evaluator)
+
+    def test_create_from_template_json_with_single_ref_type(self):
+        """Test creating from template JSON with SINGLE_REF custom_type for CMOS-style evaluation"""
+        # Given
+        template_json: Dict[str, Any] = {
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "How similar is the target to the reference?",
+                    "scale": 5,
+                    "anchor_label": {
+                        "label_text": {
+                            "left": "Completely different",
+                            "right": "Identical",
+                        }
+                    },
+                }
+            ],
+        }
+
+        # Mock the template service methods for create_from_template_json flow
+        mock_put_response = Mock()
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status = Mock()
+        self.mock_api_client.put.return_value = mock_put_response
+
+        # When
+        evaluator = self.human_eval.create_from_template_json(
+            json=template_json,
+            name="Test SINGLE_REF",
+            custom_type="SINGLE_REF",
+        )
+
+        # Then
+        self.assertIsNotNone(evaluator)
+        self.assertEqual(evaluator._eval_config.eval_type, EvalType.CMOS)  # type: ignore
+        self.assertIn(EvalType.CMOS, evaluator._supported_eval_types)  # type: ignore
+
+    def test_create_from_template_json_with_custom_type_enum(self):
+        """Test create_from_template_json using CustomType enum instead of string"""
+        # Given
+        template_json: Dict[str, Any] = {
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "Which audio is better?",
+                    "scale": 5,
+                    "anchor_label": {
+                        "label_text": {
+                            "left": "File A is better",
+                            "right": "File B is better",
+                        }
+                    },
+                }
+            ],
+        }
+
+        mock_put_response = Mock()
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status = Mock()
+        self.mock_api_client.put.return_value = mock_put_response
+
+        # When - using CustomType enum instead of string
+        evaluator = self.human_eval.create_from_template_json(
+            json=template_json,
+            name="Test with CustomType enum",
+            custom_type=CustomType.DOUBLE,
+        )
+
+        # Then
+        self.assertIsNotNone(evaluator)
+        self.assertEqual(evaluator._eval_config.eval_type, EvalType.CUSTOM_DOUBLE)  # type: ignore
 
 
 if __name__ == "__main__":
