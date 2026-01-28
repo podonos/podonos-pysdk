@@ -1,10 +1,11 @@
 import os
-import filetype  # type: ignore
-import soundfile as sf  # type: ignore
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
+
+import filetype  # type: ignore
+import soundfile as sf  # type: ignore
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.util import (
@@ -15,6 +16,12 @@ from podonos.common.util import (
 from podonos.common.validator import Rules, validate_args
 from podonos.core.base import log
 from podonos.core.config import EvalConfig
+from podonos.errors import InvalidFileError
+
+# Audio validation constants
+WARN_SHORT_DURATION_MS = 500  # Keep existing 500ms threshold
+WARN_LONG_DURATION_MS = 600000  # 10 minutes
+WARN_LOW_SAMPLE_RATE = 8000
 
 
 class File:
@@ -479,8 +486,13 @@ class AudioMeta:
 
     @validate_args(path=Rules.str_non_empty)
     def __init__(self, path: str) -> None:
-        self._nchannels, self._framerate, self._duration_in_ms = self._set_audio_meta(
-            path
+        # Validate first
+        self._validate_audio_format(path)
+        self._validate_audio_integrity(path)
+
+        # Then extract metadata
+        self._nchannels, self._framerate, self._duration_in_ms = (
+            self._extract_audio_info(path)
         )
         log.check_ge(self._nchannels, 0)  # type: ignore
         log.check_ge(self._framerate, 0)  # type: ignore
@@ -527,67 +539,146 @@ class AudioMeta:
             return "unknown"
 
     @validate_args(path=Rules.file_path_not_none)
-    def _set_audio_meta(self, path: str) -> Tuple[int, int, int]:
-        """Gets info from an audio file.
+    def _validate_audio_format(self, path: str) -> None:
+        """Validate audio file format before metadata extraction.
 
-        Returns:
-            nchannels: Number of channels
-            framerate: Number of frames per second. Same as the sampling rate.
-            duration_in_ms: Total length of the audio in milliseconds
+        Checks that:
+        - File extension is supported (WAV, MP3, FLAC)
+        - Actual audio format is supported
+        - File extension matches actual format
+
+        Args:
+            path: Path to the audio file
 
         Raises:
-            FileNotFoundError: if the file is not found.
-            wave.Error: if the file doesn't read properly.
-            AssertionError: if the file format is not wav.
+            InvalidFileError: If file format is unsupported or mismatched
         """
-        # Check if this is wav or mp3.
-        suffix = Path(path).suffix
+        suffix = Path(path).suffix.lower()
         actual_format = self._detect_audio_format(path)
-        support_file_type = ["wav", "mp3", "flac", ".wav", ".mp3", ".flac"]
-        assert suffix in support_file_type and actual_format in support_file_type, (
-            f"Unsupported file type. Extension: {suffix or 'N/A'}, Actual format: {actual_format or 'unknown'}. "
-            f"Supported: wav, mp3, flac. Please convert or re-export the audio so the content and extension match."
-        )
-        if actual_format in support_file_type:
-            return self._get_audio_info(path)
-        return 0, 0, 0
 
-    @validate_args(filepath=Rules.str_non_empty)
-    def _get_audio_info(self, filepath: str) -> Tuple[int, int, int]:
-        """Gets info from a wave file.
+        supported_extensions = {".wav", ".mp3", ".flac"}
+        supported_formats = {"wav", "mp3", "flac"}
 
-        Returns:
-            nchannels: Number of channels
-            framerate: Number of frames per second. Same as the sampling rate.
-            duration_in_ms: Total length of the audio in milliseconds
+        # Check extension is supported
+        if suffix not in supported_extensions:
+            raise InvalidFileError(
+                f"Unsupported file extension: {suffix}. "
+                f"Supported formats: WAV, MP3, FLAC. File: {path}"
+            )
+
+        # Check actual format is supported (handles "unknown" from _detect_audio_format)
+        if actual_format not in supported_formats:
+            raise InvalidFileError(
+                f"Unsupported audio format: {actual_format or 'unknown'}. "
+                f"Supported formats: WAV, MP3, FLAC. File: {path}"
+            )
+
+        # Check extension matches actual format
+        expected_format = suffix.lstrip(".")
+        if actual_format != expected_format:
+            raise InvalidFileError(
+                f"File extension ({suffix}) does not match actual format ({actual_format}). "
+                f"Please rename the file or convert it to match the extension. File: {path}"
+            )
+
+    @validate_args(path=Rules.file_path_not_none)
+    def _validate_audio_integrity(self, path: str) -> None:
+        """Validate audio file integrity.
+
+        Checks that:
+        - File is readable (not corrupted)
+        - File contains audio data (frames > 0)
+        - File has valid sample rate (> 0)
+        - File has valid channel count (> 0)
+        - File is not truncated
+
+        Also warns for edge cases (very short/long audio, low sample rate).
+
+        Args:
+            path: Path to the audio file
 
         Raises:
-            FileNotFoundError: if the file is not found.
-            wave.Error: if the file doesn't read properly.
+            InvalidFileError: If file is corrupted, empty, or truncated
         """
         try:
-            f = sf.SoundFile(filepath)
+            with sf.SoundFile(path) as f:
+                nframes = f.frames
+                nchannels = f.channels
+                framerate = f.samplerate
+
+                if nframes <= 0:
+                    raise InvalidFileError(
+                        f"Audio file contains no audio data (frames={nframes}): {path}"
+                    )
+                if framerate <= 0:
+                    raise InvalidFileError(
+                        f"Audio file has invalid sample rate ({framerate} Hz): {path}"
+                    )
+                if nchannels <= 0:
+                    raise InvalidFileError(
+                        f"Audio file has invalid channel count ({nchannels}): {path}"
+                    )
+
+                # Verify file isn't truncated by seeking near EOF
+                try:
+                    f.seek(max(0, nframes - 1))
+                except Exception as seek_error:
+                    raise InvalidFileError(
+                        f"Audio file appears truncated or corrupted: {path}. "
+                        f"Error: {seek_error}"
+                    ) from seek_error
+
+                # Warn for edge cases (don't fail)
+                duration_in_ms = int(nframes * 1000.0 / float(framerate))
+                if duration_in_ms < WARN_SHORT_DURATION_MS:
+                    log.warning(
+                        f"Audio is too short: {duration_in_ms}ms. "
+                        f"May not be suitable for evaluation. File: {path}"
+                    )
+                if duration_in_ms > WARN_LONG_DURATION_MS:
+                    log.warning(
+                        f"Audio is too long: {duration_in_ms}ms. "
+                        f"May exceed server limits. File: {path}"
+                    )
+                if framerate < WARN_LOW_SAMPLE_RATE:
+                    log.warning(
+                        f"Low sample rate: {framerate}Hz. "
+                        f"Quality may be insufficient for speech evaluation. "
+                        f"File: {path}"
+                    )
+
+        except sf.SoundFileError as e:
+            raise InvalidFileError(
+                f"Cannot read audio file: {path}. "
+                f"File may be corrupted or use an unsupported codec. "
+                f"Error: {e}"
+            ) from e
+        except InvalidFileError:
+            raise
+        except Exception as e:
+            raise InvalidFileError(
+                f"Unexpected error reading audio file: {path}. Error: {e}"
+            ) from e
+
+    @validate_args(path=Rules.file_path_not_none)
+    def _extract_audio_info(self, path: str) -> Tuple[int, int, int]:
+        """Extract audio metadata from file.
+
+        Assumes file has already been validated.
+
+        Args:
+            path: Path to the audio file
+
+        Returns:
+            Tuple of (nchannels, framerate, duration_in_ms)
+        """
+        with sf.SoundFile(path) as f:
             nframes = f.frames
             nchannels = f.channels
             framerate = f.samplerate
-            log.check_gt(nframes, 0)  # type: ignore
-            log.check_gt(nchannels, 0)  # type: ignore
-            log.check_gt(framerate, 0)  # type: ignore
-
             duration_in_ms = int(nframes * 1000.0 / float(framerate))
-            log.check_gt(duration_in_ms, 0)  # type: ignore
-            if duration_in_ms < 500:
-                log.warning(
-                    f"Audio length below 500ms (current {duration_in_ms} ms). "
-                    f"Please verify on the web whether this file is evaluable. File: {filepath}"
-                )
+
             return nchannels, framerate, duration_in_ms
-        except AttributeError as e:
-            log.error(f"Attribute error while getting audio info: {e}")
-            return 0, 0, 0
-        except Exception as e:
-            log.error(f"Error getting audio info: {e}")
-            return 0, 0, 0
 
 
 class Audio(File):

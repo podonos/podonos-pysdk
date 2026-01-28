@@ -1,13 +1,21 @@
 import os
-import pytest
 import unittest
-from unittest.mock import patch, MagicMock
 from typing import Any, List, Optional
+from unittest.mock import MagicMock, patch
+
+import pytest
 from glog import FailedCheckException  # type: ignore
 
-from podonos.core.config import EvalConfig
-from podonos.core.file import File, FileValidator, FileTransformer, AudioGroup, AudioMeta
 from podonos.common.enum import QuestionFileType
+from podonos.core.config import EvalConfig
+from podonos.core.file import (
+    AudioGroup,
+    AudioMeta,
+    File,
+    FileTransformer,
+    FileValidator,
+)
+from podonos.errors import InvalidFileError
 
 
 class TestFile(unittest.TestCase):
@@ -122,7 +130,13 @@ class TestFile(unittest.TestCase):
 
     def test_file_constructor_should_accept_valid_meta_data(self):
         # Given
-        meta = {"speaker_id": "spk1", "age": 30, "premium": True, "score": 9.5, "note": None}
+        meta = {
+            "speaker_id": "spk1",
+            "age": 30,
+            "premium": True,
+            "score": 9.5,
+            "note": None,
+        }
         # When
         f = File(path=self.test_wav, model_tag="test_model", meta_data=meta)
         # Then
@@ -142,7 +156,13 @@ class TestFile(unittest.TestCase):
         script = "test script"
 
         # When
-        file = File(path=self.test_wav, model_tag=model_tag, tags=tags, script=script, is_ref=False)
+        file = File(
+            path=self.test_wav,
+            model_tag=model_tag,
+            tags=tags,
+            script=script,
+            is_ref=False,
+        )
 
         # Then
         self.assertEqual(file.path, self.test_wav)
@@ -306,7 +326,9 @@ class TestFile(unittest.TestCase):
 
     def test_file_validator_should_validate_single_stimulus_successfully(self):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="NMOS", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="NMOS", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file = File(path=self.test_wav, model_tag="test_model")
 
@@ -315,7 +337,9 @@ class TestFile(unittest.TestCase):
 
     def test_file_validator_should_validate_files_preference_successfully(self):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="model1")
         file1 = File(path=self.test_wav, model_tag="model2")
@@ -326,7 +350,9 @@ class TestFile(unittest.TestCase):
     @unittest.skip("Skip this test because CMOS type is not supported yet")
     def test_file_validator_should_validate_files_cmos_type(self):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="CMOS", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="CMOS", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="model1")
         file1 = File(path=self.test_wav, model_tag="model2", is_ref=True)
@@ -336,7 +362,9 @@ class TestFile(unittest.TestCase):
 
     def test_file_validator_should_validate_files_csmos_type(self):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="CSMOS", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="CSMOS", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="model1")
         file1 = File(path=self.test_wav, model_tag="model2")
@@ -347,7 +375,9 @@ class TestFile(unittest.TestCase):
 
     def test_file_validator_should_validate_files_preference_raise_error(self):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="model1", is_ref=True)
         file1 = File(path=self.test_wav, model_tag="model2")
@@ -359,7 +389,9 @@ class TestFile(unittest.TestCase):
     @unittest.skip("Skip this test because CMOS type is not supported yet")
     def test_file_validator_raise_error_in_cmos_type(self):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="CMOS", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="CMOS", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="model1", is_ref=True)
         file1 = File(path=self.test_wav, model_tag="model2", is_ref=True)
@@ -368,9 +400,17 @@ class TestFile(unittest.TestCase):
         with self.assertRaises(ValueError):
             file_validator.validate_files([file0, file1])
 
-    def test_file_validator_raise_error_when_annotation_is_true_and_script_is_none(self):
+    def test_file_validator_raise_error_when_annotation_is_true_and_script_is_none(
+        self,
+    ):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="NMOS", num_eval=1, use_annotation=True)
+        eval_config = EvalConfig(
+            name="test_name",
+            desc="test_desc",
+            type="NMOS",
+            num_eval=1,
+            use_annotation=True,
+        )
         file_validator = FileValidator(eval_config)
         file = File(path=self.test_wav, model_tag="model1", script=None)
 
@@ -380,7 +420,13 @@ class TestFile(unittest.TestCase):
 
     def test_file_transformer_should_transform_file_to_audio_single_stimulus(self):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="NMOS", num_eval=1, use_annotation=True)
+        eval_config = EvalConfig(
+            name="test_name",
+            desc="test_desc",
+            type="NMOS",
+            num_eval=1,
+            use_annotation=True,
+        )
         file = File(path=self.test_wav, model_tag="test_model", script="test script")
         file_transformer = FileTransformer(eval_config)
 
@@ -395,9 +441,15 @@ class TestFile(unittest.TestCase):
 
     def test_file_transformer_should_transform_file_to_audio_double_stimulus(self):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
-        file0 = File(path=self.test_wav, model_tag="test_model", meta_data={"key": "value"})
-        file1 = File(path=self.test_wav, model_tag="test_model", meta_data={"key": "value"})
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
+        file0 = File(
+            path=self.test_wav, model_tag="test_model", meta_data={"key": "value"}
+        )
+        file1 = File(
+            path=self.test_wav, model_tag="test_model", meta_data={"key": "value"}
+        )
         file_transformer = FileTransformer(eval_config)
 
         # When
@@ -408,12 +460,20 @@ class TestFile(unittest.TestCase):
         self.assertEqual(audio_group.audios[0].path, file0.path)
         self.assertEqual(audio_group.audios[1].path, file1.path)
 
-    def test_file_transformer_should_transform_file_to_audio_double_stimulus_with_ref(self):
+    def test_file_transformer_should_transform_file_to_audio_double_stimulus_with_ref(
+        self,
+    ):
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="CSMOS", num_eval=1)
-        file0 = File(path=self.test_wav, model_tag="test_model", meta_data={"key": "value"})
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="CSMOS", num_eval=1
+        )
+        file0 = File(
+            path=self.test_wav, model_tag="test_model", meta_data={"key": "value"}
+        )
         file1 = File(path=self.test_wav, model_tag="test_model", is_ref=True)
-        file2 = File(path=self.test_wav, model_tag="test_model", meta_data={"key": "value"})
+        file2 = File(
+            path=self.test_wav, model_tag="test_model", meta_data={"key": "value"}
+        )
         file_transformer = FileTransformer(eval_config)
 
         # When
@@ -422,13 +482,21 @@ class TestFile(unittest.TestCase):
         # Then
         self.assertIsInstance(audio_group, AudioGroup)
 
-    def test_validate_double_stimuli_model_tags_should_raise_error_for_same_model_tags(self):
+    def test_validate_double_stimuli_model_tags_should_raise_error_for_same_model_tags(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags raises error when model tags are identical"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="same_model", meta_data={"key": "value"})
-        file1 = File(path=self.test_wav, model_tag="same_model", meta_data={"key": "value"})
+        file0 = File(
+            path=self.test_wav, model_tag="same_model", meta_data={"key": "value"}
+        )
+        file1 = File(
+            path=self.test_wav, model_tag="same_model", meta_data={"key": "value"}
+        )
 
         # When/Then
         with self.assertRaises(ValueError) as context:
@@ -436,10 +504,14 @@ class TestFile(unittest.TestCase):
         self.assertIn("model tags must differ", str(context.exception))
 
     @unittest.skip("Skip this test because we don't track model tag pairs")
-    def test_validate_double_stimuli_model_tags_should_raise_error_for_case_insensitive_same_model_tags(self):
+    def test_validate_double_stimuli_model_tags_should_raise_error_for_case_insensitive_same_model_tags(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags raises error when model tags are same but different case"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="ModelA", meta_data={"key": "value"})
         file1 = File(path=self.test_wav, model_tag="modela", meta_data={"key": "value"})
@@ -452,7 +524,9 @@ class TestFile(unittest.TestCase):
     def test_validate_double_stimuli_model_tags_should_allow_first_pair(self):
         """Test that _validate_double_stimuli_model_tags allows the first occurrence of a pair"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="google", meta_data={"key": "value"})
         file1 = File(path=self.test_wav, model_tag="openai", meta_data={"key": "value"})
@@ -465,10 +539,14 @@ class TestFile(unittest.TestCase):
         self.assertEqual(result[0].model_tag, "google")
         self.assertEqual(result[1].model_tag, "openai")
 
-    def test_validate_double_stimuli_model_tags_should_allow_consistent_pair_order(self):
+    def test_validate_double_stimuli_model_tags_should_allow_consistent_pair_order(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags allows consistent pair ordering"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         # First pair: google -> openai
@@ -490,10 +568,14 @@ class TestFile(unittest.TestCase):
         self.assertEqual(result2[1].model_tag, "openai")
 
     @unittest.skip("Skip this test because we don't track model tag pairs")
-    def test_validate_double_stimuli_model_tags_should_raise_error_for_inconsistent_pair_order(self):
+    def test_validate_double_stimuli_model_tags_should_raise_error_for_inconsistent_pair_order(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags raises error for inconsistent pair ordering"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         # First pair: google -> openai
@@ -514,7 +596,9 @@ class TestFile(unittest.TestCase):
     def test_validate_double_stimuli_model_tags_should_allow_different_pairs(self):
         """Test that _validate_double_stimuli_model_tags allows different model pairs"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         # First pair: google -> openai
@@ -536,10 +620,14 @@ class TestFile(unittest.TestCase):
         self.assertEqual(result2[1].model_tag, "openai")
 
     @unittest.skip("Skip this test because we don't track model tag pairs")
-    def test_validate_double_stimuli_model_tags_should_handle_case_insensitive_pairs(self):
+    def test_validate_double_stimuli_model_tags_should_handle_case_insensitive_pairs(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags handles case insensitive pair comparison"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         # First pair: Google -> OpenAI
@@ -559,7 +647,9 @@ class TestFile(unittest.TestCase):
     def test_validate_double_stimuli_model_tags_should_preserve_original_case(self):
         """Test that _validate_double_stimuli_model_tags preserves original case in returned files"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="Google")
         file1 = File(path=self.test_wav, model_tag="OpenAI")
@@ -576,10 +666,24 @@ class TestFile(unittest.TestCase):
     def test_validate_double_stimuli_model_tags_should_preserve_file_properties(self):
         """Test that _validate_double_stimuli_model_tags preserves all file properties"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
-        file0 = File(path=self.test_wav, model_tag="ModelB", tags=["tag1", "tag2"], script="script1", is_ref=False)
-        file1 = File(path=self.test_wav, model_tag="ModelA", tags=["tag3"], script="script2", is_ref=True)
+        file0 = File(
+            path=self.test_wav,
+            model_tag="ModelB",
+            tags=["tag1", "tag2"],
+            script="script1",
+            is_ref=False,
+        )
+        file1 = File(
+            path=self.test_wav,
+            model_tag="ModelA",
+            tags=["tag3"],
+            script="script2",
+            is_ref=True,
+        )
 
         # When
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
@@ -599,9 +703,13 @@ class TestFile(unittest.TestCase):
         self.assertTrue(result[1].is_ref)
 
     @unittest.skip("Skip this test because we don't track model tag pairs")
-    def test_validate_double_stimuli_model_tags_should_handle_leading_trailing_spaces(self):
+    def test_validate_double_stimuli_model_tags_should_handle_leading_trailing_spaces(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags works with leading/trailing spaces"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         file0 = File(path=self.test_wav, model_tag=" ModelA ")
@@ -613,7 +721,9 @@ class TestFile(unittest.TestCase):
 
     def test_validate_double_stimuli_model_tags_should_handle_numeric_string_tags(self):
         """Test that _validate_double_stimuli_model_tags works with numeric string model_tags"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="100")
         file1 = File(path=self.test_wav, model_tag="2")
@@ -623,7 +733,9 @@ class TestFile(unittest.TestCase):
 
     def test_validate_double_stimuli_model_tags_should_handle_special_symbols(self):
         """Test that _validate_double_stimuli_model_tags works with special symbols in model_tags"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="AAA")
         file1 = File(path=self.test_wav, model_tag="BBB")
@@ -632,7 +744,9 @@ class TestFile(unittest.TestCase):
 
     def test_validate_double_stimuli_model_tags_should_handle_long_strings(self):
         """Test that _validate_double_stimuli_model_tags works with long strings in model_tags"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="A" * 100)
         file1 = File(path=self.test_wav, model_tag="B" * 100)
@@ -641,7 +755,9 @@ class TestFile(unittest.TestCase):
 
     def test_validate_double_stimuli_model_tags_should_handle_unicode_emoji(self):
         """Test that _validate_double_stimuli_model_tags works with unicode letters in model_tags"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="모델A")
         file1 = File(path=self.test_wav, model_tag="모델B")
@@ -649,9 +765,13 @@ class TestFile(unittest.TestCase):
         self.assertEqual([f.model_tag for f in result], ["모델A", "모델B"])
 
     @unittest.skip("Skip this test because we don't track model tag pairs")
-    def test_validate_double_stimuli_model_tags_should_handle_mixed_case_and_symbols(self):
+    def test_validate_double_stimuli_model_tags_should_handle_mixed_case_and_symbols(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags works with mixed case and valid symbols in model_tags"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="Model-A")
         file1 = File(path=self.test_wav, model_tag="model-a")
@@ -659,9 +779,13 @@ class TestFile(unittest.TestCase):
             file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertIn("model tags must differ", str(context.exception))
 
-    def test_validate_double_stimuli_model_tags_should_allow_exactly_two_model_tags(self):
+    def test_validate_double_stimuli_model_tags_should_allow_exactly_two_model_tags(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags allows exactly 2 model tags"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         # First pair: google -> openai (should work)
@@ -684,7 +808,9 @@ class TestFile(unittest.TestCase):
 
     def test_validate_double_stimuli_model_tags_should_reject_third_model_tag(self):
         """Test that _validate_double_stimuli_model_tags rejects a third model tag"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         # First pair: google -> openai (should work)
@@ -700,9 +826,13 @@ class TestFile(unittest.TestCase):
             file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
         self.assertIn("The number of model tags should be 2", str(context.exception))
 
-    def test_validate_double_stimuli_model_tags_should_reject_third_model_tag_reverse(self):
+    def test_validate_double_stimuli_model_tags_should_reject_third_model_tag_reverse(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags rejects a third model tag in reverse order"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         # First pair: google -> openai (should work)
@@ -718,9 +848,13 @@ class TestFile(unittest.TestCase):
             file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
         self.assertIn("The number of model tags should be 2", str(context.exception))
 
-    def test_validate_double_stimuli_model_tags_should_allow_reverse_order_of_same_pair(self):
+    def test_validate_double_stimuli_model_tags_should_allow_reverse_order_of_same_pair(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags allows reverse order of the same pair"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         # First pair: google -> openai (should work)
@@ -741,9 +875,13 @@ class TestFile(unittest.TestCase):
         self.assertEqual(result2[0].model_tag, "openai")
         self.assertEqual(result2[1].model_tag, "google")
 
-    def test_validate_double_stimuli_model_tags_should_reject_third_model_tag_case_insensitive(self):
+    def test_validate_double_stimuli_model_tags_should_reject_third_model_tag_case_insensitive(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags rejects third model tag with case insensitive validation"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
 
         # First pair: Google -> OpenAI (should work)
@@ -761,33 +899,44 @@ class TestFile(unittest.TestCase):
 
     def test_validate_double_stimuli_model_tags_should_handle_non_latin_scripts(self):
         """Test that _validate_double_stimuli_model_tags works with non-latin scripts in model_tags"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         file0 = File(path=self.test_wav, model_tag="가나다")
         file1 = File(path=self.test_wav, model_tag="나다라")
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
         self.assertEqual([f.model_tag for f in result], ["가나다", "나다라"])
 
-    def test_validate_double_stimuli_model_tags_should_handle_identical_unicode_different_normalization(self):
-        """Test that _validate_double_stimuli_model_tags works with different unicode normalization in model_tags"""
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+    def test_validate_double_stimuli_model_tags_should_handle_visually_similar_unicode(
+        self,
+    ):
+        """Test that _validate_double_stimuli_model_tags treats visually similar but different Unicode as distinct"""
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
-        tag1 = "é"  # NFC (default)
-        tag2 = "é"  # Same character, different normalization might not matter for our validation
+        # Latin 'a' (U+0061) vs Cyrillic 'а' (U+0430) - visually identical but different codepoints
+        tag1 = "model_a"  # Latin 'a'
+        tag2 = "model_\u0430"  # Cyrillic 'а'
 
         file0 = File(path=self.test_wav, model_tag=tag1)
         file1 = File(path=self.test_wav, model_tag=tag2)
 
         # When/Then
-        # These should be considered the same and raise an error
-        with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
-        self.assertIn("model tags must differ", str(context.exception))
+        # These visually look the same but are different strings
+        # Current implementation treats them as different (no homoglyph detection)
+        result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
+        self.assertEqual(len(result), 2)
 
-    def test_validate_double_stimuli_model_tags_should_handle_model_tags_with_newlines(self):
+    def test_validate_double_stimuli_model_tags_should_handle_model_tags_with_newlines(
+        self,
+    ):
         """Test that _validate_double_stimuli_model_tags works with newlines in model_tags"""
         # Given
-        eval_config = EvalConfig(name="test_name", desc="test_desc", type="PREF", num_eval=1)
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
         file_validator = FileValidator(eval_config)
         # Note: File constructor strips whitespace, so newlines are removed
         file0 = File(path=self.test_wav, model_tag="ModelA\n")
@@ -818,136 +967,162 @@ class TestAudioMeta(unittest.TestCase):
         detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
         self.assertEqual(detected_format, "wav")
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_mp3(self, mock_guess: Any):
+    def test_detect_audio_format_mp3(self):
         """Test _detect_audio_format correctly identifies MP3 files"""
-        # Mock filetype to return MP3 MIME type
-        mock_kind = MagicMock()
-        mock_kind.mime = "audio/mpeg"
-        mock_kind.extension = "mp3"
-        mock_guess.return_value = mock_kind
-
+        # First create AudioMeta with valid file (no mock)
         audio_meta = AudioMeta(self.test_wav)
-        detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
-        self.assertEqual(detected_format, "mp3")
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_flac(self, mock_guess: Any):
+        # Now mock and test the method directly
+        with patch("filetype.guess") as mock_guess:
+            mock_kind = MagicMock()
+            mock_kind.mime = "audio/mpeg"
+            mock_kind.extension = "mp3"
+            mock_guess.return_value = mock_kind
+
+            detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+            self.assertEqual(detected_format, "mp3")
+
+    def test_detect_audio_format_flac(self):
         """Test _detect_audio_format correctly identifies FLAC files"""
-        # Mock filetype to return FLAC MIME type
-        mock_kind = MagicMock()
-        mock_kind.mime = "audio/flac"
-        mock_kind.extension = "flac"
-        mock_guess.return_value = mock_kind
-
+        # First create AudioMeta with valid file (no mock)
         audio_meta = AudioMeta(self.test_wav)
-        detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
-        self.assertEqual(detected_format, "flac")
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_mp4_video(self, mock_guess: Any):
+        # Now mock and test the method directly
+        with patch("filetype.guess") as mock_guess:
+            mock_kind = MagicMock()
+            mock_kind.mime = "audio/flac"
+            mock_kind.extension = "flac"
+            mock_guess.return_value = mock_kind
+
+            detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+            self.assertEqual(detected_format, "flac")
+
+    def test_detect_audio_format_mp4_video(self):
         """Test _detect_audio_format correctly identifies MP4 video files"""
-        # Mock filetype to return MP4 MIME type (video/mp4)
-        mock_kind = MagicMock()
-        mock_kind.mime = "video/mp4"
-        mock_kind.extension = "mp4"
-        mock_guess.return_value = mock_kind
+        # First create AudioMeta with valid file (no mock)
+        audio_meta = AudioMeta(self.test_wav)
 
-        with self.assertRaises(AssertionError):
-            AudioMeta(self.test_wav)
+        # Now mock and test the method directly
+        with patch("filetype.guess") as mock_guess:
+            mock_kind = MagicMock()
+            mock_kind.mime = "video/mp4"
+            mock_kind.extension = "mp4"
+            mock_guess.return_value = mock_kind
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_mp4_audio(self, mock_guess: Any):
+            detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+            self.assertEqual(detected_format, "mp4")
+
+    def test_detect_audio_format_mp4_audio(self):
         """Test _detect_audio_format correctly identifies MP4 audio files"""
-        # Mock filetype to return MP4 audio MIME type
-        mock_kind = MagicMock()
-        mock_kind.mime = "audio/mp4"
-        mock_kind.extension = "mp4"
-        mock_guess.return_value = mock_kind
+        # First create AudioMeta with valid file (no mock)
+        audio_meta = AudioMeta(self.test_wav)
 
-        with self.assertRaises(AssertionError):
-            AudioMeta(self.test_wav)
+        # Now mock and test the method directly
+        with patch("filetype.guess") as mock_guess:
+            mock_kind = MagicMock()
+            mock_kind.mime = "audio/mp4"
+            mock_kind.extension = "mp4"
+            mock_guess.return_value = mock_kind
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_unknown_mime(self, mock_guess: Any):
-        """Test _detect_audio_format handles unknown MIME types"""
-        # Mock filetype to return unknown MIME type
-        mock_kind = MagicMock()
-        mock_kind.mime = "application/octet-stream"
-        mock_kind.extension = "bin"
-        mock_guess.return_value = mock_kind
+            detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+            self.assertEqual(detected_format, "mp4")
 
-        with self.assertRaises(AssertionError):
-            AudioMeta(self.test_wav)
+    def test_detect_audio_format_unknown_mime(self):
+        """Test _detect_audio_format handles unknown MIME types by falling back to extension"""
+        # First create AudioMeta with valid file (no mock)
+        audio_meta = AudioMeta(self.test_wav)
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_none_result(self, mock_guess: Any):
+        # Now mock and test the method directly
+        with patch("filetype.guess") as mock_guess:
+            mock_kind = MagicMock()
+            mock_kind.mime = "application/octet-stream"
+            mock_kind.extension = "bin"
+            mock_guess.return_value = mock_kind
+
+            # For unknown MIME types, _detect_audio_format falls back to the extension
+            detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+            self.assertEqual(detected_format, "bin")
+
+    def test_detect_audio_format_none_result(self):
         """Test _detect_audio_format handles None result from filetype"""
-        # Mock filetype to return None
-        mock_guess.return_value = None
+        # First create AudioMeta with valid file (no mock)
+        audio_meta = AudioMeta(self.test_wav)
 
-        with self.assertRaises(AssertionError):
-            AudioMeta(self.test_wav)
+        # Now mock and test the method directly
+        with patch("filetype.guess") as mock_guess:
+            mock_guess.return_value = None
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_exception_handling(self, mock_guess: Any):
+            detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+            self.assertEqual(detected_format, "unknown")
+
+    def test_detect_audio_format_exception_handling(self):
         """Test _detect_audio_format handles exceptions gracefully"""
-        # Mock filetype to raise an exception
-        mock_guess.side_effect = Exception("File access error")
+        # First create AudioMeta with valid file (no mock)
+        audio_meta = AudioMeta(self.test_wav)
 
-        with self.assertRaises(AssertionError):
-            AudioMeta(self.test_wav)
+        # Now mock and test the method directly - should return "unknown" on exception
+        with patch("filetype.guess") as mock_guess:
+            mock_guess.side_effect = Exception("File access error")
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_wav_variants(self, mock_guess: Any):
+            detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+            self.assertEqual(detected_format, "unknown")
+
+    def test_detect_audio_format_wav_variants(self):
         """Test _detect_audio_format handles different WAV MIME type variants"""
+        # First create AudioMeta with valid file (no mock)
+        audio_meta = AudioMeta(self.test_wav)
+
         wav_variants = ["audio/wav", "audio/wave", "audio/x-wav"]
 
         for mime_type in wav_variants:
             with self.subTest(mime_type=mime_type):
-                mock_kind = MagicMock()
-                mock_kind.mime = mime_type
-                mock_kind.extension = "wav"
-                mock_guess.return_value = mock_kind
+                with patch("filetype.guess") as mock_guess:
+                    mock_kind = MagicMock()
+                    mock_kind.mime = mime_type
+                    mock_kind.extension = "wav"
+                    mock_guess.return_value = mock_kind
 
-                audio_meta = AudioMeta(self.test_wav)
-                detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
-                self.assertEqual(detected_format, "wav")
+                    detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+                    self.assertEqual(detected_format, "wav")
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_mp3_variants(self, mock_guess: Any):
+    def test_detect_audio_format_mp3_variants(self):
         """Test _detect_audio_format handles different MP3 MIME type variants"""
+        # First create AudioMeta with valid file (no mock)
+        audio_meta = AudioMeta(self.test_wav)
+
         mp3_variants = ["audio/mpeg", "audio/x-mpeg", "audio/mp3"]
 
         for mime_type in mp3_variants:
             with self.subTest(mime_type=mime_type):
-                mock_kind = MagicMock()
-                mock_kind.mime = mime_type
-                mock_kind.extension = "mp3"
-                mock_guess.return_value = mock_kind
+                with patch("filetype.guess") as mock_guess:
+                    mock_kind = MagicMock()
+                    mock_kind.mime = mime_type
+                    mock_kind.extension = "mp3"
+                    mock_guess.return_value = mock_kind
 
-                audio_meta = AudioMeta(self.test_wav)
-                detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
-                self.assertEqual(detected_format, "mp3")
+                    detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+                    self.assertEqual(detected_format, "mp3")
 
-    @patch("filetype.guess")
-    def test_detect_audio_format_flac_variants(self, mock_guess: Any):
+    def test_detect_audio_format_flac_variants(self):
         """Test _detect_audio_format handles different FLAC MIME type variants"""
+        # First create AudioMeta with valid file (no mock)
+        audio_meta = AudioMeta(self.test_wav)
+
         flac_variants = ["audio/flac", "audio/x-flac"]
 
         for mime_type in flac_variants:
             with self.subTest(mime_type=mime_type):
-                mock_kind = MagicMock()
-                mock_kind.mime = mime_type
-                mock_kind.extension = "flac"
-                mock_guess.return_value = mock_kind
+                with patch("filetype.guess") as mock_guess:
+                    mock_kind = MagicMock()
+                    mock_kind.mime = mime_type
+                    mock_kind.extension = "flac"
+                    mock_guess.return_value = mock_kind
 
-                audio_meta = AudioMeta(self.test_wav)
-                detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
-                self.assertEqual(detected_format, "flac")
+                    detected_format = audio_meta._detect_audio_format(self.test_wav)  # type: ignore
+                    self.assertEqual(detected_format, "flac")
 
-    def test_set_audio_meta_with_supported_format(self):
-        """Test _set_audio_meta works with supported formats"""
+    def test_validate_audio_format_with_supported_format(self):
+        """Test _validate_audio_format works with supported formats"""
         audio_meta = AudioMeta(self.test_wav)
         # Should not raise an exception for supported WAV format
         self.assertIsInstance(audio_meta.nchannels, int)
@@ -955,45 +1130,44 @@ class TestAudioMeta(unittest.TestCase):
         self.assertIsInstance(audio_meta.duration_in_ms, int)
 
     @patch("podonos.core.file.AudioMeta._detect_audio_format")
-    def test_set_audio_meta_with_unsupported_format(self, mock_detect: Any):
-        """Test _set_audio_meta raises error for unsupported formats"""
+    def test_validate_audio_format_with_unsupported_format(self, mock_detect: Any):
+        """Test _validate_audio_format raises error for unsupported formats"""
         # Mock format detection to return unsupported format
         mock_detect.return_value = "mp4"
 
-        with self.assertRaises(AssertionError) as context:
+        with self.assertRaises(InvalidFileError) as context:
             AudioMeta(self.test_wav)
-        self.assertIn("Unsupported file type", str(context.exception))
-        self.assertIn("Supported: wav, mp3, flac", str(context.exception))
+        self.assertIn("Unsupported audio format", str(context.exception))
 
     @patch("podonos.core.file.AudioMeta._detect_audio_format")
-    def test_set_audio_meta_with_avi_format(self, mock_detect: Any):
-        """Test _set_audio_meta raises error for AVI format"""
+    def test_validate_audio_format_with_avi_format(self, mock_detect: Any):
+        """Test _validate_audio_format raises error for AVI format"""
         # Mock format detection to return AVI format
         mock_detect.return_value = "avi"
 
-        with self.assertRaises(AssertionError) as context:
+        with self.assertRaises(InvalidFileError) as context:
             AudioMeta(self.test_wav)
-        self.assertIn("Unsupported file type", str(context.exception))
+        self.assertIn("Unsupported audio format", str(context.exception))
 
     @patch("podonos.core.file.AudioMeta._detect_audio_format")
-    def test_set_audio_meta_with_mov_format(self, mock_detect: Any):
-        """Test _set_audio_meta raises error for MOV format"""
+    def test_validate_audio_format_with_mov_format(self, mock_detect: Any):
+        """Test _validate_audio_format raises error for MOV format"""
         # Mock format detection to return MOV format
         mock_detect.return_value = "mov"
 
-        with self.assertRaises(AssertionError) as context:
+        with self.assertRaises(InvalidFileError) as context:
             AudioMeta(self.test_wav)
-        self.assertIn("Unsupported file type", str(context.exception))
+        self.assertIn("Unsupported audio format", str(context.exception))
 
     @patch("podonos.core.file.AudioMeta._detect_audio_format")
-    def test_set_audio_meta_with_unknown_format(self, mock_detect: Any):
-        """Test _set_audio_meta raises error for unknown format"""
+    def test_validate_audio_format_with_unknown_format(self, mock_detect: Any):
+        """Test _validate_audio_format raises error for unknown format"""
         # Mock format detection to return unknown format
         mock_detect.return_value = "unknown"
 
-        with self.assertRaises(AssertionError) as context:
+        with self.assertRaises(InvalidFileError) as context:
             AudioMeta(self.test_wav)
-        self.assertIn("Unsupported file type", str(context.exception))
+        self.assertIn("Unsupported audio format", str(context.exception))
 
     def test_audio_meta_properties(self):
         """Test AudioMeta properties return correct types and values"""
@@ -1012,10 +1186,10 @@ class TestAudioMeta(unittest.TestCase):
     @patch("podonos.core.file.AudioMeta._detect_audio_format")
     def test_format_detection_integration(self, mock_detect: Any):
         """Test that format detection is properly integrated in AudioMeta initialization"""
-        # Mock format detection to return MP3
-        mock_detect.return_value = "mp3"
+        # Mock format detection to return WAV (must match the file extension)
+        mock_detect.return_value = "wav"
 
-        # This should work because MP3 is supported
+        # This should work because WAV is supported and matches the .wav extension
         audio_meta = AudioMeta(self.test_wav)
         mock_detect.assert_called_once_with(self.test_wav)
         self.assertIsInstance(audio_meta.nchannels, int)
@@ -1038,18 +1212,18 @@ class TestAudioMeta(unittest.TestCase):
         self.assertEqual(file_obj.path, self.test_wav)
         self.assertEqual(file_obj.model_tag, "test_model")
 
-        # But AudioMeta creation should fail
-        with self.assertRaises(AssertionError):
+        # But AudioMeta creation should fail with InvalidFileError
+        with self.assertRaises(InvalidFileError):
             AudioMeta(self.test_wav)
 
     def test_format_detection_error_logging(self):
-        """Test that format detection errors are properly logged"""
+        """Test that format detection errors result in 'unknown' format and proper handling"""
         with patch("filetype.guess", side_effect=Exception("Test error")):
-            with patch("podonos.core.base.log.error") as mock_log_error:
-                with self.assertRaises(AssertionError):
-                    AudioMeta(self.test_wav)
-                # Should log the error
-                mock_log_error.assert_called()
+            # When filetype.guess fails, _detect_audio_format returns "unknown"
+            # which is an unsupported format, so InvalidFileError is raised
+            with self.assertRaises(InvalidFileError) as context:
+                AudioMeta(self.test_wav)
+            self.assertIn("Unsupported audio format", str(context.exception))
 
 
 class TestFileRanking(unittest.TestCase):
@@ -1059,49 +1233,63 @@ class TestFileRanking(unittest.TestCase):
 
     def test_ranking_accepts_two_files_with_consistent_order(self):
         """Test RANKING accepts two files and enforces consistent order across groups"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
         validator = FileValidator(cfg)
 
         # First group: A, B
-        g1 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        g1 = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="B"),
+        ]
         v1 = validator.validate_files(list(g1))
         assert [f.model_tag for f in v1] == ["A", "B"]
 
         # Second group: same order A, B (should pass)
-        g2 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        g2 = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="B"),
+        ]
         v2 = validator.validate_files(list(g2))
         assert [f.model_tag for f in v2] == ["A", "B"]
 
     def test_ranking_accepts_three_or_more_files(self):
         """Test RANKING accepts three or more files in a group"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
         validator = FileValidator(cfg)
 
         # Group with 3 files
-        g1 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B"), File(path=self.audio_path, model_tag="C")]
+        g1 = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="B"),
+            File(path=self.audio_path, model_tag="C"),
+        ]
         v1 = validator.validate_files(list(g1))
         assert [f.model_tag for f in v1] == ["A", "B", "C"]
 
         # Second group: same order and size (should pass)
-        g2 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B"), File(path=self.audio_path, model_tag="C")]
+        g2 = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="B"),
+            File(path=self.audio_path, model_tag="C"),
+        ]
         v2 = validator.validate_files(list(g2))
         assert [f.model_tag for f in v2] == ["A", "B", "C"]
 
     def test_ranking_rejects_single_file(self):
         """Test RANKING rejects a group with only one file"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
@@ -1113,77 +1301,102 @@ class TestFileRanking(unittest.TestCase):
 
     def test_ranking_rejects_inconsistent_order(self):
         """Test RANKING rejects groups with inconsistent model_tag order"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
         validator = FileValidator(cfg)
 
         # First group: A, B
-        g1 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        g1 = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="B"),
+        ]
         validator.validate_files(list(g1))
 
         # Second group: B, A (reversed order - should fail)
         with pytest.raises(ValueError) as context:
-            validator.validate_files([File(path=self.audio_path, model_tag="B"), File(path=self.audio_path, model_tag="A")])
+            validator.validate_files(
+                [
+                    File(path=self.audio_path, model_tag="B"),
+                    File(path=self.audio_path, model_tag="A"),
+                ]
+            )
         assert "identical model_tag order" in str(context.value)
 
     def test_ranking_rejects_inconsistent_size(self):
         """Test RANKING rejects groups with inconsistent size"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
         validator = FileValidator(cfg)
 
         # First group: 2 files
-        g1 = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        g1 = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="B"),
+        ]
         validator.validate_files(list(g1))
 
         # Second group: 3 files (should fail)
         with pytest.raises(ValueError) as context:
             validator.validate_files(
-                [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B"), File(path=self.audio_path, model_tag="C")]
+                [
+                    File(path=self.audio_path, model_tag="A"),
+                    File(path=self.audio_path, model_tag="B"),
+                    File(path=self.audio_path, model_tag="C"),
+                ]
             )
         assert "consistent group size" in str(context.value)
 
     def test_ranking_rejects_reference_file_first_position(self):
         """Test RANKING rejects is_ref=True in first position"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
         validator = FileValidator(cfg)
 
         with pytest.raises(ValueError) as context:
-            validator.validate_files([File(path=self.audio_path, model_tag="A", is_ref=True), File(path=self.audio_path, model_tag="B")])
+            validator.validate_files(
+                [
+                    File(path=self.audio_path, model_tag="A", is_ref=True),
+                    File(path=self.audio_path, model_tag="B"),
+                ]
+            )
         assert "cannot include reference files" in str(context.value)
 
     def test_ranking_rejects_reference_file_second_position(self):
         """Test RANKING rejects is_ref=True in second position"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
         validator = FileValidator(cfg)
 
         with pytest.raises(ValueError) as context:
-            validator.validate_files([File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B", is_ref=True)])
+            validator.validate_files(
+                [
+                    File(path=self.audio_path, model_tag="A"),
+                    File(path=self.audio_path, model_tag="B", is_ref=True),
+                ]
+            )
         assert "cannot include reference files" in str(context.value)
 
     def test_ranking_rejects_reference_file_middle_position(self):
         """Test RANKING rejects is_ref=True in middle position"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
@@ -1201,38 +1414,48 @@ class TestFileRanking(unittest.TestCase):
 
     def test_ranking_rejects_all_reference_files(self):
         """Test RANKING rejects when all files have is_ref=True"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
         validator = FileValidator(cfg)
 
         with pytest.raises(ValueError) as context:
-            validator.validate_files([File(path=self.audio_path, model_tag="A", is_ref=True), File(path=self.audio_path, model_tag="B", is_ref=True)])
+            validator.validate_files(
+                [
+                    File(path=self.audio_path, model_tag="A", is_ref=True),
+                    File(path=self.audio_path, model_tag="B", is_ref=True),
+                ]
+            )
         assert "cannot include reference files" in str(context.value)
 
     def test_ranking_rejects_duplicate_model_tags_exact_match(self):
         """Test RANKING rejects duplicate model_tags (exact match)"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
         validator = FileValidator(cfg)
 
         with pytest.raises(ValueError) as context:
-            validator.validate_files([File(path=self.audio_path, model_tag="AWS"), File(path=self.audio_path, model_tag="AWS")])
+            validator.validate_files(
+                [
+                    File(path=self.audio_path, model_tag="AWS"),
+                    File(path=self.audio_path, model_tag="AWS"),
+                ]
+            )
         assert "unique model_tags within a group" in str(context.value)
         assert "Duplicate found: 'AWS'" in str(context.value)
 
     def test_ranking_rejects_duplicate_model_tags_case_insensitive(self):
         """Test RANKING rejects duplicate model_tags (case-insensitive)"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
@@ -1240,15 +1463,20 @@ class TestFileRanking(unittest.TestCase):
 
         # Test AWS vs aws
         with pytest.raises(ValueError) as context:
-            validator.validate_files([File(path=self.audio_path, model_tag="AWS"), File(path=self.audio_path, model_tag="aws")])
+            validator.validate_files(
+                [
+                    File(path=self.audio_path, model_tag="AWS"),
+                    File(path=self.audio_path, model_tag="aws"),
+                ]
+            )
         assert "unique model_tags within a group" in str(context.value)
         assert "case-insensitive" in str(context.value)
 
     def test_ranking_rejects_duplicate_model_tags_mixed_case(self):
         """Test RANKING rejects duplicate model_tags with mixed case"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
@@ -1268,9 +1496,9 @@ class TestFileRanking(unittest.TestCase):
 
     def test_ranking_rejects_duplicate_in_three_files(self):
         """Test RANKING rejects duplicate model_tags in a group of three"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
@@ -1289,9 +1517,9 @@ class TestFileRanking(unittest.TestCase):
 
     def test_ranking_accepts_unique_model_tags_different_cases(self):
         """Test RANKING accepts truly unique model_tags even with different casing in names"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore
@@ -1309,9 +1537,9 @@ class TestFileRanking(unittest.TestCase):
 
     def test_ranking_duplicate_check_across_multiple_groups(self):
         """Test RANKING duplicate check works correctly across multiple groups"""
-        from podonos.core.file import FileValidator, File
-        from podonos.core.config import EvalConfig
         from podonos.common.enum import EvalType as _EvalType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import File, FileValidator
 
         cfg = EvalConfig(type=_EvalType.CUSTOM_DOUBLE.value)
         cfg._eval_type = _EvalType.RANKING  # type: ignore

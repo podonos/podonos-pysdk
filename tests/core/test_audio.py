@@ -2,8 +2,9 @@ import os
 import unittest
 from datetime import datetime
 
-from podonos.core.file import File, Audio, AudioGroup, AudioMeta
 from podonos.common.enum import QuestionFileType
+from podonos.core.file import Audio, AudioGroup, AudioMeta, File
+from podonos.errors import InvalidFileError
 
 TESTDATA_SPEECH_TWO_CH1_M4A = os.path.join(
     os.path.dirname(__file__), "speech_two_ch1.m4a"
@@ -66,9 +67,10 @@ class TestAudioMeta(unittest.TestCase):
         self.assertTrue(meta.duration_in_ms == 558)
 
     def test_audio_meta_unsupported_format(self):
-        with self.assertRaises(AssertionError) as context:
+        """Test that unsupported formats raise InvalidFileError."""
+        with self.assertRaises(InvalidFileError) as context:
             AudioMeta(TESTDATA_SPEECH_TWO_CH1_M4A)
-        self.assertTrue("Unsupported file type" in str(context.exception))
+        self.assertIn("Unsupported", str(context.exception))
 
 
 class TestAudio(unittest.TestCase):
