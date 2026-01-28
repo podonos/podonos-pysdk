@@ -231,7 +231,7 @@ class HumanEvaluation:
             json: Template JSON as a dictionary. Optional if json_file is provided.
             json_file: Path to the JSON template file. Optional if json is provided.
             name: This evaluation name. Required.
-            custom_type: Type of evaluation ("SINGLE" or "DOUBLE")
+            custom_type: Type of evaluation ("SINGLE", "DOUBLE", or "RANKING")
             desc: Description of this evaluation. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
@@ -245,7 +245,7 @@ class HumanEvaluation:
 
         Raises:
             ValueError: If neither json nor json_file is provided, or if both are provided
-            ValueError: If custom_type is not "SINGLE" or "DOUBLE"
+            ValueError: If custom_type is not "SINGLE", "DOUBLE", or "RANKING"
             ValueError: If the JSON is invalid or contains incompatible question types
             FileNotFoundError: If the json_file path doesn't exist
         """
@@ -268,10 +268,19 @@ class HumanEvaluation:
         template_data = TemplateJsonLoader.load_json(json, json_file)
 
         # Use the validator from template.py (pass eval_type for RANKING restrictions)
-        instructions, core_questions = TemplateValidator.validate_and_create_questions(
-            template_data, batch_size, eval_type
+        instructions, core_questions, annotations = (
+            TemplateValidator.validate_and_create_questions(
+                template_data, batch_size, eval_type
+            )
         )
         log.info("Template JSON is validated.")
+
+        # Mutual exclusivity check: use_annotation and explicit AnnotationQuestion cannot be used together
+        if use_annotation and annotations:
+            raise ValueError(
+                "Cannot use both 'use_annotation=True' and explicit AnnotationQuestion objects. "
+                "Set 'use_annotation=False' when providing custom annotation questions in the template JSON."
+            )
 
         # Create an evaluator
         eval_config = EvalConfig(
@@ -316,6 +325,12 @@ class HumanEvaluation:
                 log.debug(f"Creating {len(core_questions)} core questions...")
                 core_questions = template_service.create_template_questions_by_evaluation_id_and_questions(
                     evaluator.get_evaluation_id(), core_questions
+                )
+
+            if annotations:
+                log.debug(f"Creating {len(annotations)} annotation questions...")
+                template_service.create_template_questions_by_evaluation_id_and_questions(
+                    evaluator.get_evaluation_id(), annotations
                 )
 
             # Create options for questions that have options

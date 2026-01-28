@@ -1,18 +1,24 @@
 import json as json_lib
-from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, Optional, List, Dict, Any, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
-from podonos.common.enum import Language
+from podonos.common.enum import EvalType, Language
 from podonos.common.validator import Rules, validate_args
-from podonos.common.enum import EvalType
 from podonos.core.base import *
+from podonos.core.query import (
+    TYPE_OF_REFERENCE_FILES,
+    AnnotationQuestion,
+    ComparisonQuestion,
+    Instruction,
+    NonScoredQuestion,
+    Question,
+    ScoredQuestion,
+)
 from podonos.core.types import TemplateQuestion
-from podonos.core.query import NonScoredQuestion, Question, Instruction, ComparisonQuestion, ScoredQuestion
-from podonos.core.query import TYPE_OF_REFERENCE_FILES
 
-TYPE_OF_TEMPLATE_KEY = Literal["questions", "instructions"]
+TYPE_OF_TEMPLATE_KEY = Literal["questions", "instructions", "annotations"]
 
 
 @dataclass
@@ -56,8 +62,12 @@ class Template:
             batch_size=data["batch_size"],
             language=Language.from_value(data["language"]),
             evaluation_type=data.get("eval_type"),
-            created_time=datetime.fromisoformat(data["created_time"].replace("Z", "+00:00")),
-            updated_time=datetime.fromisoformat(data["updated_time"].replace("Z", "+00:00")),
+            created_time=datetime.fromisoformat(
+                data["created_time"].replace("Z", "+00:00")
+            ),
+            updated_time=datetime.fromisoformat(
+                data["updated_time"].replace("Z", "+00:00")
+            ),
         )
 
 
@@ -65,8 +75,12 @@ class TemplateJsonLoader:
     """Loader class for template JSON data"""
 
     @staticmethod
-    @validate_args(json=Rules.dict_not_none_or_none, json_file=Rules.str_not_none_or_none)
-    def load_json(json: Optional[Dict[str, Any]] = None, json_file: Optional[str] = None) -> Dict[TYPE_OF_TEMPLATE_KEY, Any]:
+    @validate_args(
+        json=Rules.dict_not_none_or_none, json_file=Rules.str_not_none_or_none
+    )
+    def load_json(
+        json: Optional[Dict[str, Any]] = None, json_file: Optional[str] = None
+    ) -> Dict[TYPE_OF_TEMPLATE_KEY, Any]:
         """Load template JSON data from a file"""
         # Validate input parameters
         if json is None and json_file is None:
@@ -95,10 +109,14 @@ class TemplateValidator:
     """Validator class for template JSON data"""
 
     @staticmethod
-    @validate_args(data=Rules.dict_not_none, batch_size=Rules.positive_not_none, eval_type=Rules.instance_of(EvalType))
+    @validate_args(
+        data=Rules.dict_not_none,
+        batch_size=Rules.positive_not_none,
+        eval_type=Rules.instance_of(EvalType),
+    )
     def validate_and_create_questions(
         data: Dict[TYPE_OF_TEMPLATE_KEY, Any], batch_size: int, eval_type: EvalType
-    ) -> Tuple[List[TemplateQuestion], List[TemplateQuestion]]:
+    ) -> Tuple[List[TemplateQuestion], List[TemplateQuestion], List[TemplateQuestion]]:
         """Validates the template JSON data and returns TemplateQuestion objects.
 
         Args:
@@ -107,7 +125,7 @@ class TemplateValidator:
             eval_type: If set to RANKING, restricts allowed question types accordingly.
 
         Returns:
-            Tuple of (instructions, questions)
+            Tuple of (instructions, questions, annotations)
 
         Raises:
             ValueError: If template structure is invalid or contains incompatible questions
@@ -123,17 +141,51 @@ class TemplateValidator:
         # Restrict types for RANKING: only Instruction and ComparisonQuestion are allowed
         ranking_mode = eval_type == EvalType.RANKING
         instructions_expected = [Instruction]
-        core_expected = [ComparisonQuestion] if ranking_mode else [ScoredQuestion, NonScoredQuestion, ComparisonQuestion]
+        core_expected = (
+            [ComparisonQuestion]
+            if ranking_mode
+            else [ScoredQuestion, NonScoredQuestion, ComparisonQuestion]
+        )
 
-        instructions = TemplateValidator.process_questions(data, "instructions", instructions_expected, batch_size, allow_ranking_only=ranking_mode)
-        core_questions = TemplateValidator.process_questions(data, "questions", core_expected, batch_size, allow_ranking_only=ranking_mode)
+        instructions = TemplateValidator.process_questions(
+            data,
+            "instructions",
+            instructions_expected,
+            batch_size,
+            allow_ranking_only=ranking_mode,
+        )
+        core_questions = TemplateValidator.process_questions(
+            data,
+            "questions",
+            core_expected,
+            batch_size,
+            allow_ranking_only=ranking_mode,
+        )
 
-        log.debug(f"Processed {len(instructions)} instructions and {len(core_questions)} questions")
+        # Process annotations if present
+        annotations: List[TemplateQuestion] = []
+        if "annotations" in data:
+            annotations = TemplateValidator.process_questions(
+                data,
+                "annotations",
+                [AnnotationQuestion],
+                batch_size,
+                allow_ranking_only=False,
+            )
 
-        return instructions, core_questions
+        log.debug(
+            f"Processed {len(instructions)} instructions, {len(core_questions)} questions, and {len(annotations)} annotations"
+        )
+
+        return instructions, core_questions, annotations
 
     @staticmethod
-    @validate_args(data=Rules.dict_not_none, key=Rules.str_not_none, expected_types=Rules.list_not_none, batch_size=Rules.positive_not_none)
+    @validate_args(
+        data=Rules.dict_not_none,
+        key=Rules.str_not_none,
+        expected_types=Rules.list_not_none,
+        batch_size=Rules.positive_not_none,
+    )
     def process_questions(
         data: Dict[TYPE_OF_TEMPLATE_KEY, Any],
         key: str,
@@ -167,12 +219,21 @@ class TemplateValidator:
         questions: List[TemplateQuestion] = []
         for i, q_data in enumerate(data[key]):
             try:
-                question = Question.from_dict(q_data, batch_size, allow_ranking_only=allow_ranking_only)
+                question = Question.from_dict(
+                    q_data, batch_size, allow_ranking_only=allow_ranking_only
+                )
                 question.validate()
 
-                if not any(isinstance(question, expected_type) for expected_type in expected_types):
-                    types = ", ".join([expected_type.__name__ for expected_type in expected_types])
-                    raise ValueError(f"Question in {key} section must be one of the following types: {types}, got {q_data.get('type')}")
+                if not any(
+                    isinstance(question, expected_type)
+                    for expected_type in expected_types
+                ):
+                    types = ", ".join(
+                        [expected_type.__name__ for expected_type in expected_types]
+                    )
+                    raise ValueError(
+                        f"Question in {key} section must be one of the following types: {types}, got {q_data.get('type')}"
+                    )
 
                 if isinstance(question, ComparisonQuestion) and batch_size == 1:
                     raise ValueError(
@@ -181,12 +242,19 @@ class TemplateValidator:
                     )
 
                 if isinstance(question, Instruction) and question.reference_files:
-                    TemplateValidator.check_if_reference_file_is_audio_file(None, question.reference_files)
+                    TemplateValidator.check_if_reference_file_is_audio_file(
+                        None, question.reference_files
+                    )
 
-                if (isinstance(question, ScoredQuestion) or isinstance(question, NonScoredQuestion)) and question.options:
+                if (
+                    isinstance(question, ScoredQuestion)
+                    or isinstance(question, NonScoredQuestion)
+                ) and question.options:
                     for option in question.options:
                         if option.reference_file:
-                            TemplateValidator.check_if_reference_file_is_audio_file(option.reference_file, None)
+                            TemplateValidator.check_if_reference_file_is_audio_file(
+                                option.reference_file, None
+                            )
 
                 template_question = question.to_template_question()
                 template_question.order = i
@@ -198,14 +266,21 @@ class TemplateValidator:
         return questions
 
     @staticmethod
-    @validate_args(reference_file=Rules.str_not_none_or_none, reference_files=Rules.list_not_none_or_none)
-    def check_if_reference_file_is_audio_file(reference_file: Optional[str], reference_files: TYPE_OF_REFERENCE_FILES) -> None:
+    @validate_args(
+        reference_file=Rules.str_not_none_or_none,
+        reference_files=Rules.list_not_none_or_none,
+    )
+    def check_if_reference_file_is_audio_file(
+        reference_file: Optional[str], reference_files: TYPE_OF_REFERENCE_FILES
+    ) -> None:
         """Check if the reference file is valid"""
         if reference_file is None and reference_files is None:
             return
 
         if reference_file is not None and reference_files is not None:
-            raise ValueError("Only one of 'reference_file' or 'reference_files' should be provided. The instruction only supports 'reference_files'")
+            raise ValueError(
+                "Only one of 'reference_file' or 'reference_files' should be provided. The instruction only supports 'reference_files'"
+            )
 
         if reference_file is not None:
             if not Path(reference_file).exists():
@@ -215,7 +290,9 @@ class TemplateValidator:
                 raise ValueError(f"Reference file is not a file: {reference_file}")
 
             if not Path(reference_file).suffix.lower() in [".wav", ".mp3", ".flac"]:
-                raise ValueError(f"Reference file must be an audio file: {reference_file}. Supported formats: .wav, .mp3, .flac")
+                raise ValueError(
+                    f"Reference file must be an audio file: {reference_file}. Supported formats: .wav, .mp3, .flac"
+                )
 
         if reference_files is not None:
             for file in reference_files:
@@ -228,7 +305,11 @@ class TemplateValidator:
                     raise ValueError(f"Reference file is not a file: {path}")
 
                 if not Path(path).suffix.lower() in [".wav", ".mp3", ".flac"]:
-                    raise ValueError(f"Reference file must be an audio file: {path}. Supported formats: .wav, .mp3, .flac")
+                    raise ValueError(
+                        f"Reference file must be an audio file: {path}. Supported formats: .wav, .mp3, .flac"
+                    )
 
                 if type not in ["reference", "target", "audio"]:
-                    raise ValueError(f"Reference file type must be one of the following: reference, target, audio. Got {type}")
+                    raise ValueError(
+                        f"Reference file type must be one of the following: reference, target, audio. Got {type}"
+                    )

@@ -39,7 +39,9 @@ class EvalType(Enum):
         elif batch_size == 3:
             return EvalType.CSMOS
         else:
-            raise ValueError(f"Invalid batch size: {batch_size}. Use one of the following: {', '.join([item.value for item in EvalType])}")
+            raise ValueError(
+                f"Invalid batch size: {batch_size}. Use one of the following: {', '.join([item.value for item in EvalType])}"
+            )
 
     @staticmethod
     def get_single_types() -> List["EvalType"]:
@@ -62,7 +64,9 @@ class EvalType(Enum):
         return [EvalType.RANKING]
 
     @staticmethod
-    def selected_from_template_evaluation_type(evaluation_type: str, batch_size: Optional[int] = None) -> "EvalType":
+    def selected_from_template_evaluation_type(
+        evaluation_type: str, batch_size: Optional[int] = None
+    ) -> "EvalType":
         """
         Map template.evaluation_type (e.g., 'SPEECH_NMOS', 'SPEECH_RANKING', 'CUSTOM') to EvalType.
         If evaluation_type is 'CUSTOM', batch_size is required to disambiguate.
@@ -193,6 +197,7 @@ class QuestionResponseCategory(Enum):
     CHOICE_ONE_NO_SCORE = "CHOICE_ONE_NO_SCORE"
     SCALE_LINEAR = "SCALE_LINEAR"
     INSTRUCTION = "INSTRUCTION"
+    ANNOTATION = "ANNOTATION"
 
 
 class QuestionUsageType(Enum):
@@ -201,6 +206,7 @@ class QuestionUsageType(Enum):
     GUIDELINE_WARNING = "GUIDELINE_WARNING"
     GUIDELINE_PROHIBIT = "GUIDELINE_PROHIBIT"
     SCORE = "SCORE"
+    ANNOTATION = "ANNOTATION"
 
     @staticmethod
     def is_score(usage_type: "QuestionUsageType") -> bool:
@@ -214,6 +220,16 @@ class InstructionCategory(Enum):
     DONT = "DONT"
 
 
+class QuestionType(Enum):
+    """Type of question in evaluation templates."""
+
+    SCORED = "SCORED"
+    NON_SCORED = "NON_SCORED"
+    COMPARISON = "COMPARISON"
+    ANNOTATION = "ANNOTATION"
+    INSTRUCTION = "INSTRUCTION"
+
+
 class QuestionRelatedModel(Enum):
     ALL = "ALL"
     MODEL_A = "MODEL_A"
@@ -224,7 +240,9 @@ class QuestionRelatedModel(Enum):
         for member in QuestionRelatedModel:
             if member.value == value:
                 return member
-        raise ValueError(f"Invalid related model: {value}. Use one of the following: {', '.join([item.value for item in QuestionRelatedModel])}")
+        raise ValueError(
+            f"Invalid related model: {value}. Use one of the following: {', '.join([item.value for item in QuestionRelatedModel])}"
+        )
 
     @staticmethod
     def is_member(value: str) -> bool:
@@ -239,7 +257,9 @@ class CollectionTarget(Enum):
         for member in CollectionTarget:
             if member.value == value:
                 return member
-        raise ValueError(f"Invalid collection target: {value}. Use one of the following: {', '.join([item.value for item in CollectionTarget])}")
+        raise ValueError(
+            f"Invalid collection target: {value}. Use one of the following: {', '.join([item.value for item in CollectionTarget])}"
+        )
 
 
 class CollectionCustomerStatus(Enum):

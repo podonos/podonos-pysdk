@@ -1,32 +1,48 @@
-from typing import Any, Dict, List
 import unittest
-from podonos.core.query import TYPE_OF_QUESTION_KEY, Question, ScoredQuestion, NonScoredQuestion, ComparisonQuestion, Instruction, Option
+from typing import Any, Dict, List
+
 from podonos.common.enum import InstructionCategory, QuestionRelatedModel
-from podonos.core.types import QuestionMetadataColumn, QuestionMetadataLinearScale, QuestionMetadataPosition
+from podonos.core.query import (
+    TYPE_OF_QUESTION_KEY,
+    ComparisonQuestion,
+    Instruction,
+    NonScoredQuestion,
+    Option,
+    Question,
+    ScoredQuestion,
+)
+from podonos.core.types import (
+    QuestionMetadataColumn,
+    QuestionMetadataLinearScale,
+    QuestionMetadataPosition,
+)
 
 
 class TestQuery(unittest.TestCase):
     def test_scored_question(self):
         # Given
-        title = "Rate your experience"
+        question_text = "Rate your experience"
         description = "Please rate your overall experience"
         options = [Option("1", "Poor"), Option("2", "Fair"), Option("3", "Good")]
         batch_size = 1
         # When
-        question = ScoredQuestion(title, options, QuestionRelatedModel.ALL, batch_size, description)
+        question = ScoredQuestion(
+            question_text, options, QuestionRelatedModel.ALL, batch_size, description
+        )
         template = question.to_template_question()
 
         # Then
-        self.assertEqual(question.title, title)
+        self.assertEqual(question.question, question_text)
+        self.assertEqual(question.question_or_instruction, question_text)
         self.assertEqual(question.description, description)
         self.assertEqual(question.type, "SCORED")
         self.assertEqual(len(question.options), 3)
-        self.assertEqual(template.title, title)
+        self.assertEqual(template.title, question_text)
         self.assertEqual(len(template.options), 3)
 
     def test_non_scored_question(self):
         # Given
-        title = "Select your interests"
+        question_text = "Select your interests"
         description = "Choose all that apply"
         options = [Option("reading", "Reading"), Option("sports", "Sports")]
         allow_multiple = True
@@ -35,7 +51,7 @@ class TestQuery(unittest.TestCase):
 
         # When
         question = NonScoredQuestion(
-            question=title,
+            question=question_text,
             options=options,
             description=description,
             allow_multiple=allow_multiple,
@@ -46,7 +62,8 @@ class TestQuery(unittest.TestCase):
         template = question.to_template_question()
 
         # Then
-        self.assertEqual(question.title, title)
+        self.assertEqual(question.question, question_text)
+        self.assertEqual(question.question_or_instruction, question_text)
         self.assertEqual(question.type, "NON_SCORED")
         self.assertTrue(question.allow_multiple)
         self.assertTrue(question.has_other)
@@ -54,11 +71,13 @@ class TestQuery(unittest.TestCase):
 
     def test_comparison_question(self):
         # Given
-        title = "Compare importance"
+        question_text = "Compare importance"
         meta_data = QuestionMetadataColumn(
             linear_scale=QuestionMetadataLinearScale(
                 title="Importance",
-                label_text=QuestionMetadataPosition(left="Not important", right="Very important"),
+                label_text=QuestionMetadataPosition(
+                    left="Not important", right="Very important"
+                ),
             )
         )
         description = "Rate from 1-7"
@@ -67,40 +86,47 @@ class TestQuery(unittest.TestCase):
         related_model = QuestionRelatedModel.ALL
 
         # When
-        question = ComparisonQuestion(title, meta_data, related_model, batch_size, scale, description)
+        question = ComparisonQuestion(
+            question_text, meta_data, related_model, batch_size, scale, description
+        )
         template = question.to_template_question()
 
         # Then
-        self.assertEqual(question.title, title)
+        self.assertEqual(question.question, question_text)
+        self.assertEqual(question.question_or_instruction, question_text)
         self.assertEqual(question.type, "COMPARISON")
         self.assertEqual(question.scale, scale)
         self.assertEqual(template.scale, scale)
 
     def test_guide_question(self):
         # Given
-        title = "Important guideline"
+        instruction_text = "Important guideline"
         description = "Follow this guideline"
         category = InstructionCategory.WARNING
         batch_size = 1
 
         # When
-        question = Instruction(title, category, batch_size, description)
+        question = Instruction(instruction_text, category, batch_size, description)
         template = question.to_template_question()
 
         # Then
-        self.assertEqual(question.title, template.title)
+        self.assertEqual(question.instruction, instruction_text)
+        self.assertEqual(question.question_or_instruction, instruction_text)
+        self.assertEqual(template.title, instruction_text)
         self.assertEqual(question.type, "INSTRUCTION")
         self.assertEqual(question.category, InstructionCategory.WARNING)
 
     def test_invalid_scored_question(self):
         # Given
-        title = "Invalid question"
+        question_text = "Invalid question"
         options: List[Option] = []  # Empty options
         batch_size = 1
 
         # When/Then
         with self.assertRaises(ValueError):
-            question = ScoredQuestion(title, options, QuestionRelatedModel.ALL, batch_size)
+            question = ScoredQuestion(
+                question_text, options, QuestionRelatedModel.ALL, batch_size
+            )
             question.validate()
 
     def test_question_from_dict(self):
@@ -118,7 +144,8 @@ class TestQuery(unittest.TestCase):
 
         # Then
         assert isinstance(question, ScoredQuestion)
-        self.assertEqual(question.title, "Test Question")
+        self.assertEqual(question.question, "Test Question")
+        self.assertEqual(question.question_or_instruction, "Test Question")
         self.assertEqual(len(question.options), 2)
 
     def test_instruction_with_reference_files(self):
@@ -136,7 +163,8 @@ class TestQuery(unittest.TestCase):
 
         # Then
         assert isinstance(instruction, Instruction)
-        self.assertEqual(instruction.title, "Listen to the audio")
+        self.assertEqual(instruction.instruction, "Listen to the audio")
+        self.assertEqual(instruction.question_or_instruction, "Listen to the audio")
         self.assertEqual(instruction.category, InstructionCategory.WARNING)
         self.assertIsNotNone(instruction.reference_files)
         assert instruction.reference_files is not None
@@ -156,7 +184,10 @@ class TestQuery(unittest.TestCase):
         # When/Then
         with self.assertRaises(ValueError) as context:
             Instruction.from_dict(instruction_data, batch_size)
-        self.assertIn("reference_file' field is not allowed for instruction questions", str(context.exception))
+        self.assertIn(
+            "reference_file' field is not allowed for instruction questions",
+            str(context.exception),
+        )
 
     def test_instruction_with_non_list_reference_files_should_fail(self):
         # Given
@@ -198,7 +229,9 @@ class TestQuery(unittest.TestCase):
         # When/Then
         with self.assertRaises(ValueError) as context:
             Instruction.from_dict(instruction_data, batch_size)
-        self.assertIn("Reference files must have 'path' and 'type' fields", str(context.exception))
+        self.assertIn(
+            "Reference files must have 'path' and 'type' fields", str(context.exception)
+        )
 
     def test_instruction_with_missing_type_in_reference_file_should_fail(self):
         # Given
@@ -212,7 +245,9 @@ class TestQuery(unittest.TestCase):
         # When/Then
         with self.assertRaises(ValueError) as context:
             Instruction.from_dict(instruction_data, batch_size)
-        self.assertIn("Reference files must have 'path' and 'type' fields", str(context.exception))
+        self.assertIn(
+            "Reference files must have 'path' and 'type' fields", str(context.exception)
+        )
 
     def test_instruction_with_multiple_reference_files(self):
         # Given
@@ -261,7 +296,9 @@ class TestQuery(unittest.TestCase):
         batch_size = 2
 
         # When
-        question = Question.from_dict(comparison_data, batch_size, allow_ranking_only=True)
+        question = Question.from_dict(
+            comparison_data, batch_size, allow_ranking_only=True
+        )
 
         # Then
         assert isinstance(question, ComparisonQuestion)
@@ -276,7 +313,9 @@ class TestQuery(unittest.TestCase):
         batch_size = 2
 
         # When
-        question = Question.from_dict(instruction_data, batch_size, allow_ranking_only=True)
+        question = Question.from_dict(
+            instruction_data, batch_size, allow_ranking_only=True
+        )
 
         # Then
         assert isinstance(question, Instruction)
@@ -295,7 +334,9 @@ class TestQuery(unittest.TestCase):
         # When/Then
         with self.assertRaises(ValueError) as context:
             Question.from_dict(scored_data, batch_size, allow_ranking_only=True)
-        self.assertIn("RANKING evaluation allows only Instruction", str(context.exception))
+        self.assertIn(
+            "RANKING evaluation allows only Instruction", str(context.exception)
+        )
 
     def test_question_from_dict_ranking_rejects_non_scored(self):
         # Given
@@ -310,7 +351,9 @@ class TestQuery(unittest.TestCase):
         # When/Then
         with self.assertRaises(ValueError) as context:
             Question.from_dict(non_scored_data, batch_size, allow_ranking_only=True)
-        self.assertIn("RANKING evaluation allows only Instruction", str(context.exception))
+        self.assertIn(
+            "RANKING evaluation allows only Instruction", str(context.exception)
+        )
 
     def test_question_from_dict_without_ranking_mode_allows_all_types(self):
         # Given - SCORED question should work in non-ranking mode
@@ -327,6 +370,84 @@ class TestQuery(unittest.TestCase):
         # Then
         assert isinstance(question, ScoredQuestion)
         self.assertEqual(question.type, "SCORED")
+
+    def test_scored_question_deprecated_title_parameter(self):
+        """Test that deprecated title parameter still works with warning."""
+        import warnings as w
+
+        with w.catch_warnings(record=True) as caught_warnings:
+            w.simplefilter("always")
+            options = [Option("1", "Poor"), Option("2", "Fair")]
+            question = ScoredQuestion(
+                title="Rate quality",
+                options=options,
+                related_model=QuestionRelatedModel.ALL,
+                batch_size=1,
+            )
+            self.assertEqual(question.question, "Rate quality")
+            self.assertEqual(question.question_or_instruction, "Rate quality")
+            self.assertEqual(len(caught_warnings), 1)
+            self.assertIn("deprecated", str(caught_warnings[0].message).lower())
+
+    def test_non_scored_question_deprecated_title_parameter(self):
+        """Test that deprecated title parameter still works with warning."""
+        import warnings as w
+
+        with w.catch_warnings(record=True) as caught_warnings:
+            w.simplefilter("always")
+            options = [Option("a", "Option A"), Option("b", "Option B")]
+            question = NonScoredQuestion(
+                title="Select options",
+                options=options,
+                allow_multiple=True,
+                related_model=QuestionRelatedModel.ALL,
+                batch_size=1,
+            )
+            self.assertEqual(question.question, "Select options")
+            self.assertEqual(question.question_or_instruction, "Select options")
+            self.assertEqual(len(caught_warnings), 1)
+            self.assertIn("deprecated", str(caught_warnings[0].message).lower())
+
+    def test_comparison_question_deprecated_title_parameter(self):
+        """Test that deprecated title parameter still works with warning."""
+        import warnings as w
+
+        with w.catch_warnings(record=True) as caught_warnings:
+            w.simplefilter("always")
+            meta_data = QuestionMetadataColumn(
+                linear_scale=QuestionMetadataLinearScale(
+                    title="Scale",
+                    label_text=QuestionMetadataPosition(left="Left", right="Right"),
+                )
+            )
+            question = ComparisonQuestion(
+                title="Compare A vs B",
+                meta_data=meta_data,
+                related_model=QuestionRelatedModel.ALL,
+                batch_size=2,
+            )
+            self.assertEqual(question.question, "Compare A vs B")
+            self.assertEqual(question.question_or_instruction, "Compare A vs B")
+            self.assertEqual(len(caught_warnings), 1)
+            self.assertIn("deprecated", str(caught_warnings[0].message).lower())
+
+    def test_instruction_deprecated_title_parameter(self):
+        """Test that deprecated title parameter still works with warning."""
+        import warnings as w
+
+        with w.catch_warnings(record=True) as caught_warnings:
+            w.simplefilter("always")
+            instruction = Instruction(
+                title="Follow this guideline",
+                category=InstructionCategory.DO,
+                batch_size=1,
+            )
+            self.assertEqual(instruction.instruction, "Follow this guideline")
+            self.assertEqual(
+                instruction.question_or_instruction, "Follow this guideline"
+            )
+            self.assertEqual(len(caught_warnings), 1)
+            self.assertIn("deprecated", str(caught_warnings[0].message).lower())
 
 
 if __name__ == "__main__":
