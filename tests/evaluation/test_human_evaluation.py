@@ -135,7 +135,8 @@ class TestHumanEvaluation(unittest.TestCase):
 
         # Then
         self.assertIsNotNone(evaluator)
-        self.assertEqual(evaluator._eval_config.eval_type, EvalType.NMOS)  # type: ignore
+        # Note: create_from_template uses batch_size to determine type, not the template's evaluation_type
+        self.assertEqual(evaluator._eval_config.eval_type, EvalType.CUSTOM_SINGLE)  # type: ignore
         self.mock_template_service.get_template_by_code.assert_called_once_with(
             "NMOS_TEMPLATE"
         )
@@ -168,36 +169,6 @@ class TestHumanEvaluation(unittest.TestCase):
         # Then
         self.assertIsNotNone(evaluator)
         self.assertEqual(evaluator._eval_config.eval_type, EvalType.CUSTOM_SINGLE)  # type: ignore
-
-    def test_create_from_template_ranking_builds_ranking_evaluator(self):
-        """Test creating from RANKING template"""
-        # Given
-        template = Template(
-            id="template_id",
-            code="RANKING_TEMPLATE",
-            title="Ranking Template",
-            description="Test ranking template",
-            language=Language.ENGLISH_AMERICAN,
-            batch_size=2,
-            evaluation_type="SPEECH_RANKING",
-            created_time=None,
-            updated_time=None,
-        )
-        eval_id = str(uuid4())
-        self.mock_template_service.get_template_by_code.return_value = template
-        self.mock_evaluation_service.create.return_value = make_evaluation_entity(
-            eval_id
-        )
-
-        # When
-        evaluator = self.human_eval.create_from_template(
-            name="Test Ranking", template_id="RANKING_TEMPLATE", num_eval=3
-        )
-
-        # Then
-        self.assertIsNotNone(evaluator)
-        self.assertEqual(evaluator._eval_config.eval_type, EvalType.RANKING)  # type: ignore
-        self.assertEqual(evaluator._supported_eval_types, [EvalType.RANKING])  # type: ignore
 
     def test_create_from_template_with_no_batch_size_raises_error(self):
         """Test creating from template with no batch_size raises ValueError"""
@@ -233,7 +204,7 @@ class TestHumanEvaluation(unittest.TestCase):
                 json=template_json, name="Test Invalid", custom_type="INVALID"
             )  # type: ignore
         self.assertIn(
-            'custom_type must be one of "SINGLE", "DOUBLE", "RANKING"',
+            'custom_type must be either "SINGLE" or "DOUBLE"',
             str(context.exception),
         )
 

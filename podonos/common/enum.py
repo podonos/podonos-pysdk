@@ -3,7 +3,7 @@ Default enum values across whole SDK
 """
 
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 
 class EvalType(Enum):

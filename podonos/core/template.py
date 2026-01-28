@@ -31,6 +31,7 @@ class Template:
     description: Optional[str] = None
     language: Optional[Language] = None
     batch_size: Optional[int] = None
+    evaluation_type: Optional[str] = None
     created_time: Optional[datetime] = None
     updated_time: Optional[datetime] = None
 
