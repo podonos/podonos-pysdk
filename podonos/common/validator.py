@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import inspect
-from functools import wraps
 import os
-from typing import Callable, Any, Tuple, Type, Union, TypeVar
 import uuid
 from datetime import date, datetime
+from functools import wraps
+from typing import TYPE_CHECKING, Any, Callable, Tuple, Type, TypeVar, Union
 
 try:
     from typing import ParamSpec  # Python 3.10+
@@ -13,12 +14,17 @@ except Exception:  # pragma: no cover
 
 from podonos.core.base import log
 
+if TYPE_CHECKING:
+    from podonos.common.enum import CustomType
+
 P = ParamSpec("P")
 R = TypeVar("R")
 ValidateFunc = Callable[[Any, str], None]
 
 
-def validate_args(**validators: Union[Type[Any], Tuple[Type[Any], ...], Callable[[Any, str], None]]) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def validate_args(
+    **validators: Union[Type[Any], Tuple[Type[Any], ...], Callable[[Any, str], None]],
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator to define validation rules for function arguments.
 
@@ -53,7 +59,10 @@ def validate_args(**validators: Union[Type[Any], Tuple[Type[Any], ...], Callable
                     log.check_notnone(value, f"Argument '{name}' must not be None")  # type: ignore
 
                     # Type check
-                    log.check(isinstance(value, rule), f"Argument '{name}' must be {rule}, got {type(value)}")  # type: ignore
+                    log.check(
+                        isinstance(value, rule),
+                        f"Argument '{name}' must be {rule}, got {type(value)}",
+                    )  # type: ignore
 
                 # B. Custom validation function (complex conditions like length, positive)
                 elif callable(rule):
@@ -80,8 +89,13 @@ class Validator:
         log.check_notnone(value, f"Argument '{name}' must not be None")  # type: ignore
 
     @staticmethod
-    def check_type(value: Any, name: str, expected_type: Union[Type[Any], Tuple[Type[Any], ...]]):
-        log.check(isinstance(value, expected_type), f"Argument '{name}' must be {expected_type}, got {type(value)}")  # type: ignore
+    def check_type(
+        value: Any, name: str, expected_type: Union[Type[Any], Tuple[Type[Any], ...]]
+    ):
+        log.check(
+            isinstance(value, expected_type),
+            f"Argument '{name}' must be {expected_type}, got {type(value)}",
+        )  # type: ignore
 
     @staticmethod
     def check_non_empty_str(value: Any, name: str):
@@ -107,7 +121,9 @@ class Validator:
     @staticmethod
     def check_instance_of(value: Any, name: str, expected_type: Type[Any]) -> None:
         if not isinstance(value, expected_type):
-            raise TypeError(f"{name} must be instance of {expected_type.__name__}, got {type(value).__name__}")
+            raise TypeError(
+                f"{name} must be instance of {expected_type.__name__}, got {type(value).__name__}"
+            )
 
     @staticmethod
     def check_date(value: Any, name: str):
@@ -127,7 +143,9 @@ class Rules:
     # Factory for type-based rules
     # -----------------------------
     @staticmethod
-    def make_type_rule(expected_type: Union[Type[Any], Tuple[Type[Any], ...]]) -> ValidateFunc:
+    def make_type_rule(
+        expected_type: Union[Type[Any], Tuple[Type[Any], ...]],
+    ) -> ValidateFunc:
         """Return a validator that ensures non-None and type match."""
 
         def _check(value: Any, name: str) -> None:
@@ -225,7 +243,9 @@ class Rules:
     # Optional (nullable) variants
     # -----------------------------
     @staticmethod
-    def optional(expected_type: Union[Type[Any], Tuple[Type[Any], ...]]) -> ValidateFunc:
+    def optional(
+        expected_type: Union[Type[Any], Tuple[Type[Any], ...]],
+    ) -> ValidateFunc:
         """Allow None, otherwise enforce type."""
 
         def _check(value: Any, name: str) -> None:
@@ -290,3 +310,14 @@ Rules.uuid_not_none_or_none = Rules.optional_uuid
 Rules.is_optional_instance_of = Rules.optional_instance_of
 Rules.datetime_not_none_or_none = Rules.optional(datetime)
 Rules.dict_not_none_or_none = Rules.optional(dict)
+
+
+def validate_custom_type(value: Any, name: str) -> None:
+    """Validate custom_type accepts both CustomType enum and string values."""
+    from podonos.common.enum import CustomType
+
+    Validator.check_not_none(value, name)
+    if not isinstance(value, (str, CustomType)):
+        raise TypeError(
+            f"Argument '{name}' must be str or CustomType, got {type(value)}"
+        )

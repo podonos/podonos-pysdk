@@ -1,0 +1,49 @@
+{
+  "instructions": [
+    {
+      "type": "DO",
+      "instruction": "Use the provided reference file to assess the quality of the audio.",
+      "reference_files": [
+        {
+          "path": "../core/speech_ch1.mp3",
+          "type": "target"
+        },
+        {
+          "path": "../core/speech_ch1.mp3",
+          "type": "reference"
+        }
+      ]
+    },
+    {
+      "type": "WARNING",
+      "instruction": "Please evaluate only the audio's natural pronunciation",
+      "description": "Just focus on the audio's naturalness, the background noise or audio quality is not considered for the evaluation"
+    }
+  ],
+  "questions": [
+    {
+      "type": "SCORED",
+      "question": "Please evaluate the overall quality of the audio",
+      "description": "You can ignore the wrong pronunciation of the audio",
+      "options": [
+        { "label_text": "Excellent" },
+        { "label_text": "Good" },
+        { "label_text": "Fair", "reference_file": "../core/speech_ch1.mp3" },
+        { "label_text": "Poor" },
+        { "label_text": "Bad" }
+      ]
+    },
+    {
+      "type": "NON_SCORED",
+      "question": "Select all the bad audio characteristics",
+      "description": "Select only the audio characteristics that are distracting or undesirable.",
+      "options": [
+        { "label_text": "Background Noise" },
+        { "label_text": "Echo", "reference_file": "../core/speech_ch1.mp3" },
+        { "label_text": "Distortion" }
+      ],
+      "allow_multiple": true,
+      "has_other": true
+    }
+  ]
+}

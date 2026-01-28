@@ -1,28 +1,30 @@
-import os
-import unittest
 import json
+import os
 import tempfile
+import unittest
 from pathlib import Path
-from unittest import mock
-from unittest.mock import patch, MagicMock, Mock
 from typing import Any
+from unittest import mock
+from unittest.mock import MagicMock, Mock, patch
 from uuid import uuid4
+
 from requests import Response
-import json as pyjson
 
 import podonos
+from podonos.common.enum import EvalType
+from podonos.core.api import APIClient
 from podonos.core.client import Client
 from podonos.core.evaluator import Evaluator
-from podonos.core.api import APIClient
 from podonos.core.file import File
-from podonos.common.enum import EvalType
 
 
-def _make_response(text: Any = None, json_data: Any = None, status_code: int = 200) -> Response:
+def _make_response(
+    text: Any = None, json_data: Any = None, status_code: int = 200
+) -> Response:
     resp = Response()
     resp.status_code = status_code
     if json_data is not None:
-        resp._content = pyjson.dumps(json_data).encode("utf-8")
+        resp._content = json.dumps(json_data).encode("utf-8")
         resp.headers["Content-Type"] = "application/json"
     elif text is not None:
         resp._content = str(text).encode("utf-8")
@@ -64,7 +66,14 @@ def mocked_requests_get(*args: Any, **kwargs: Any):
         # Stats by id
         evaluation_stats = [
             dict(
-                files=[{"name": "tr16.wav", "model_tag": "my_model", "tags": ["generated"], "type": "A"}],
+                files=[
+                    {
+                        "name": "tr16.wav",
+                        "model_tag": "my_model",
+                        "tags": ["generated"],
+                        "type": "A",
+                    }
+                ],
                 question={
                     "title": "Attending **ONLY to the BACKGROUND (noise or other speakers' voices)**, "
                     "select the category which best describes the sample you just heard.",
@@ -115,7 +124,6 @@ def mocked_requests_get(*args: Any, **kwargs: Any):
 
 
 class TestEvaluationClient(unittest.TestCase):
-
     def setUp(self):
         self.valid_api_key = "1234567890"
         # Single stimulus
@@ -137,7 +145,11 @@ class TestEvaluationClient(unittest.TestCase):
                     "type": "NON_SCORED",
                     "question": "Audio Characteristics",
                     "description": "Please select all audio characteristics that you hear",
-                    "options": [{"label_text": "Background Noise"}, {"label_text": "Echo"}, {"label_text": "Distortion"}],
+                    "options": [
+                        {"label_text": "Background Noise"},
+                        {"label_text": "Echo"},
+                        {"label_text": "Distortion"},
+                    ],
                     "allow_multiple": True,
                     "has_other": True,
                     "has_none": False,
@@ -160,14 +172,19 @@ class TestEvaluationClient(unittest.TestCase):
                     "question": "Audio Quality Comparison",
                     "description": "Please compare the quality between two audio samples",
                     "scale": 5,
-                    "anchor_label": {"title": "Preference", "label_text": {"left": "Better", "right": "Better"}},
+                    "anchor_label": {
+                        "title": "Preference",
+                        "label_text": {"left": "Better", "right": "Better"},
+                    },
                 }
             ]
         }
 
     def create_temp_json_file(self, is_single: bool = True) -> str:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(self.single_template_json if is_single else self.double_template_json, f)
+            json.dump(
+                self.single_template_json if is_single else self.double_template_json, f
+            )
             return f.name
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
@@ -224,7 +241,9 @@ class TestEvaluationClient(unittest.TestCase):
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
-    def test_single_stimulus_evaluator_creation_with_en_in_language(self, mock_get: Any, mock_post: Any):
+    def test_single_stimulus_evaluator_creation_with_en_in_language(
+        self, mock_get: Any, mock_post: Any
+    ):
         """Test single stimulus evaluator creation with en-in language"""
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         name = "en_in_test"
@@ -251,7 +270,9 @@ class TestEvaluationClient(unittest.TestCase):
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
-    def test_double_stimuli_evaluator_creation_with_en_in_language(self, mock_get: Any, mock_post: Any):
+    def test_double_stimuli_evaluator_creation_with_en_in_language(
+        self, mock_get: Any, mock_post: Any
+    ):
         """Test double stimuli evaluator creation with en-in language"""
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         name = "en_in_double_test"
@@ -278,12 +299,23 @@ class TestEvaluationClient(unittest.TestCase):
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
-    def test_evaluator_creation_with_all_eval_types_en_in_language(self, mock_get: Any, mock_post: Any):
+    def test_evaluator_creation_with_all_eval_types_en_in_language(
+        self, mock_get: Any, mock_post: Any
+    ):
         """Test evaluator creation with all evaluation types using en-in language"""
         self._mock_client = podonos.init(api_key=self.valid_api_key)
 
         # Test all evaluation types with en-in language
-        eval_types = ["NMOS", "QMOS", "SMOS", "P808", "PREF", "CSMOS", "CUSTOM_SINGLE", "CUSTOM_DOUBLE"]
+        eval_types = [
+            "NMOS",
+            "QMOS",
+            "SMOS",
+            "P808",
+            "PREF",
+            "CSMOS",
+            "CUSTOM_SINGLE",
+            "CUSTOM_DOUBLE",
+        ]
 
         for eval_type in eval_types:
             etor = self._mock_client.create_evaluator(
@@ -363,19 +395,27 @@ class TestEvaluationClient(unittest.TestCase):
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
     @mock.patch("requests.put")
-    def test_create_evaluator_from_template_json_single(self, mock_put: Any, mock_post: Any, mock_get: Any):
+    def test_create_evaluator_from_template_json_single(
+        self, mock_put: Any, mock_post: Any, mock_get: Any
+    ):
         # Given
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         json_path = self.create_temp_json_file(is_single=True)
 
         # Mock successful responses
-        resp = _make_response(json_data=[{"id": str(uuid4())} for _ in range(3)], status_code=200)
+        resp = _make_response(
+            json_data=[{"id": str(uuid4())} for _ in range(3)], status_code=200
+        )
         mock_put.return_value = resp
 
         try:
             # When
             evaluator = self._mock_client.create_evaluator_from_template_json(
-                json_file=json_path, name="Test Template Evaluation", custom_type="SINGLE", desc="Testing template-based evaluation", num_eval=5
+                json_file=json_path,
+                name="Test Template Evaluation",
+                custom_type="SINGLE",
+                desc="Testing template-based evaluation",
+                num_eval=5,
             )
 
             # Then
@@ -388,19 +428,27 @@ class TestEvaluationClient(unittest.TestCase):
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
     @mock.patch("requests.put")
-    def test_create_evaluator_from_template_json_double(self, mock_put: Any, mock_post: Any, mock_get: Any):
+    def test_create_evaluator_from_template_json_double(
+        self, mock_put: Any, mock_post: Any, mock_get: Any
+    ):
         # Given
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         json_path = self.create_temp_json_file(is_single=False)
 
         # Mock successful responses
-        resp = _make_response(json_data=[{"id": str(uuid4())} for _ in range(1)], status_code=200)
+        resp = _make_response(
+            json_data=[{"id": str(uuid4())} for _ in range(1)], status_code=200
+        )
         mock_put.return_value = resp
 
         try:
             # When
             evaluator = self._mock_client.create_evaluator_from_template_json(
-                json_file=json_path, name="Test Template Evaluation", custom_type="DOUBLE", desc="Testing template-based evaluation", num_eval=5
+                json_file=json_path,
+                name="Test Template Evaluation",
+                custom_type="DOUBLE",
+                desc="Testing template-based evaluation",
+                num_eval=5,
             )
 
             # Then
@@ -412,18 +460,26 @@ class TestEvaluationClient(unittest.TestCase):
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
-    def test_create_evaluator_from_template_json_invalid_file(self, mock_post: Any, mock_get: Any):
+    def test_create_evaluator_from_template_json_invalid_file(
+        self, mock_post: Any, mock_get: Any
+    ):
         # Given
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         non_existent_path = "/path/to/nonexistent/file.json"
 
         # When/Then
         with self.assertRaises(FileNotFoundError):
-            self._mock_client.create_evaluator_from_template_json(json_file=non_existent_path, name="Test Template Evaluation", custom_type="SINGLE")
+            self._mock_client.create_evaluator_from_template_json(
+                json_file=non_existent_path,
+                name="Test Template Evaluation",
+                custom_type="SINGLE",
+            )
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     @mock.patch("requests.post", side_effect=mocked_requests_post)
-    def test_create_evaluator_from_template_json_invalid_json(self, mock_post: Any, mock_get: Any):
+    def test_create_evaluator_from_template_json_invalid_json(
+        self, mock_post: Any, mock_get: Any
+    ):
         # Given
         self._mock_client = podonos.init(api_key=self.valid_api_key)
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -433,7 +489,11 @@ class TestEvaluationClient(unittest.TestCase):
         try:
             # When/Then
             with self.assertRaises(ValueError):
-                self._mock_client.create_evaluator_from_template_json(json_file=json_path, name="Test Template Evaluation", custom_type="SINGLE")
+                self._mock_client.create_evaluator_from_template_json(
+                    json_file=json_path,
+                    name="Test Template Evaluation",
+                    custom_type="SINGLE",
+                )
         finally:
             # Cleanup
             Path(json_path).unlink()
@@ -458,7 +518,15 @@ class TestClientFromTemplateJson(unittest.TestCase):
             "updated_time": "2024-03-21T06:18:09.659Z",
         }
 
-        self.template_data = {"questions": [{"type": "SCORED", "question": "Test Question", "options": [{"label_text": "Option 1"}]}]}
+        self.template_data = {
+            "questions": [
+                {
+                    "type": "SCORED",
+                    "question": "Test Question",
+                    "options": [{"label_text": "Option 1"}],
+                }
+            ]
+        }
 
     def test_create_evaluator_from_json_dict_single(self):
         # Given
@@ -474,7 +542,10 @@ class TestClientFromTemplateJson(unittest.TestCase):
 
         # When
         evaluator = self.client.create_evaluator_from_template_json(
-            json=self.template_data, name="Test Evaluation", custom_type="SINGLE", desc="Test Description"
+            json=self.template_data,
+            name="Test Evaluation",
+            custom_type="SINGLE",
+            desc="Test Description",
         )
 
         # Then
@@ -501,7 +572,10 @@ class TestClientFromTemplateJson(unittest.TestCase):
         try:
             # When
             evaluator = self.client.create_evaluator_from_template_json(
-                json_file=template_path, name="Test Evaluation", custom_type="SINGLE", desc="Test Description"
+                json_file=template_path,
+                name="Test Evaluation",
+                custom_type="SINGLE",
+                desc="Test Description",
             )
 
             # Then
@@ -515,20 +589,34 @@ class TestClientFromTemplateJson(unittest.TestCase):
     def test_create_evaluator_with_both_json_inputs(self):
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.client.create_evaluator_from_template_json(json=self.template_data, json_file="test.json", name="Test", custom_type="SINGLE")
+            self.client.create_evaluator_from_template_json(
+                json=self.template_data,
+                json_file="test.json",
+                name="Test",
+                custom_type="SINGLE",
+            )
         self.assertIn("Only one of", str(context.exception))
 
     def test_create_evaluator_with_no_json_input(self):
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.client.create_evaluator_from_template_json(name="Test", custom_type="SINGLE")
-        self.assertIn("Either 'json' or 'json_file' must be provided", str(context.exception))
+            self.client.create_evaluator_from_template_json(
+                name="Test", custom_type="SINGLE"
+            )
+        self.assertIn(
+            "Either 'json' or 'json_file' must be provided", str(context.exception)
+        )
 
     def test_create_evaluator_with_invalid_custom_type(self):
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.client.create_evaluator_from_template_json(json=self.template_data, name="Test", custom_type="TRIPLE")  # type: ignore
-        self.assertIn('custom_type must be one of "SINGLE", "DOUBLE", "RANKING"', str(context.exception))
+            self.client.create_evaluator_from_template_json(
+                json=self.template_data, name="Test", custom_type="TRIPLE"
+            )  # type: ignore
+        self.assertIn(
+            "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, RANKING",
+            str(context.exception),
+        )
 
     def test_create_evaluator_from_json_dict_with_en_in_language(self):
         """Test creating evaluator from JSON dict with en-in language"""
@@ -545,7 +633,10 @@ class TestClientFromTemplateJson(unittest.TestCase):
 
         # When
         evaluator = self.client.create_evaluator_from_template_json(
-            json=self.template_data, name="Test EN-IN Evaluation", custom_type="SINGLE", desc="Test Description for Indian English"
+            json=self.template_data,
+            name="Test EN-IN Evaluation",
+            custom_type="SINGLE",
+            desc="Test Description for Indian English",
         )
 
         # Then
@@ -573,7 +664,10 @@ class TestClientFromTemplateJson(unittest.TestCase):
         try:
             # When
             evaluator = self.client.create_evaluator_from_template_json(
-                json_file=template_path, name="Test EN-IN Evaluation", custom_type="SINGLE", desc="Test Description for Indian English"
+                json_file=template_path,
+                name="Test EN-IN Evaluation",
+                custom_type="SINGLE",
+                desc="Test Description for Indian English",
             )
 
             # Then
@@ -589,7 +683,9 @@ class TestClientFromTemplateJson(unittest.TestCase):
         mock_human.create_from_template_json.return_value = "EVAL"
         self.client._human_evaluation = mock_human  # type: ignore
 
-        result = self.client.create_evaluator_from_template_json(json={}, name="n", custom_type="RANKING")
+        result = self.client.create_evaluator_from_template_json(
+            json={}, name="n", custom_type="RANKING"
+        )
 
         self.assertEqual(result, "EVAL")
         mock_human.create_from_template_json.assert_called_once()
@@ -642,7 +738,15 @@ class TestClient(unittest.TestCase):
             "updated_time": "2024-03-21T06:18:09.659Z",
         }
 
-        self.template_data = {"questions": [{"type": "SCORED", "question": "Test Question", "options": [{"label_text": "Option 1"}]}]}
+        self.template_data = {
+            "questions": [
+                {
+                    "type": "SCORED",
+                    "question": "Test Question",
+                    "options": [{"label_text": "Option 1"}],
+                }
+            ]
+        }
 
     def test_create_evaluator_from_json_dict_single(self):
         # Given
@@ -658,7 +762,10 @@ class TestClient(unittest.TestCase):
 
         # When
         evaluator = self.client.create_evaluator_from_template_json(
-            json=self.template_data, name="Test Evaluation", custom_type="SINGLE", desc="Test Description"
+            json=self.template_data,
+            name="Test Evaluation",
+            custom_type="SINGLE",
+            desc="Test Description",
         )
 
         # Then
@@ -685,7 +792,10 @@ class TestClient(unittest.TestCase):
         try:
             # When
             evaluator = self.client.create_evaluator_from_template_json(
-                json_file=template_path, name="Test Evaluation", custom_type="SINGLE", desc="Test Description"
+                json_file=template_path,
+                name="Test Evaluation",
+                custom_type="SINGLE",
+                desc="Test Description",
             )
 
             # Then
@@ -699,20 +809,34 @@ class TestClient(unittest.TestCase):
     def test_create_evaluator_with_both_json_inputs(self):
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.client.create_evaluator_from_template_json(json=self.template_data, json_file="test.json", name="Test", custom_type="SINGLE")
+            self.client.create_evaluator_from_template_json(
+                json=self.template_data,
+                json_file="test.json",
+                name="Test",
+                custom_type="SINGLE",
+            )
         self.assertIn("Only one of", str(context.exception))
 
     def test_create_evaluator_with_no_json_input(self):
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.client.create_evaluator_from_template_json(name="Test", custom_type="SINGLE")
-        self.assertIn("Either 'json' or 'json_file' must be provided", str(context.exception))
+            self.client.create_evaluator_from_template_json(
+                name="Test", custom_type="SINGLE"
+            )
+        self.assertIn(
+            "Either 'json' or 'json_file' must be provided", str(context.exception)
+        )
 
     def test_create_evaluator_with_invalid_custom_type(self):
         # When/Then
         with self.assertRaises(ValueError) as context:
-            self.client.create_evaluator_from_template_json(json=self.template_data, name="Test", custom_type="TRIPLE")  # type: ignore
-        self.assertIn('custom_type must be one of "SINGLE", "DOUBLE", "RANKING"', str(context.exception))
+            self.client.create_evaluator_from_template_json(
+                json=self.template_data, name="Test", custom_type="TRIPLE"
+            )  # type: ignore
+        self.assertIn(
+            "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, RANKING",
+            str(context.exception),
+        )
 
     def test_create_evaluator_from_json_dict_with_en_in_language(self):
         """Test creating evaluator from JSON dict with en-in language"""
@@ -729,7 +853,10 @@ class TestClient(unittest.TestCase):
 
         # When
         evaluator = self.client.create_evaluator_from_template_json(
-            json=self.template_data, name="Test EN-IN Evaluation", custom_type="SINGLE", desc="Test Description for Indian English"
+            json=self.template_data,
+            name="Test EN-IN Evaluation",
+            custom_type="SINGLE",
+            desc="Test Description for Indian English",
         )
 
         # Then
@@ -757,7 +884,10 @@ class TestClient(unittest.TestCase):
         try:
             # When
             evaluator = self.client.create_evaluator_from_template_json(
-                json_file=template_path, name="Test EN-IN Evaluation", custom_type="SINGLE", desc="Test Description for Indian English"
+                json_file=template_path,
+                name="Test EN-IN Evaluation",
+                custom_type="SINGLE",
+                desc="Test Description for Indian English",
             )
 
             # Then
@@ -826,7 +956,10 @@ class TestEvaluatorMethodValidation(unittest.TestCase):
         # Given
         client = Client(api_client=self.api_client)
         evaluator = client._human_evaluation.create(type=EvalType.NMOS.value)  # type: ignore
-        files = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        files = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="B"),
+        ]
 
         # When/Then
         with self.assertRaises(ValueError) as context:
@@ -866,7 +999,10 @@ class TestEvaluatorMethodValidation(unittest.TestCase):
         # Given
         client = Client(api_client=self.api_client)
         evaluator = client._human_evaluation.create(type=EvalType.PREF.value)  # type: ignore
-        files = [File(path=self.audio_path, model_tag="A"), File(path=self.audio_path, model_tag="B")]
+        files = [
+            File(path=self.audio_path, model_tag="A"),
+            File(path=self.audio_path, model_tag="B"),
+        ]
 
         # When/Then
         with self.assertRaises(ValueError) as context:

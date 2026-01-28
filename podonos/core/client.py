@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from podonos.common.validator import Rules, validate_args
+from podonos.common.enum import CustomType
+from podonos.common.validator import Rules, validate_args, validate_custom_type
 from podonos.core.api import APIClient
 from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
@@ -176,7 +177,7 @@ class Client:
         json=Rules.dict_not_none_or_none,
         json_file=Rules.str_not_none_or_none,
         name=Rules.str_not_none_or_none,
-        custom_type=Rules.str_not_none,
+        custom_type=validate_custom_type,
         desc=Rules.str_not_none_or_none,
         lan=Rules.str_non_empty,
         num_eval=Rules.positive_not_none,
@@ -191,9 +192,7 @@ class Client:
         json: Optional[Dict[str, Any]] = None,
         json_file: Optional[str] = None,
         name: Optional[str] = None,
-        custom_type: Union[
-            Literal["SINGLE"], Literal["DOUBLE"], Literal["RANKING"]
-        ] = "SINGLE",
+        custom_type: Union[CustomType, str] = CustomType.SINGLE,
         desc: Optional[str] = None,
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
@@ -209,7 +208,7 @@ class Client:
             json: Template JSON as a dictionary. Optional if json_file is provided.
             json_file: Path to the JSON template file. Optional if json is provided.
             name: This evaluation name. Required.
-            custom_type: Type of evaluation ("SINGLE" or "DOUBLE")
+            custom_type: Type of evaluation (CustomType.SINGLE, CustomType.DOUBLE, CustomType.SINGLE_REF, or CustomType.RANKING). Also accepts string values.
             desc: Description of this evaluation. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
@@ -224,7 +223,7 @@ class Client:
 
         Raises:
             ValueError: If neither json nor json_file is provided, or if both are provided
-            ValueError: If custom_type is not "SINGLE" or "DOUBLE"
+            ValueError: If custom_type is not a valid CustomType value
             ValueError: If the JSON is invalid or contains incompatible question types
             FileNotFoundError: If the json_file path doesn't exist
         """

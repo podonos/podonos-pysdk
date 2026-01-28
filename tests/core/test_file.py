@@ -347,7 +347,6 @@ class TestFile(unittest.TestCase):
         # When/Then
         file_validator.validate_files([file0, file1])  # Should not raise
 
-    @unittest.skip("Skip this test because CMOS type is not supported yet")
     def test_file_validator_should_validate_files_cmos_type(self):
         # Given
         eval_config = EvalConfig(
@@ -386,7 +385,6 @@ class TestFile(unittest.TestCase):
         with self.assertRaises(ValueError):
             file_validator.validate_files([file0, file1])
 
-    @unittest.skip("Skip this test because CMOS type is not supported yet")
     def test_file_validator_raise_error_in_cmos_type(self):
         # Given
         eval_config = EvalConfig(

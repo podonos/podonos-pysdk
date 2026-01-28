@@ -136,6 +136,29 @@ class EvalType(Enum):
         return any([item for item in EvalType if item.value == eval_type])
 
 
+class CustomType(Enum):
+    """Custom evaluation types for create_from_template_json()"""
+
+    SINGLE = "SINGLE"
+    DOUBLE = "DOUBLE"
+    SINGLE_REF = "SINGLE_REF"
+    RANKING = "RANKING"
+
+    @classmethod
+    def from_value(cls, value: str) -> "CustomType":
+        for member in cls:
+            if member.value == value:
+                return member
+        raise ValueError(
+            f"Invalid custom_type: {value}. "
+            f"Use one of: {', '.join([item.value for item in cls])}"
+        )
+
+    @staticmethod
+    def values() -> List[str]:
+        return [item.value for item in CustomType]
+
+
 class AIEvalType(Enum):
     ASR = "ASR"
     ALL = "ALL"

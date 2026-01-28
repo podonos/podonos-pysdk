@@ -1,9 +1,9 @@
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from requests import HTTPError
 
-from podonos.common.enum import EvalType
-from podonos.common.validator import Rules, validate_args
+from podonos.common.enum import CustomType, EvalType
+from podonos.common.validator import Rules, validate_args, validate_custom_type
 from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.core.config import EvalConfig, EvalConfigDefault
@@ -185,9 +185,6 @@ class HumanEvaluation:
 
         # Derive supported types from the selected type
         supported_types = EvalType.get_supported_types_for(selected_eval_type)
-        if selected_eval_type in EvalType.get_double_types():
-            # CMOS isn't supported in create_from_template
-            supported_types = [EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE]
         return Evaluator(
             api_client=self._api_client,
             eval_config=eval_config,
@@ -198,7 +195,7 @@ class HumanEvaluation:
         json=Rules.dict_not_none_or_none,
         json_file=Rules.str_not_none_or_none,
         name=Rules.str_not_none_or_none,
-        custom_type=Rules.str_not_none,
+        custom_type=validate_custom_type,
         desc=Rules.str_not_none_or_none,
         lan=Rules.str_not_none,
         num_eval=Rules.int_not_none,
@@ -213,9 +210,7 @@ class HumanEvaluation:
         json: Optional[Dict[str, Any]] = None,
         json_file: Optional[str] = None,
         name: Optional[str] = None,
-        custom_type: Union[
-            Literal["SINGLE"], Literal["DOUBLE"], Literal["RANKING"]
-        ] = "SINGLE",
+        custom_type: Union[CustomType, str] = CustomType.SINGLE,
         desc: Optional[str] = None,
         lan: str = EvalConfigDefault.LAN.value,
         num_eval: int = EvalConfigDefault.NUM_EVAL,
@@ -231,7 +226,7 @@ class HumanEvaluation:
             json: Template JSON as a dictionary. Optional if json_file is provided.
             json_file: Path to the JSON template file. Optional if json is provided.
             name: This evaluation name. Required.
-            custom_type: Type of evaluation ("SINGLE", "DOUBLE", or "RANKING")
+            custom_type: Type of evaluation (CustomType.SINGLE, CustomType.DOUBLE, CustomType.SINGLE_REF, or CustomType.RANKING). Also accepts string values.
             desc: Description of this evaluation. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
@@ -245,25 +240,35 @@ class HumanEvaluation:
 
         Raises:
             ValueError: If neither json nor json_file is provided, or if both are provided
-            ValueError: If custom_type is not "SINGLE", "DOUBLE", or "RANKING"
+            ValueError: If custom_type is not a valid CustomType value
             ValueError: If the JSON is invalid or contains incompatible question types
             FileNotFoundError: If the json_file path doesn't exist
         """
-        # Validate custom_type
-        if custom_type not in ["SINGLE", "DOUBLE", "RANKING"]:
-            raise ValueError('custom_type must be one of "SINGLE", "DOUBLE", "RANKING"')
+        # Validate and normalize custom_type to enum
+        if isinstance(custom_type, str):
+            try:
+                custom_type = CustomType.from_value(custom_type)
+            except ValueError:
+                raise ValueError(
+                    f"custom_type must be one of {', '.join(CustomType.values())}"
+                )
 
-        if custom_type == "SINGLE":
+        if custom_type == CustomType.SINGLE:
             eval_type = EvalType.CUSTOM_SINGLE
             batch_size = 1
-        elif custom_type == "DOUBLE":
+        elif custom_type == CustomType.DOUBLE:
             eval_type = EvalType.CUSTOM_DOUBLE
             batch_size = 2
-        elif custom_type == "RANKING":
+        elif custom_type == CustomType.SINGLE_REF:
+            eval_type = EvalType.CMOS
+            batch_size = 2
+        elif custom_type == CustomType.RANKING:
             eval_type = EvalType.RANKING
             batch_size = 2  # initial; will be adjusted on close() based on first ranking set size
         else:
-            raise ValueError('custom_type must be one of "SINGLE", "DOUBLE", "RANKING"')
+            raise ValueError(
+                f"custom_type must be one of {', '.join(CustomType.values())}"
+            )
         # Load template data
         template_data = TemplateJsonLoader.load_json(json, json_file)
 
@@ -299,9 +304,6 @@ class HumanEvaluation:
 
         # Derive supported types from eval_type
         supported_types = EvalType.get_supported_types_for(eval_type)
-        if eval_type in EvalType.get_double_types():
-            # CMOS isn't supported in create_from_template_json
-            supported_types = [EvalType.SMOS, EvalType.PREF, EvalType.CUSTOM_DOUBLE]
 
         template_service = TemplateService(self._api_client)
         evaluator = Evaluator(
