@@ -5,11 +5,11 @@
       "instruction": "Use the provided reference file to assess the quality of the audio.",
       "reference_files": [
         {
-          "path": "./target.mp3",
+          "path": "../core/speech_ch1.mp3",
           "type": "target"
         },
         {
-          "path": "./reference.mp3",
+          "path": "../core/speech_ch1.mp3",
           "type": "reference"
         }
       ]
@@ -28,7 +28,7 @@
       "options": [
         { "label_text": "Excellent" },
         { "label_text": "Good" },
-        { "label_text": "Fair", "reference_file": "./reference.mp3" },
+        { "label_text": "Fair", "reference_file": "../core/speech_ch1.mp3" },
         { "label_text": "Poor" },
         { "label_text": "Bad" }
       ]
@@ -39,7 +39,7 @@
       "description": "Select only the audio characteristics that are distracting or undesirable.",
       "options": [
         { "label_text": "Background Noise" },
-        { "label_text": "Echo", "reference_file": "./reference.mp3" },
+        { "label_text": "Echo", "reference_file": "../core/speech_ch1.mp3" },
         { "label_text": "Distortion" }
       ],
       "allow_multiple": true,
