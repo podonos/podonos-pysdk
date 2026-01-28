@@ -20,7 +20,8 @@ dependencies = [
     "packaging",
     "requests",
     "soundfile==0.12.1",
-    "tqdm"
+    "tqdm",
+    "typing_extensions>=4.0.0"
 ]
 keywords = ["ai", "speech", "synthesis"]
 classifiers = [

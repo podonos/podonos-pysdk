@@ -38,7 +38,9 @@ class EvalType(Enum):
         elif batch_size == 3:
             return EvalType.CSMOS
         else:
-            raise ValueError(f"Invalid batch size: {batch_size}. Use one of the following: {', '.join([item.value for item in EvalType])}")
+            raise ValueError(
+                f"Invalid batch size: {batch_size}. Use one of the following: {', '.join([item.value for item in EvalType])}"
+            )
 
     @staticmethod
     def get_single_types() -> List["EvalType"]:
@@ -54,6 +56,50 @@ class EvalType(Enum):
     def get_triple_types() -> List["EvalType"]:
         """Get all triple stimuli evaluation types"""
         return [EvalType.CSMOS]
+
+    @staticmethod
+    def selected_from_template_evaluation_type(
+        evaluation_type: str, batch_size: Optional[int] = None
+    ) -> "EvalType":
+        """
+        Map template.evaluation_type (e.g., 'SPEECH_NMOS', 'CUSTOM') to EvalType.
+        If evaluation_type is 'CUSTOM', batch_size is required to disambiguate.
+        """
+        mapping = {
+            "SPEECH_NMOS": EvalType.NMOS,
+            "SPEECH_QMOS": EvalType.QMOS,
+            "SPEECH_P808": EvalType.P808,
+            "SPEECH_SMOS": EvalType.SMOS,
+            "SPEECH_PREFERENCE": EvalType.PREF,
+            "SPEECH_CMOS": EvalType.CMOS,
+            "SPEECH_DMOS": EvalType.DMOS,
+            "SPEECH_CSMOS": EvalType.CSMOS,
+        }
+        if evaluation_type in mapping:
+            return mapping[evaluation_type]
+        if evaluation_type == "CUSTOM":
+            if batch_size == 1:
+                return EvalType.CUSTOM_SINGLE
+            if batch_size == 2:
+                return EvalType.CUSTOM_DOUBLE
+            raise ValueError("CUSTOM evaluation_type requires batch_size 1 or 2")
+        raise ValueError(f"Unknown evaluation_type: {evaluation_type}")
+
+    @staticmethod
+    def get_supported_types_for(selected: "EvalType") -> List["EvalType"]:
+        """
+        Get the supported EvalTypes list that should be passed to Evaluator for a given selected type.
+        - Single family -> all single types
+        - Double family -> all double types
+        - Triple family -> all triple types
+        """
+        if selected in EvalType.get_single_types():
+            return EvalType.get_single_types()
+        if selected in EvalType.get_double_types():
+            return EvalType.get_double_types()
+        if selected in EvalType.get_triple_types():
+            return EvalType.get_triple_types()
+        return [selected]
 
     @staticmethod
     def is_single(type_str: str) -> bool:
@@ -135,6 +181,7 @@ class QuestionResponseCategory(Enum):
     CHOICE_ONE_NO_SCORE = "CHOICE_ONE_NO_SCORE"
     SCALE_LINEAR = "SCALE_LINEAR"
     INSTRUCTION = "INSTRUCTION"
+    ANNOTATION = "ANNOTATION"
 
 
 class QuestionUsageType(Enum):
@@ -143,6 +190,7 @@ class QuestionUsageType(Enum):
     GUIDELINE_WARNING = "GUIDELINE_WARNING"
     GUIDELINE_PROHIBIT = "GUIDELINE_PROHIBIT"
     SCORE = "SCORE"
+    ANNOTATION = "ANNOTATION"
 
     @staticmethod
     def is_score(usage_type: "QuestionUsageType") -> bool:
@@ -156,6 +204,16 @@ class InstructionCategory(Enum):
     DONT = "DONT"
 
 
+class QuestionType(Enum):
+    """Type of question in evaluation templates."""
+
+    SCORED = "SCORED"
+    NON_SCORED = "NON_SCORED"
+    COMPARISON = "COMPARISON"
+    ANNOTATION = "ANNOTATION"
+    INSTRUCTION = "INSTRUCTION"
+
+
 class QuestionRelatedModel(Enum):
     ALL = "ALL"
     MODEL_A = "MODEL_A"
@@ -166,7 +224,9 @@ class QuestionRelatedModel(Enum):
         for member in QuestionRelatedModel:
             if member.value == value:
                 return member
-        raise ValueError(f"Invalid related model: {value}. Use one of the following: {', '.join([item.value for item in QuestionRelatedModel])}")
+        raise ValueError(
+            f"Invalid related model: {value}. Use one of the following: {', '.join([item.value for item in QuestionRelatedModel])}"
+        )
 
     @staticmethod
     def is_member(value: str) -> bool:
@@ -181,7 +241,9 @@ class CollectionTarget(Enum):
         for member in CollectionTarget:
             if member.value == value:
                 return member
-        raise ValueError(f"Invalid collection target: {value}. Use one of the following: {', '.join([item.value for item in CollectionTarget])}")
+        raise ValueError(
+            f"Invalid collection target: {value}. Use one of the following: {', '.join([item.value for item in CollectionTarget])}"
+        )
 
 
 class CollectionCustomerStatus(Enum):
