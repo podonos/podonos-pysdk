@@ -1,3 +1,10 @@
+## 0.32.0
+
+- Add evaluation_type field to Template dataclass
+- Fix Python 3.8 compatibility for hashlib.md5() usedforsecurity parameter
+- Fix Python 3.8 compatibility for union type syntax (str | None → Optional[str])
+- Add annotation question support
+
 ## 0.31.0
 
 - Fix batch processing for validation logic
