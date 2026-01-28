@@ -20,7 +20,9 @@ def generate_random_group_name():
     return f"{current_time_milliseconds}_{random_uuid}"
 
 
-def process_paths_to_posix(original_path: str, remote_object_path: str) -> Tuple[str, str]:
+def process_paths_to_posix(
+    original_path: str, remote_object_path: str
+) -> Tuple[str, str]:
     """Convert paths to POSIX style
 
     Args:
@@ -79,7 +81,12 @@ def calculate_file_md5_base64(file_path: str) -> Tuple[str, int]:
         raise FileNotFoundError(f"File not found: {file_path}")
 
     file_size = os.path.getsize(file_path)
-    md5_hash = hashlib.md5(usedforsecurity=False)
+    try:
+        # Python 3.9+ supports usedforsecurity parameter
+        md5_hash = hashlib.md5(usedforsecurity=False)
+    except TypeError:
+        # Python 3.8 doesn't support usedforsecurity parameter
+        md5_hash = hashlib.md5()
 
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):

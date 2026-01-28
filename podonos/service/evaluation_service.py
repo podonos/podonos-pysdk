@@ -52,7 +52,9 @@ class EvaluationService:
         """
         log.debug("Create evaluation")
         try:
-            response = self.api_client.post("evaluations", data=config.to_create_request_dto())
+            response = self.api_client.post(
+                "evaluations", data=config.to_create_request_dto()
+            )
             response.raise_for_status()
             evaluation = EvaluationEntity.from_dict(response.json())
             log.info(f"Evaluation is generated: {evaluation.id}")
@@ -105,7 +107,9 @@ class EvaluationService:
         try:
             response = self.api_client.get("evaluations")
             response.raise_for_status()
-            evaluations = [EvaluationEntity.from_dict(evaluation) for evaluation in response.json()]
+            evaluations = [
+                EvaluationEntity.from_dict(evaluation) for evaluation in response.json()
+            ]
             return [evaluation.to_dict() for evaluation in evaluations]
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation list: {e}")
@@ -126,9 +130,13 @@ class EvaluationService:
             List of statistics for the evaluation.
         """
         try:
-            response = self.api_client.get(f"evaluations/{evaluation_id}/stats?group-by={group_by}")
+            response = self.api_client.get(
+                f"evaluations/{evaluation_id}/stats?group-by={group_by}"
+            )
             if response.status_code == 400:
-                log.info(f"Bad Request: The {evaluation_id} is an invalid evaluation id")
+                log.info(
+                    f"Bad Request: The {evaluation_id} is an invalid evaluation id"
+                )
                 return []
 
             response.raise_for_status()
@@ -151,7 +159,9 @@ class EvaluationService:
                 status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
 
-    @validate_args(evaluation_id=Rules.uuid_not_none, remote_object_name=Rules.str_not_none)
+    @validate_args(
+        evaluation_id=Rules.uuid_not_none, remote_object_name=Rules.str_not_none
+    )
     def get_presigned_url(self, evaluation_id: str, remote_object_name: str) -> str:
         """Get presigned URL for file upload"""
         try:
@@ -187,7 +197,9 @@ class EvaluationService:
         config=Rules.instance_of(EvalConfig),
         audio_groups=Rules.list_not_none,
     )
-    def upload_session_json(self, evaluation_id: str, config: EvalConfig, audio_groups: List[AudioGroup]) -> None:
+    def upload_session_json(
+        self, evaluation_id: str, config: EvalConfig, audio_groups: List[AudioGroup]
+    ) -> None:
         """Upload session JSON data"""
         try:
             session_json = config.to_dict()
@@ -206,7 +218,9 @@ class EvaluationService:
         data=Rules.dict_not_none,
         headers=Rules.dict_not_none_or_none,
     )
-    def put_session_json(self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Response:
+    def put_session_json(
+        self, url: str, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None
+    ) -> Response:
         log.debug("JSON data")
         for key, value in data.items():
             log.debug(f"{key}: {value}")
@@ -216,7 +230,9 @@ class EvaluationService:
                 log.debug(f"{key}: {value}")
 
         try:
-            response = self.api_client.external_put(url, json_data=data, headers=headers)
+            response = self.api_client.external_put(
+                url, json_data=data, headers=headers
+            )
             return response
         except Exception as e:
             log.error(f"HTTP error in uploading a json to presigned url: {e}")
@@ -226,13 +242,17 @@ class EvaluationService:
             )
 
     @validate_args(evaluation_id=Rules.uuid_not_none, output_dir=Rules.str_not_none)
-    def download_evaluation_files_by_evaluation_id(self, evaluation_id: str, output_dir: str) -> str:
+    def download_evaluation_files_by_evaluation_id(
+        self, evaluation_id: str, output_dir: str
+    ) -> str:
         """Download evaluation files using CloudFront cookies."""
         try:
             # Get the response from the API
             log.debug(f"Download evaluation files for evaluation {evaluation_id}")
             file_mata_json: Dict[str, List[Dict[str, Any]]] = {"files": []}
-            response = self.api_client.get(f"evaluation-files/download?evaluation-id={evaluation_id}")
+            response = self.api_client.get(
+                f"evaluation-files/download?evaluation-id={evaluation_id}"
+            )
             response.raise_for_status()
 
             # Parse the response using EvaluationFileDownloadResponseDto
@@ -242,17 +262,30 @@ class EvaluationService:
             os.makedirs(output_dir, exist_ok=True)
 
             # Download each file using the original URL and cookies
-            for file in tqdm(download_response["files"], desc="Downloading files", unit="file"):
+            for file in tqdm(
+                download_response["files"], desc="Downloading files", unit="file"
+            ):
                 # Download the file using the original URL and cookies
-                file_response = self.api_client.external_get(file["original_url"], cookies=download_response["cookie"])
+                file_response = self.api_client.external_get(
+                    file["original_url"], cookies=download_response["cookie"]
+                )
                 file_response.raise_for_status()
 
                 content_type = file_response.headers.get("Content-Type")
-                file_extension = CONTENT_TYPE_TO_EXTENSION[content_type] if content_type else ".flac"
+                file_extension = (
+                    CONTENT_TYPE_TO_EXTENSION[content_type] if content_type else ".flac"
+                )
 
                 # Generate a hash for the original file name
                 file_original_name = file["original_name"]
-                hash_object = hashlib.md5(file_original_name.encode(), usedforsecurity=False)
+                try:
+                    # Python 3.9+ supports usedforsecurity parameter
+                    hash_object = hashlib.md5(
+                        file_original_name.encode(), usedforsecurity=False
+                    )
+                except TypeError:
+                    # Python 3.8 doesn't support usedforsecurity parameter
+                    hash_object = hashlib.md5(file_original_name.encode())
                 hashed_file_name = hash_object.hexdigest()
 
                 # Construct the file path using the model tag and hashed file name
@@ -288,7 +321,9 @@ class EvaluationService:
             raise HTTPError(f"Failed to download evaluation files: {e}")
 
     @validate_args(evaluation_id=Rules.uuid_not_none, audios=Rules.list_not_none)
-    def verify_files(self, evaluation_id: str, audios: List[Audio]) -> VerifyFilesResponse:
+    def verify_files(
+        self, evaluation_id: str, audios: List[Audio]
+    ) -> VerifyFilesResponse:
         try:
             payload = {
                 "files": [
@@ -300,7 +335,9 @@ class EvaluationService:
                     for audio in audios
                 ]
             }
-            response = self.api_client.post(f"evaluations/{evaluation_id}/files/verify", data=payload)
+            response = self.api_client.post(
+                f"evaluations/{evaluation_id}/files/verify", data=payload
+            )
             response.raise_for_status()
             return VerifyFilesResponse.from_dict(response.json())
         except Exception as e:
@@ -309,11 +346,19 @@ class EvaluationService:
                 status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
 
-    @validate_args(evaluation_id=Rules.uuid_not_none, file_meta_ids=Rules.list_not_none_or_none)
-    def process_files(self, evaluation_id: str, file_meta_ids: Optional[List[str]] = None) -> ProcessFilesResponse:
+    @validate_args(
+        evaluation_id=Rules.uuid_not_none, file_meta_ids=Rules.list_not_none_or_none
+    )
+    def process_files(
+        self, evaluation_id: str, file_meta_ids: Optional[List[str]] = None
+    ) -> ProcessFilesResponse:
         try:
-            payload: Dict[str, Any] = {"file_meta_ids": file_meta_ids} if file_meta_ids else {}
-            response = self.api_client.post(f"evaluations/{evaluation_id}/files/process", data=payload)
+            payload: Dict[str, Any] = (
+                {"file_meta_ids": file_meta_ids} if file_meta_ids else {}
+            )
+            response = self.api_client.post(
+                f"evaluations/{evaluation_id}/files/process", data=payload
+            )
             response.raise_for_status()
             return ProcessFilesResponse.from_dict(response.json())
         except Exception as e:

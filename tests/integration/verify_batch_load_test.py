@@ -30,7 +30,7 @@ import sys
 import tempfile
 import time
 import wave
-from typing import List
+from typing import List, Optional
 
 import podonos
 from podonos import File
@@ -58,7 +58,7 @@ def create_test_wav(
 
 def run_large_file_count_verification(
     api_key: str,
-    base_url: str | None = None,
+    base_url: Optional[str] = None,
     file_count: int = 1000,
     max_upload_workers: int = 10,
     verify_batch_size: int = 500,
@@ -197,7 +197,7 @@ def run_large_file_count_verification(
 
 def run_incremental_file_counts(
     api_key: str,
-    base_url: str | None = None,
+    base_url: Optional[str] = None,
 ) -> bool:
     """
     Test with incrementally larger file counts to find breaking point.

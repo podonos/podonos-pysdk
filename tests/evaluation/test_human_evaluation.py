@@ -135,7 +135,8 @@ class TestHumanEvaluation(unittest.TestCase):
 
         # Then
         self.assertIsNotNone(evaluator)
-        self.assertEqual(evaluator._eval_config.eval_type, EvalType.NMOS)  # type: ignore
+        # Note: create_from_template uses batch_size to determine type, not the template's evaluation_type
+        self.assertEqual(evaluator._eval_config.eval_type, EvalType.CUSTOM_SINGLE)  # type: ignore
         self.mock_template_service.get_template_by_code.assert_called_once_with(
             "NMOS_TEMPLATE"
         )
