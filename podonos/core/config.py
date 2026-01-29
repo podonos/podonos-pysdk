@@ -41,6 +41,7 @@ class EvalConfig:
     )
     _eval_auto_start: bool = False
     _eval_template_id: Optional[str] = None
+    _skip_default_questions: bool = False
     _max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
     _verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE
 
@@ -60,6 +61,7 @@ class EvalConfig:
         template_id: Optional[str] = None,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
         verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
+        skip_default_questions: bool = False,
     ) -> None:
         self._eval_name = self._valudate_eval_name(name)
         self._eval_description = desc
@@ -81,6 +83,7 @@ class EvalConfig:
         self._eval_template_id = template_id
         self._max_upload_workers = max_upload_workers
         self._verify_batch_size = self._validate_verify_batch_size(verify_batch_size)
+        self._skip_default_questions = skip_default_questions
         self.log_eval_config()
 
     def log_eval_config(self) -> None:
@@ -102,6 +105,7 @@ class EvalConfig:
         log.debug(f"Evaluation Template ID: {self._eval_template_id}")
         log.debug(f"Max upload workers: {self._max_upload_workers}")
         log.debug(f"Verify batch size: {self._verify_batch_size}")
+        log.debug(f"Skip default questions: {self._skip_default_questions}")
 
     @property
     def eval_id(self) -> str:
@@ -323,6 +327,7 @@ class EvalConfig:
             "use_annotation": self._eval_use_annotation,
             "use_loudness_normalization": self._eval_use_loudness_normalization,
             "auto_start": self._eval_auto_start,
+            "skip_default_questions": self._skip_default_questions,
         }
 
     def to_create_from_template_request_dto(self) -> Dict[str, Any]:
