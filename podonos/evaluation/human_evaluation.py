@@ -310,6 +310,7 @@ class HumanEvaluation:
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
             verify_batch_size=verify_batch_size,
+            skip_default_questions=True,
         )
         log.info(f"Created evaluation config with type: {eval_type.value}")
 
