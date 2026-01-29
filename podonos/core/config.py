@@ -105,6 +105,7 @@ class EvalConfig:
         log.debug(f"Evaluation Template ID: {self._eval_template_id}")
         log.debug(f"Max upload workers: {self._max_upload_workers}")
         log.debug(f"Verify batch size: {self._verify_batch_size}")
+        log.debug(f"Skip default questions: {self._skip_default_questions}")
 
     @property
     def eval_id(self) -> str:
