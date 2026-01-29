@@ -10,12 +10,13 @@ name = "podonos"
 version = "0.29.0"
 description = "Managed evaluation for audio & speech"
 readme = "README.md"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "David Anderson", email = "david@podonos.com"}
 ]
 requires-python = ">=3.8"
 dependencies = [
+    "filetype",
     "glog",
     "packaging",
     "requests",

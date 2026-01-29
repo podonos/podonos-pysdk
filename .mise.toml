@@ -1,0 +1,6 @@
+[tools]
+python = ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+[tasks.test-all]
+description = "Run tests across all Python versions (3.8-3.14)"
+run = "bash scripts/test-all.sh"
