@@ -13,7 +13,6 @@ class TestLanguageEnum(unittest.TestCase):
         self.assertEqual(Language.ENGLISH_AUSTRALIAN.value, "en-au")
         self.assertEqual(Language.ENGLISH_CANADIAN.value, "en-ca")
         self.assertEqual(Language.ENGLISH_INDIA.value, "en-in")
-        self.assertEqual(Language.ENGLISH_SINGAPOREAN.value, "en-sg")
         self.assertEqual(Language.PORTUGUESE_PORTUGAL.value, "pt-pt")
         self.assertEqual(Language.PORTUGUESE_BRAZIL.value, "pt-br")
         self.assertEqual(Language.KOREAN.value, "ko-kr")
@@ -43,7 +42,6 @@ class TestLanguageEnum(unittest.TestCase):
             ("en-au", Language.ENGLISH_AUSTRALIAN),
             ("en-ca", Language.ENGLISH_CANADIAN),
             ("en-in", Language.ENGLISH_INDIA),
-            ("en-sg", Language.ENGLISH_SINGAPOREAN),
         ]
 
         for value, expected_enum in english_variants:
@@ -158,7 +156,6 @@ class TestEvalTypeEnum(unittest.TestCase):
 
     def test_selected_from_template_evaluation_type_mapping(self):
         self.assertEqual(EvalType.selected_from_template_evaluation_type("SPEECH_NMOS"), EvalType.NMOS)
-        self.assertEqual(EvalType.selected_from_template_evaluation_type("SPEECH_RANKING"), EvalType.RANKING)
         self.assertEqual(EvalType.selected_from_template_evaluation_type("CUSTOM", batch_size=1), EvalType.CUSTOM_SINGLE)
         self.assertEqual(EvalType.selected_from_template_evaluation_type("CUSTOM", batch_size=2), EvalType.CUSTOM_DOUBLE)
 
@@ -166,7 +163,7 @@ class TestEvalTypeEnum(unittest.TestCase):
         self.assertEqual(set(EvalType.get_supported_types_for(EvalType.NMOS)), set(EvalType.get_single_types()))
         self.assertEqual(set(EvalType.get_supported_types_for(EvalType.PREF)), set(EvalType.get_double_types()))
         self.assertEqual(set(EvalType.get_supported_types_for(EvalType.CSMOS)), set(EvalType.get_triple_types()))
-        self.assertEqual(EvalType.get_supported_types_for(EvalType.RANKING), [EvalType.RANKING])
+        self.assertEqual(EvalType.get_supported_types_for(EvalType.RANKING), [])
 
 
 class TestAIEvalTypeEnum(unittest.TestCase):

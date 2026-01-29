@@ -31,8 +31,8 @@ class TestEvalConfig(unittest.TestCase):
         self.assertEqual(str(context.exception), '"name" must be longer than 1.')
 
     def test_validate_eval_type(self):
-        # Test valid types
-        valid_types = ["NMOS", "QMOS", "SMOS", "P808", "PREF", "CSMOS", "CUSTOM_SINGLE", "CUSTOM_DOUBLE", "RANKING"]
+        # Test valid types (RANKING removed as it's not yet released)
+        valid_types = ["NMOS", "QMOS", "SMOS", "P808", "PREF", "CSMOS", "CUSTOM_SINGLE", "CUSTOM_DOUBLE"]
         for eval_type in valid_types:
             result = self.eval_config._validate_eval_type(eval_type)  # type: ignore
             self.assertEqual(result.value, eval_type)

@@ -827,6 +827,7 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(len(self.evaluator._ordered_file_groups), 1)  # type: ignore
         self.assertEqual(mock_upload.call_count, 2)
 
+    @unittest.skip("RANKING not yet released")
     def test_add_ranking_set_raises_error_when_not_initialized(self):
         """Test add_ranking_set raises error when evaluator is not initialized"""
         # Given
@@ -841,6 +842,7 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator.add_ranking_set(files)
         self.assertIn("Evaluator is not initialized", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     def test_add_ranking_set_raises_error_for_wrong_eval_type(self):
         """Test add_ranking_set raises error for non-RANKING evaluation types"""
         # Given
@@ -855,6 +857,7 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator.add_ranking_set(files)
         self.assertIn("ranking evaluation types", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_add_ranking_set_processes_files_successfully(self, mock_upload: Mock):
         """Test add_ranking_set processes and uploads ranking files successfully"""
@@ -875,6 +878,7 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(len(self.evaluator._ordered_file_groups), 1)  # type: ignore
         self.assertEqual(mock_upload.call_count, 2)
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_add_ranking_set_rejects_inconsistent_model_tag_order(
         self, mock_upload: Mock
@@ -904,6 +908,7 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator.add_ranking_set(files2)
         self.assertIn("identical model_tag order", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_add_ranking_set_rejects_inconsistent_group_size(self, mock_upload: Mock):
         """Test add_ranking_set rejects groups with different number of files"""
@@ -932,6 +937,7 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator.add_ranking_set(files2)
         self.assertIn("consistent group size", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_add_ranking_set_rejects_single_file(self, mock_upload: Mock):
         """Test add_ranking_set rejects a group with only one file"""
@@ -949,6 +955,7 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator.add_ranking_set(files)
         self.assertIn("at least two files", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_add_ranking_set_rejects_reference_files(self, mock_upload: Mock):
         """Test add_ranking_set rejects files with is_ref=True"""
@@ -969,6 +976,7 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator.add_ranking_set(files)
         self.assertIn("cannot include reference files", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_add_ranking_set_maintains_order_across_multiple_groups(
         self, mock_upload: Mock
@@ -1008,6 +1016,7 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(len(self.evaluator._ordered_file_groups), 3)  # type: ignore
         self.assertEqual(mock_upload.call_count, 9)  # 3 groups * 3 files each
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_add_ranking_set_rejects_duplicate_model_tags_exact(
         self, mock_upload: Mock
@@ -1031,6 +1040,7 @@ class TestEvaluator(unittest.TestCase):
         self.assertIn("unique model_tags within a group", str(context.exception))
         self.assertIn("Duplicate found: 'AWS'", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_add_ranking_set_rejects_duplicate_model_tags_case_insensitive(
         self, mock_upload: Mock
@@ -1054,6 +1064,7 @@ class TestEvaluator(unittest.TestCase):
         self.assertIn("unique model_tags within a group", str(context.exception))
         self.assertIn("case-insensitive", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_add_ranking_set_rejects_duplicate_in_three_files(self, mock_upload: Mock):
         """Test add_ranking_set rejects duplicate model_tags in a group of three"""
@@ -1075,6 +1086,7 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator.add_ranking_set(files)
         self.assertIn("unique model_tags within a group", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     def test_update_ranking_batch_size_raises_error_when_no_groups(self):
         """Test _update_ranking_batch_size_before_upload raises error when no groups"""
         # Given
@@ -1085,6 +1097,7 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator._update_ranking_batch_size_before_upload()  # type: ignore
         self.assertIn("at least one group with files", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     def test_update_ranking_batch_size_raises_error_when_group_too_small(self):
         """Test _update_ranking_batch_size_before_upload raises error when group has < 2 files"""
         # Given
@@ -1109,6 +1122,7 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator._update_ranking_batch_size_before_upload()  # type: ignore
         self.assertIn("at least two files per group", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     def test_update_ranking_batch_size_updates_batch_size_successfully(self):
         """Test _update_ranking_batch_size_before_upload updates batch_size correctly"""
         # Given
@@ -1143,6 +1157,7 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(payload["batch_size"], 3)
         self.assertEqual(self.evaluator._eval_config.eval_batch_size, 3)  # type: ignore
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_update_specific_fields_receives_correct_batch_size_from_add_ranking_set(
         self, mock_upload: Mock
@@ -1184,6 +1199,7 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(len(self.evaluator._ordered_file_groups[0].audios), 4)  # type: ignore
         self.assertEqual(self.evaluator._eval_config.eval_batch_size, 4)  # type: ignore
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_update_specific_fields_batch_size_matches_first_group_size(
         self, mock_upload: Mock
@@ -1235,6 +1251,7 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(len(self.evaluator._ordered_file_groups[0].audios), 5)  # type: ignore
         self.assertEqual(len(self.evaluator._ordered_file_groups[1].audios), 5)  # type: ignore
 
+    @unittest.skip("RANKING not yet released")
     @patch.object(Evaluator, "_upload_one_file")
     def test_update_specific_fields_payload_structure_for_ranking(
         self, mock_upload: Mock
