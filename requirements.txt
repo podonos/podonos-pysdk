@@ -22,8 +22,8 @@ mdurl==0.1.2
 more-itertools==10.2.0
 natsort==8.4.0
 nh3==0.2.17
-numpy>=2.0.0,<2.4.0; python_version < '3.14'
-numpy>=2.4.0; python_version >= '3.14'
+numpy>=1.24.0,<2.0.0; python_version == '3.8'
+numpy>=2.0.0,<2.4.0; python_version >= '3.9' and python_version < '3.14'
 packaging==25.0
 pkginfo==1.11.0
 pluggy==1.5.0
@@ -47,5 +47,6 @@ tomli==2.0.1
 tqdm==4.67.1
 twine==5.1.0
 typing_extensions==4.12.1
-urllib3>=2.6.3,<3
+urllib3>=2.6.3,<3; python_version >= "3.10"
+urllib3>=1.25.4,<1.27; python_version < "3.10"
 zipp==3.19.2

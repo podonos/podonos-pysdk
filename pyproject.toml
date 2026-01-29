@@ -14,7 +14,7 @@ license = "MIT"
 authors = [
     {name = "David Anderson", email = "david@podonos.com"}
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 dependencies = [
     "glog",
     "packaging",
@@ -27,6 +27,8 @@ keywords = ["ai", "speech", "synthesis"]
 classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -39,7 +41,8 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-    "numpy>=2.0.0,<2.4.0; python_version < '3.14'",
+    "numpy>=1.24.0,<2.0.0; python_version == '3.8'",
+    "numpy>=2.0.0,<2.4.0; python_version >= '3.9' and python_version < '3.14'",
     "numpy>=2.4.0; python_version >= '3.14'",
     "pytest",
 ]

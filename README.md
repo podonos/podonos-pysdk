@@ -9,7 +9,7 @@ For more details, see [Docs](https://www.podonos.com/docs/apikey)
 
 ### 💾 2. Install podonos Python package
 
-First of all, make sure you have installed Python 3.10 or newer
+First of all, make sure you have installed Python 3.8 or newer
 
 ```bash
 python --version
