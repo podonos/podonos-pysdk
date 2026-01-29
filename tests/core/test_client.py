@@ -700,6 +700,50 @@ class TestClientFromTemplateJson(unittest.TestCase):
         call_kwargs = mock_human.create_from_template_json.call_args[1]
         self.assertEqual(call_kwargs["custom_type"], "RANKING")
 
+    def test_create_evaluator_from_template_json_sends_skip_default_questions(self):
+        """Test that create_evaluator_from_template_json sends skip_default_questions=True to the API"""
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
+
+        mock_put_response = MagicMock(status_code=200)
+        mock_put_response.json.return_value = [{"id": str(uuid4())}]
+        mock_put_response.raise_for_status.return_value = None
+        self.api_client.put = MagicMock(return_value=mock_put_response)
+
+        comparison_template = {
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "Compare quality",
+                    "description": "Compare the two audio samples",
+                    "scale": 5,
+                    "anchor_label": {
+                        "title": "Preference",
+                        "label_text": {"left": "Better", "right": "Better"},
+                    },
+                }
+            ]
+        }
+
+        # When
+        evaluator = self.client.create_evaluator_from_template_json(
+            json=comparison_template,
+            name="CMOS Test",
+            custom_type="SINGLE_REF",
+            desc="Test CMOS skip_default_questions",
+        )
+
+        # Then
+        self.assertIsInstance(evaluator, Evaluator)
+        self.api_client.post.assert_called_once()
+        post_data = self.api_client.post.call_args[1].get(
+            "data", self.api_client.post.call_args[0][1] if len(self.api_client.post.call_args[0]) > 1 else None
+        )
+        self.assertTrue(post_data["skip_default_questions"])
+
 
 class TestEvaluationClientApiKey(unittest.TestCase):
     @classmethod
