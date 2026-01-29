@@ -181,10 +181,10 @@ class EvalConfig:
             EvalType.CSMOS.value,
             EvalType.CUSTOM_SINGLE.value,
             EvalType.CUSTOM_DOUBLE.value,
-            EvalType.RANKING.value,
+            # RANKING not yet released
         ]:
             raise ValueError(
-                '"type" must be one of {NMOS, QMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING}. \n'
+                '"type" must be one of {NMOS, QMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE}. \n'
                 + f"Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}"
             )
         return EvalType(eval_type)
@@ -197,7 +197,7 @@ class EvalConfig:
             Language.ENGLISH_BRITISH.value,
             Language.ENGLISH_CANADIAN.value,
             Language.ENGLISH_INDIA.value,
-            Language.ENGLISH_SINGAPOREAN.value,
+            # Language.ENGLISH_SINGAPOREAN.value,  # Not yet released
             Language.PORTUGUESE_PORTUGAL.value,
             Language.PORTUGUESE_BRAZIL.value,
             Language.KOREAN.value,
@@ -245,13 +245,11 @@ class EvalConfig:
             return 1
         elif EvalType.is_double(eval_type):
             return 2
-        elif EvalType.is_ranking(eval_type):
-            return 2
         elif EvalType.is_triple(eval_type):
             return 3
         else:
             raise ValueError(
-                '"eval_type" must be one of {NMOS, QMOS, P808, RANKING, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}.'
+                '"eval_type" must be one of {NMOS, QMOS, P808, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}.'
             )
 
     # TODO: allow floating point hours, e.g. 0.5.

@@ -208,7 +208,7 @@ class Client:
             json: Template JSON as a dictionary. Optional if json_file is provided.
             json_file: Path to the JSON template file. Optional if json is provided.
             name: This evaluation name. Required.
-            custom_type: Type of evaluation (CustomType.SINGLE, CustomType.DOUBLE, CustomType.SINGLE_REF, or CustomType.RANKING). Also accepts string values.
+            custom_type: Type of evaluation (CustomType.SINGLE, CustomType.DOUBLE, or CustomType.SINGLE_REF). Also accepts string values.
             desc: Description of this evaluation. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.

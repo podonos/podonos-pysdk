@@ -165,6 +165,13 @@ class HumanEvaluation:
         if template.batch_size is None:
             raise ValueError(f"Template with id {template_id} has no batch size")
 
+        # Reject RANKING templates as the feature is not yet released
+        if template.evaluation_type == "SPEECH_RANKING":
+            raise NotImplementedError(
+                "RANKING evaluation type is not yet released. "
+                "This template cannot be used at this time."
+            )
+
         # Determine eval_type from template.evaluation_type if present, else from batch_size
         selected_eval_type = EvalType.selected_from_template_evaluation_type(
             template.evaluation_type or "CUSTOM", batch_size=template.batch_size
@@ -226,7 +233,7 @@ class HumanEvaluation:
             json: Template JSON as a dictionary. Optional if json_file is provided.
             json_file: Path to the JSON template file. Optional if json is provided.
             name: This evaluation name. Required.
-            custom_type: Type of evaluation (CustomType.SINGLE, CustomType.DOUBLE, CustomType.SINGLE_REF, or CustomType.RANKING). Also accepts string values.
+            custom_type: Type of evaluation (CustomType.SINGLE, CustomType.DOUBLE, or CustomType.SINGLE_REF). Also accepts string values.
             desc: Description of this evaluation. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
@@ -250,8 +257,15 @@ class HumanEvaluation:
                 custom_type = CustomType.from_value(custom_type)
             except ValueError:
                 raise ValueError(
-                    f"custom_type must be one of {', '.join(CustomType.values())}"
+                    "custom_type must be one of SINGLE, DOUBLE, or SINGLE_REF"
                 )
+
+        # Reject RANKING as it's not yet released
+        if custom_type == CustomType.RANKING:
+            raise NotImplementedError(
+                "RANKING evaluation type is not yet released. "
+                "Please use SINGLE, DOUBLE, or SINGLE_REF."
+            )
 
         if custom_type == CustomType.SINGLE:
             eval_type = EvalType.CUSTOM_SINGLE
@@ -262,12 +276,9 @@ class HumanEvaluation:
         elif custom_type == CustomType.SINGLE_REF:
             eval_type = EvalType.CMOS
             batch_size = 2
-        elif custom_type == CustomType.RANKING:
-            eval_type = EvalType.RANKING
-            batch_size = 2  # initial; will be adjusted on close() based on first ranking set size
         else:
             raise ValueError(
-                f"custom_type must be one of {', '.join(CustomType.values())}"
+                "custom_type must be one of SINGLE, DOUBLE, or SINGLE_REF"
             )
         # Load template data
         template_data = TemplateJsonLoader.load_json(json, json_file)
