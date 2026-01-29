@@ -614,7 +614,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
                 json=self.template_data, name="Test", custom_type="TRIPLE"
             )  # type: ignore
         self.assertIn(
-            "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, RANKING",
+            "custom_type must be one of SINGLE, DOUBLE, or SINGLE_REF",
             str(context.exception),
         )
 
@@ -680,15 +680,25 @@ class TestClientFromTemplateJson(unittest.TestCase):
 
     def test_create_evaluator_from_template_json_with_ranking_calls_human(self):
         mock_human = MagicMock()
-        mock_human.create_from_template_json.return_value = "EVAL"
+        # Configure mock to raise NotImplementedError for RANKING
+        mock_human.create_from_template_json.side_effect = NotImplementedError(
+            "RANKING evaluation type is not yet released. "
+            "Please use SINGLE, DOUBLE, or SINGLE_REF."
+        )
         self.client._human_evaluation = mock_human  # type: ignore
 
-        result = self.client.create_evaluator_from_template_json(
-            json={}, name="n", custom_type="RANKING"
-        )
+        # RANKING custom_type now raises NotImplementedError
+        with self.assertRaises(NotImplementedError) as context:
+            self.client.create_evaluator_from_template_json(
+                json={}, name="n", custom_type="RANKING"
+            )
+        self.assertIn("RANKING", str(context.exception))
+        self.assertIn("not yet released", str(context.exception))
 
-        self.assertEqual(result, "EVAL")
+        # Verify it was called with RANKING
         mock_human.create_from_template_json.assert_called_once()
+        call_kwargs = mock_human.create_from_template_json.call_args[1]
+        self.assertEqual(call_kwargs["custom_type"], "RANKING")
 
 
 class TestEvaluationClientApiKey(unittest.TestCase):
@@ -834,7 +844,7 @@ class TestClient(unittest.TestCase):
                 json=self.template_data, name="Test", custom_type="TRIPLE"
             )  # type: ignore
         self.assertIn(
-            "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, RANKING",
+            "custom_type must be one of SINGLE, DOUBLE, or SINGLE_REF",
             str(context.exception),
         )
 
@@ -924,6 +934,7 @@ class TestEvaluatorMethodValidation(unittest.TestCase):
         self.api_client.post = Mock(return_value=mock_response)
         self.api_client.put = Mock(return_value=mock_response)
 
+    @unittest.skip("RANKING not yet released")
     def test_ranking_evaluator_rejects_add_file(self):
         """Test RANKING evaluator rejects add_file method"""
         # Given
@@ -937,6 +948,7 @@ class TestEvaluatorMethodValidation(unittest.TestCase):
         self.assertIn("add_file", str(context.exception))
         self.assertIn("single file evaluation types", str(context.exception))
 
+    @unittest.skip("RANKING not yet released")
     def test_ranking_evaluator_rejects_add_files(self):
         """Test RANKING evaluator rejects add_files method"""
         # Given
@@ -952,7 +964,7 @@ class TestEvaluatorMethodValidation(unittest.TestCase):
         self.assertIn("comparison evaluation types", str(context.exception))
 
     def test_nmos_evaluator_rejects_add_ranking_set(self):
-        """Test NMOS evaluator rejects add_ranking_set method"""
+        """Test NMOS evaluator rejects add_ranking_set method (not yet released)"""
         # Given
         client = Client(api_client=self.api_client)
         evaluator = client._human_evaluation.create(type=EvalType.NMOS.value)  # type: ignore
@@ -961,11 +973,9 @@ class TestEvaluatorMethodValidation(unittest.TestCase):
             File(path=self.audio_path, model_tag="B"),
         ]
 
-        # When/Then
-        with self.assertRaises(ValueError) as context:
+        # When/Then - add_ranking_set raises NotImplementedError since RANKING is not yet released
+        with self.assertRaises(NotImplementedError):
             evaluator.add_ranking_set(files)
-        self.assertIn("add_ranking_set", str(context.exception))
-        self.assertIn("ranking evaluation types", str(context.exception))
 
     def test_nmos_evaluator_rejects_add_files(self):
         """Test NMOS evaluator rejects add_files method"""
@@ -1005,10 +1015,10 @@ class TestEvaluatorMethodValidation(unittest.TestCase):
         ]
 
         # When/Then
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(NotImplementedError) as context:
             evaluator.add_ranking_set(files)
-        self.assertIn("add_ranking_set", str(context.exception))
-        self.assertIn("ranking evaluation types", str(context.exception))
+        self.assertIn("RANKING", str(context.exception))
+        self.assertIn("not yet released", str(context.exception))
 
 
 if __name__ == "__main__":
