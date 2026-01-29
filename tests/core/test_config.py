@@ -157,6 +157,18 @@ class TestEvalConfig(unittest.TestCase):
         self.assertIn("use_annotation", request_dto)
         self.assertIn("use_loudness_normalization", request_dto)
         self.assertIn("auto_start", request_dto)
+        self.assertIn("skip_default_questions", request_dto)
+        self.assertFalse(request_dto["skip_default_questions"])
+
+    def test_skip_default_questions_default_false(self):
+        config = EvalConfig()
+        dto = config.to_create_request_dto()
+        self.assertFalse(dto["skip_default_questions"])
+
+    def test_skip_default_questions_true(self):
+        config = EvalConfig(skip_default_questions=True)
+        dto = config.to_create_request_dto()
+        self.assertTrue(dto["skip_default_questions"])
 
     def test_to_create_from_template_request_dto(self):
         self.eval_config._eval_template_id = "template123"  # type: ignore
