@@ -29,7 +29,7 @@
         { "label_text": "Excellent" },
         { "label_text": "Good" },
         { "label_text": "Fair", "reference_file": "../core/speech_ch1.mp3" },
-        { "label_text": "Poor" },
+        { "label_text": "Poor", "is_annotation_required": true },
         { "label_text": "Bad" }
       ]
     },

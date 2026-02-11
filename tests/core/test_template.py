@@ -84,6 +84,7 @@ class TestTemplateOption(unittest.TestCase):
             "label_text": "Test Label",
             "label_uri": "http://example.com/label",
             "order": 1,
+            "is_annotation_required": False,
         }
         self.assertEqual(result, expected)
 
@@ -101,6 +102,7 @@ class TestTemplateOption(unittest.TestCase):
             "label_text": None,
             "label_uri": None,
             "order": 0,
+            "is_annotation_required": False,
         }
         self.assertEqual(result, expected)
 
@@ -751,6 +753,117 @@ class TestTemplateValidator(unittest.TestCase):
         # Note: order is overwritten by process_questions to be sequential (0, 1)
         self.assertEqual(annotations[0].order, 0)
         self.assertEqual(annotations[1].order, 1)
+
+    def test_template_option_to_dict_with_annotation_required(self):
+        """Test TemplateOption.to_dict() includes is_annotation_required when True."""
+        # Given
+        option = TemplateOption(
+            value="test_value",
+            label_text="Test Label",
+            order=1,
+            is_annotation_required=True,
+        )
+
+        # When
+        result = option.to_dict()
+
+        # Then
+        expected = {
+            "id": None,
+            "value": "test_value",
+            "label_text": "Test Label",
+            "label_uri": None,
+            "order": 1,
+            "is_annotation_required": True,
+        }
+        self.assertEqual(result, expected)
+
+    def test_validate_scored_question_with_is_annotation_required(self):
+        """Test SCORED question with is_annotation_required on one option."""
+        # Given
+        data: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [
+                {
+                    "type": "SCORED",
+                    "question": "Rate quality",
+                    "options": [
+                        {"label_text": "Excellent"},
+                        {"label_text": "Poor", "is_annotation_required": True},
+                    ],
+                }
+            ],
+        }
+
+        # When
+        instructions, questions, annotations = (
+            TemplateValidator.validate_and_create_questions(
+                data, batch_size=1, eval_type=EvalType.CUSTOM_SINGLE
+            )
+        )
+
+        # Then
+        self.assertEqual(len(questions), 1)
+        self.assertEqual(len(questions[0].options), 2)
+        self.assertEqual(questions[0].options[0].is_annotation_required, False)
+        self.assertEqual(questions[0].options[1].is_annotation_required, True)
+
+    def test_validate_non_scored_question_with_is_annotation_required(self):
+        """Test NON_SCORED question with is_annotation_required on one option."""
+        # Given
+        data: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [
+                {
+                    "type": "NON_SCORED",
+                    "question": "Select issues",
+                    "allow_multiple": True,
+                    "options": [
+                        {"label_text": "Background Noise"},
+                        {"label_text": "Distortion", "is_annotation_required": True},
+                    ],
+                }
+            ],
+        }
+
+        # When
+        instructions, questions, annotations = (
+            TemplateValidator.validate_and_create_questions(
+                data, batch_size=1, eval_type=EvalType.CUSTOM_SINGLE
+            )
+        )
+
+        # Then
+        self.assertEqual(len(questions), 1)
+        self.assertEqual(len(questions[0].options), 2)
+        self.assertEqual(questions[0].options[0].is_annotation_required, False)
+        self.assertEqual(questions[0].options[1].is_annotation_required, True)
+
+    def test_validate_option_is_annotation_required_defaults_to_false(self):
+        """Test that options without is_annotation_required field default to False."""
+        # Given
+        data: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "questions": [
+                {
+                    "type": "SCORED",
+                    "question": "Rate quality",
+                    "options": [
+                        {"label_text": "Good"},
+                        {"label_text": "Bad"},
+                    ],
+                }
+            ],
+        }
+
+        # When
+        instructions, questions, annotations = (
+            TemplateValidator.validate_and_create_questions(
+                data, batch_size=1, eval_type=EvalType.CUSTOM_SINGLE
+            )
+        )
+
+        # Then
+        self.assertEqual(len(questions), 1)
+        for option in questions[0].options:
+            self.assertEqual(option.is_annotation_required, False)
 
 
 if __name__ == "__main__":

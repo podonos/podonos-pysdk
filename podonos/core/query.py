@@ -21,7 +21,7 @@ from podonos.core.types import (
     TemplateQuestion,
 )
 
-TYPE_OF_OPTION_KEY = Literal["score", "label_text", "reference_file"]
+TYPE_OF_OPTION_KEY = Literal["score", "label_text", "reference_file", "is_annotation_required"]
 TYPE_OF_QUESTION_KEY = Literal[
     "type",
     "question",
@@ -47,6 +47,7 @@ class Option:
     label_text: Optional[str] = None
     order: int = 0
     reference_file: Optional[str] = None
+    is_annotation_required: bool = False
 
     @classmethod
     def from_dict(
@@ -63,6 +64,7 @@ class Option:
                 value=data["label_text"],
                 order=order,
                 reference_file=data.get("reference_file", None),
+                is_annotation_required=bool(data.get("is_annotation_required", False)),
             )
         if not value:
             raise ValueError("Score question's option must have a value")
@@ -71,6 +73,7 @@ class Option:
             label_text=data.get("label_text"),
             order=order,
             reference_file=data.get("reference_file", None),
+            is_annotation_required=bool(data.get("is_annotation_required", False)),
         )
 
 
@@ -262,6 +265,7 @@ class ScoredQuestion(Question):
                     label_text=opt.label_text,
                     order=i,
                     reference_file=opt.reference_file,
+                    is_annotation_required=opt.is_annotation_required,
                 )
                 for i, opt in enumerate(self.options)
             ],
@@ -387,6 +391,7 @@ class NonScoredQuestion(Question):
                     label_text=opt.label_text,
                     order=i,
                     reference_file=opt.reference_file,
+                    is_annotation_required=opt.is_annotation_required,
                 )
                 for i, opt in enumerate(self.options)
             ],

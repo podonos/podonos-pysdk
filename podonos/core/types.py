@@ -41,9 +41,17 @@ class TemplateOption:
     order: int = 0
     id: Optional[str] = None
     reference_file: Optional[str] = None
+    is_annotation_required: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"id": self.id, "value": self.value, "label_text": self.label_text, "label_uri": self.label_uri, "order": self.order}
+        return {
+            "id": self.id,
+            "value": self.value,
+            "label_text": self.label_text,
+            "label_uri": self.label_uri,
+            "order": self.order,
+            "is_annotation_required": self.is_annotation_required,
+        }
 
 
 @dataclass
