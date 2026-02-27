@@ -6,7 +6,7 @@ import random
 
 from requests import Response
 from requests.exceptions import RequestException, Timeout, ConnectionError, HTTPError, ConnectTimeout, ReadTimeout
-from typing import Dict, Any, Optional, Callable, Set
+from typing import Dict, Any, Optional, Callable, Set, Tuple
 from packaging.version import Version
 
 from podonos.common.constant import *
@@ -181,11 +181,12 @@ class APIClient:
         endpoint: str,
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
+        timeout: Tuple[float, float] = (5, 30),
     ) -> Response:
         request_header = self._headers if headers is None else headers
 
         def make_request():
-            return requests.post(f"{self._api_url}/{endpoint}", headers=request_header, json=data, timeout=(5, 30))
+            return requests.post(f"{self._api_url}/{endpoint}", headers=request_header, json=data, timeout=timeout)
 
         return self._execute_with_retry(make_request)
 
