@@ -181,7 +181,7 @@ class APIClient:
         endpoint: str,
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
-        timeout: Tuple[int, int] = (5, 30),
+        timeout: Tuple[float, float] = (5, 30),
     ) -> Response:
         request_header = self._headers if headers is None else headers
 

@@ -5,7 +5,7 @@ from unittest.mock import Mock, mock_open, patch
 from podonos.common.exception import HTTPError
 from podonos.core.api import APIClient
 from podonos.entity.flash_eval import FlashEvalResult
-from podonos.service.flash_eval_service import FlashEvalService
+from podonos.service.flash_eval_service import FlashEvalService, MAX_UPLOAD_FILE_SIZE
 
 
 class TestFlashEvalService(unittest.TestCase):
@@ -39,10 +39,11 @@ class TestFlashEvalService(unittest.TestCase):
         mock_response.raise_for_status.return_value = None
         return mock_response
 
+    @patch("os.path.getsize", return_value=1024)
     @patch("os.path.isfile", return_value=True)
     @patch("os.access", return_value=True)
     @patch("builtins.open", mock_open(read_data=b"fake audio data"))
-    def test_eval_full_flow(self, mock_access, mock_isfile):
+    def test_eval_full_flow(self, mock_access, mock_isfile, mock_getsize):
         """Test the complete 3-step eval flow."""
         init_response = self._setup_init_response()
         upload_response = self._setup_upload_response()
@@ -118,10 +119,11 @@ class TestFlashEvalService(unittest.TestCase):
             self.service._init(filename="test.wav", mimetype="audio/wav")
         self.assertIn("missing 'key'", str(context.exception))
 
+    @patch("os.path.getsize", return_value=1024)
     @patch("os.path.isfile", return_value=True)
     @patch("os.access", return_value=True)
     @patch("builtins.open", mock_open(read_data=b"fake audio data"))
-    def test_upload_failure_raises_http_error(self, mock_access, mock_isfile):
+    def test_upload_failure_raises_http_error(self, mock_access, mock_isfile, mock_getsize):
         """Test that upload failure raises HTTPError."""
         error_response = Mock()
         error_response.raise_for_status.side_effect = Exception("Upload failed")
@@ -169,6 +171,34 @@ class TestFlashEvalService(unittest.TestCase):
         self.assertIsInstance(result, FlashEvalResult)
         self.assertEqual(result.naturalness, 2.5)
         self.assertEqual(result.message, "success")
+
+
+    @patch("os.path.getsize", return_value=MAX_UPLOAD_FILE_SIZE + 1)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.access", return_value=True)
+    def test_upload_file_too_large_raises_value_error(self, mock_access, mock_isfile, mock_getsize):
+        """Test that uploading a file exceeding size limit raises ValueError."""
+        with self.assertRaises(ValueError) as context:
+            self.service._upload(
+                presigned_url="https://storage.example.com/presigned",
+                file_path="/path/to/large.wav",
+                mimetype="audio/wav",
+            )
+        self.assertIn("exceeds maximum", str(context.exception))
+
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.access", return_value=True)
+    def test_init_empty_key_raises_http_error(self, mock_access, mock_isfile):
+        """Test that empty key in init response raises HTTPError."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"key": "", "urls": ["https://example.com"]}
+        mock_response.raise_for_status.return_value = None
+        self.mock_api_client.post.return_value = mock_response
+
+        with self.assertRaises(HTTPError) as context:
+            self.service._init(filename="test.wav", mimetype="audio/wav")
+        self.assertIn("empty 'key'", str(context.exception))
 
 
 if __name__ == "__main__":
