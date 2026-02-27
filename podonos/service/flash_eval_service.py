@@ -125,9 +125,10 @@ class FlashEvalService:
         """Step 3: Request evaluation for the uploaded file."""
         log.debug("Flash eval: requesting evaluation")
         try:
+            now = datetime.now(timezone.utc)
             payload: Dict[str, Any] = {
                 "key": key,
-                "request_time": datetime.now(timezone.utc).isoformat(),
+                "request_time": now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z",
             }
             # Extended read timeout (180s) to handle model cold start latency (~150s).
             response = self.api_client.post("flash/v1/eval", data=payload, timeout=(5, 180))
