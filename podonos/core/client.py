@@ -249,19 +249,19 @@ class Client:
             verify_batch_size=verify_batch_size,
         )
 
-    @validate_args(file=Rules.file_path_not_none)
-    def flash_eval(self, file: str) -> FlashEvalResult:
+    @validate_args(file_path=Rules.file_path_not_none)
+    def flash_eval(self, file_path: str) -> FlashEvalResult:
         """Runs auto-evaluation on an audio file and returns the naturalness score.
 
         Example:
             >>> import podonos
             >>> client = podonos.init(api_key="YOUR_API_KEY")
-            >>> result = client.flash_eval(file="path/to/audio.wav")
+            >>> result = client.flash_eval(file_path="path/to/audio.wav")
             >>> print(result.naturalness)
             3.58
 
         Args:
-            file: Path to the audio file to evaluate.
+            file_path: Path to the audio file to evaluate.
 
         Returns:
             FlashEvalResult containing the naturalness score.
@@ -271,7 +271,7 @@ class Client:
         """
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
-        return self._flash_eval_service.eval(file)
+        return self._flash_eval_service.eval(file_path)
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.

@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
 
 from podonos.common.exception import HTTPError
@@ -8,6 +8,8 @@ from podonos.common.validator import Rules, validate_args
 from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.entity.flash_eval import FlashEvalResult
+
+MAX_UPLOAD_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 class FlashEvalService:
@@ -61,13 +63,15 @@ class FlashEvalService:
                     }
                 ]
             }
-            response = self.api_client.post("flash/v1/init", data=payload, timeout=(5, 180))
+            response = self.api_client.post("flash/v1/init", data=payload)
             response.raise_for_status()
 
             data = response.json()
             upload_key = data.get("key")
-            if not upload_key:
+            if upload_key is None:
                 raise HTTPError("Flash eval init response missing 'key' field")
+            if not upload_key:
+                raise HTTPError("Flash eval init response returned empty 'key' field")
             urls = data.get("urls", [])
             if not urls:
                 raise HTTPError("Flash eval init returned no upload URLs")
@@ -77,15 +81,24 @@ class FlashEvalService:
         except HTTPError:
             raise
         except Exception as e:
+            resp = getattr(e, "response", None)
             raise HTTPError(
                 f"Failed to initialize flash eval: {e}",
-                status_code=getattr(getattr(e, "response", None), "status_code", None),
+                status_code=getattr(resp, "status_code", None),
+                response=resp,
             ) from e
 
     @validate_args(presigned_url=Rules.str_non_empty, file_path=Rules.file_path_not_none, mimetype=Rules.str_non_empty)
     def _upload(self, presigned_url: str, file_path: str, mimetype: str) -> None:
         """Step 2: Upload file to object storage via presigned URL."""
         log.debug(f"Flash eval: uploading {file_path}")
+        file_size = os.path.getsize(file_path)
+        if file_size > MAX_UPLOAD_FILE_SIZE:
+            raise ValueError(
+                f"File size ({file_size} bytes) exceeds maximum ({MAX_UPLOAD_FILE_SIZE} bytes)"
+            )
+        # Read file into memory for retry safety: if the upload fails and APIClient
+        # retries, a file handle would be at EOF and send empty data on the next attempt.
         with open(file_path, "rb") as f:
             file_data = f.read()
         try:
@@ -100,9 +113,11 @@ class FlashEvalService:
             response.raise_for_status()
             log.debug("Flash eval: upload complete")
         except Exception as e:
+            resp = getattr(e, "response", None)
             raise HTTPError(
                 f"Failed to upload file for flash eval: {e}",
-                status_code=getattr(getattr(e, "response", None), "status_code", None),
+                status_code=getattr(resp, "status_code", None),
+                response=resp,
             ) from e
 
     @validate_args(key=Rules.str_non_empty)
@@ -112,14 +127,17 @@ class FlashEvalService:
         try:
             payload: Dict[str, Any] = {
                 "key": key,
-                "request_time": datetime.now().astimezone().isoformat(),
+                "request_time": datetime.now(timezone.utc).isoformat(),
             }
+            # Extended read timeout (180s) to handle model cold start latency (~150s).
             response = self.api_client.post("flash/v1/eval", data=payload, timeout=(5, 180))
             response.raise_for_status()
 
             return FlashEvalResult.from_dict(response.json())
         except Exception as e:
+            resp = getattr(e, "response", None)
             raise HTTPError(
                 f"Failed to get flash eval result: {e}",
-                status_code=getattr(getattr(e, "response", None), "status_code", None),
+                status_code=getattr(resp, "status_code", None),
+                response=resp,
             ) from e
