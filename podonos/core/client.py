@@ -7,9 +7,11 @@ from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 from podonos.evaluation import AIEvaluation, HumanEvaluation
+from podonos.entity.flash_eval import FlashEvalResult
 from podonos.service import (
     CollectionService,
     EvaluationService,
+    FlashEvalService,
     ScriptService,
     TemplateService,
 )
@@ -24,6 +26,7 @@ class Client:
     # Services
     _collection_service: CollectionService
     _evaluation_service: EvaluationService
+    _flash_eval_service: FlashEvalService
     _script_service: ScriptService
     _template_service: TemplateService
 
@@ -36,6 +39,7 @@ class Client:
         self._initialized = True
         self._collection_service = CollectionService(self._api_client)
         self._evaluation_service = EvaluationService(self._api_client)
+        self._flash_eval_service = FlashEvalService(self._api_client)
         self._script_service = ScriptService(self._api_client)
         self._template_service = TemplateService(self._api_client)
 
@@ -244,6 +248,30 @@ class Client:
             max_upload_workers=max_upload_workers,
             verify_batch_size=verify_batch_size,
         )
+
+    @validate_args(file=Rules.file_path_not_none)
+    def flash_eval(self, file: str) -> FlashEvalResult:
+        """Runs auto-evaluation on an audio file and returns the naturalness score.
+
+        Example:
+            >>> import podonos
+            >>> client = podonos.init(api_key="YOUR_API_KEY")
+            >>> result = client.flash_eval(file="path/to/audio.wav")
+            >>> print(result.naturalness)
+            3.58
+
+        Args:
+            file: Path to the audio file to evaluate.
+
+        Returns:
+            FlashEvalResult containing the naturalness score.
+
+        Raises:
+            ValueError: if this function is called before calling init().
+        """
+        if not self._initialized:
+            raise ValueError("This function is called before initialization.")
+        return self._flash_eval_service.eval(file)
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
