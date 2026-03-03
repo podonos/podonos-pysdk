@@ -51,7 +51,7 @@ class FlashEvalService:
         # Step 3: Request evaluation
         response_data = self._eval(key=key)
 
-        return FlashEvalResult.from_dict(response_data, file=file, eval_id=key)
+        return FlashEvalResult.from_dict(response_data, file=file, id=key)
 
     @validate_args(filename=Rules.str_non_empty, mimetype=Rules.str_non_empty)
     def _init(self, filename: str, mimetype: str) -> Tuple[str, str]:
