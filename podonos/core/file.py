@@ -61,6 +61,9 @@ class File:
         self._is_ref = self._validate_is_ref(is_ref)
         self._meta_data = self._validate_meta_data(meta_data)
 
+    def __repr__(self) -> str:
+        return f"File(path='{self._path}')"
+
     @property
     def path(self) -> str:
         return self._path
