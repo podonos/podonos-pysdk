@@ -36,6 +36,9 @@ class FlashEvalService:
         Raises:
             HTTPError: If any API call fails.
         """
+        # Validate early so we fail before making any API calls
+        file = File(path=file_path, model_tag=FLASH_EVAL_MODEL_TAG)
+
         filename = os.path.basename(file_path)
         mimetype = get_content_type_by_filename(file_path)
 
@@ -48,9 +51,7 @@ class FlashEvalService:
         # Step 3: Request evaluation
         response_data = self._eval(key=key)
 
-        # Attach original file reference so callers can trace back to the source
-        file = File(path=file_path, model_tag=FLASH_EVAL_MODEL_TAG)
-        return FlashEvalResult.from_dict(response_data, file=file, id=key)
+        return FlashEvalResult.from_dict(response_data, file=file, eval_id=key)
 
     @validate_args(filename=Rules.str_non_empty, mimetype=Rules.str_non_empty)
     def _init(self, filename: str, mimetype: str) -> Tuple[str, str]:

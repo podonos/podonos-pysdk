@@ -1,7 +1,8 @@
-## 0.33.3
+## 0.34.0
 
-- Replace `FlashFileInfo` with `File` class in `FlashEvalResult` for consistent file representation
-- Expose original `file_path` via `result.file.path` and server-assigned evaluation ID via `result.id`
+- **Breaking**: Replace `FlashFileInfo` with `File` class in `FlashEvalResult` (`result.files` → `result.file`)
+- Expose original `file_path` via `result.file.path` and server-assigned evaluation ID via `result.eval_id`
+- Add `__repr__` to `File` class for readable output
 
 ## 0.33.2
 
