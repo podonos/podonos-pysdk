@@ -58,7 +58,7 @@ class TestFlashEvalService(unittest.TestCase):
         self.assertEqual(result.naturalness, 4.1)
         self.assertEqual(result.file.path, "/path/to/test.wav")
         self.assertEqual(result.file.model_tag, "flash_eval")
-        self.assertEqual(result.id, "test-key-123")
+        self.assertEqual(result.eval_id, "test-key-123")
 
         # Verify init call
         init_call = self.mock_api_client.post.call_args_list[0]
