@@ -1,38 +1,24 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-
-@dataclass
-class FlashFileInfo:
-    filename: str
-    filetype: str
-    mimetype: str
-
-    @staticmethod
-    def from_dict(data: Dict[str, Any]) -> "FlashFileInfo":
-        return FlashFileInfo(
-            filename=data.get("filename", ""),
-            filetype=data.get("filetype", ""),
-            mimetype=data.get("mimetype", ""),
-        )
+from podonos.core.file import File
 
 
 @dataclass
 class FlashEvalResult:
     naturalness: Optional[float]
-    files: List[FlashFileInfo]
+    file: File
+    id: Optional[str]
     message: Optional[str]
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> "FlashEvalResult":
+    def from_dict(data: Dict[str, Any], file: File, id: Optional[str] = None) -> "FlashEvalResult":
         scores = data.get("scores", {})
         naturalness = scores.get("naturalness") if isinstance(scores, dict) else None
 
-        files_data = data.get("files", [])
-        files = [FlashFileInfo.from_dict(f) for f in files_data]
-
         return FlashEvalResult(
             naturalness=naturalness,
-            files=files,
+            file=file,
+            id=id,
             message=data.get("message"),
         )
