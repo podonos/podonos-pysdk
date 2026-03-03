@@ -56,6 +56,9 @@ class TestFlashEvalService(unittest.TestCase):
 
         self.assertIsInstance(result, FlashEvalResult)
         self.assertEqual(result.naturalness, 4.1)
+        self.assertEqual(result.file.path, "/path/to/test.wav")
+        self.assertEqual(result.file.model_tag, "flash_eval")
+        self.assertEqual(result.id, "test-key-123")
 
         # Verify init call
         init_call = self.mock_api_client.post.call_args_list[0]
@@ -161,17 +164,16 @@ class TestFlashEvalService(unittest.TestCase):
 
     @patch("os.path.isfile", return_value=True)
     @patch("os.access", return_value=True)
-    def test_eval_step_returns_result(self, mock_access, mock_isfile):
-        """Test that _eval returns FlashEvalResult."""
+    def test_eval_step_returns_response_data(self, mock_access, mock_isfile):
+        """Test that _eval returns raw response dict."""
         eval_response = self._setup_eval_response(naturalness=2.5)
         self.mock_api_client.post.return_value = eval_response
 
         result = self.service._eval(key="test-key")
 
-        self.assertIsInstance(result, FlashEvalResult)
-        self.assertEqual(result.naturalness, 2.5)
-        self.assertEqual(result.message, "success")
-
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result["scores"]["naturalness"], 2.5)
+        self.assertEqual(result["message"], "success")
 
     @patch("os.path.getsize", return_value=MAX_UPLOAD_FILE_SIZE + 1)
     @patch("os.path.isfile", return_value=True)
@@ -199,6 +201,24 @@ class TestFlashEvalService(unittest.TestCase):
         with self.assertRaises(HTTPError) as context:
             self.service._init(filename="test.wav", mimetype="audio/wav")
         self.assertIn("empty 'key'", str(context.exception))
+
+    @patch("os.path.getsize", return_value=1024)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.access", return_value=True)
+    @patch("builtins.open", mock_open(read_data=b"fake audio data"))
+    def test_eval_preserves_original_file_path(self, mock_access, mock_isfile, mock_getsize):
+        """Test that the result contains the original file path, not server-generated name."""
+        init_response = self._setup_init_response()
+        upload_response = self._setup_upload_response()
+        eval_response = self._setup_eval_response(naturalness=3.8)
+
+        self.mock_api_client.post.side_effect = [init_response, eval_response]
+        self.mock_api_client.external_put.return_value = upload_response
+
+        original_path = "/home/user/recordings/my_audio.wav"
+        result = self.service.eval(original_path)
+
+        self.assertEqual(result.file.path, original_path)
 
 
 if __name__ == "__main__":

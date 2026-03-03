@@ -7,7 +7,10 @@ from podonos.common.util import get_content_type_by_filename
 from podonos.common.validator import Rules, validate_args
 from podonos.core.api import APIClient
 from podonos.core.base import log
+from podonos.core.file import File
 from podonos.entity.flash_eval import FlashEvalResult
+
+FLASH_EVAL_MODEL_TAG = "flash_eval"
 
 MAX_UPLOAD_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
@@ -28,11 +31,14 @@ class FlashEvalService:
             file_path: Path to the audio file to evaluate.
 
         Returns:
-            FlashEvalResult with naturalness score.
+            FlashEvalResult with naturalness score and original file reference.
 
         Raises:
             HTTPError: If any API call fails.
         """
+        # Validate early so we fail before making any API calls
+        file = File(path=file_path, model_tag=FLASH_EVAL_MODEL_TAG)
+
         filename = os.path.basename(file_path)
         mimetype = get_content_type_by_filename(file_path)
 
@@ -43,7 +49,9 @@ class FlashEvalService:
         self._upload(presigned_url=presigned_url, file_path=file_path, mimetype=mimetype)
 
         # Step 3: Request evaluation
-        return self._eval(key=key)
+        response_data = self._eval(key=key)
+
+        return FlashEvalResult.from_dict(response_data, file=file, id=key)
 
     @validate_args(filename=Rules.str_non_empty, mimetype=Rules.str_non_empty)
     def _init(self, filename: str, mimetype: str) -> Tuple[str, str]:
@@ -121,8 +129,12 @@ class FlashEvalService:
             ) from e
 
     @validate_args(key=Rules.str_non_empty)
-    def _eval(self, key: str) -> FlashEvalResult:
-        """Step 3: Request evaluation for the uploaded file."""
+    def _eval(self, key: str) -> Dict[str, Any]:
+        """Step 3: Request evaluation for the uploaded file.
+
+        Returns:
+            Raw response data dict from the server.
+        """
         log.debug("Flash eval: requesting evaluation")
         try:
             now = datetime.now(timezone.utc)
@@ -134,7 +146,7 @@ class FlashEvalService:
             response = self.api_client.post("flash/v1/eval", data=payload, timeout=(5, 180))
             response.raise_for_status()
 
-            return FlashEvalResult.from_dict(response.json())
+            return response.json()
         except Exception as e:
             resp = getattr(e, "response", None)
             raise HTTPError(

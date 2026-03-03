@@ -1,68 +1,63 @@
 import unittest
+from unittest.mock import patch
 
-from podonos.entity.flash_eval import FlashEvalResult, FlashFileInfo
-
-
-class TestFlashFileInfo(unittest.TestCase):
-    def test_from_dict(self):
-        data = {"filename": "test.wav", "filetype": "TARGET_1", "mimetype": "audio/wav"}
-        info = FlashFileInfo.from_dict(data)
-        self.assertEqual(info.filename, "test.wav")
-        self.assertEqual(info.filetype, "TARGET_1")
-        self.assertEqual(info.mimetype, "audio/wav")
-
-    def test_from_dict_missing_fields(self):
-        info = FlashFileInfo.from_dict({})
-        self.assertEqual(info.filename, "")
-        self.assertEqual(info.filetype, "")
-        self.assertEqual(info.mimetype, "")
+from podonos.core.file import File
+from podonos.entity.flash_eval import FlashEvalResult
 
 
 class TestFlashEvalResult(unittest.TestCase):
-    def test_from_dict_with_scores(self):
+    def _create_file(self, path="/path/to/audio.wav"):
+        """Helper to create a File. Caller must patch os.path.isfile and os.access."""
+        return File(path=path, model_tag="flash_eval")
+
+    @patch("os.access", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    def test_from_dict_with_scores(self, mock_isfile, mock_access):
+        file = self._create_file()
         data = {
             "scores": {"naturalness": 3.6},
-            "files": [
-                {"filename": "audio.wav", "filetype": "TARGET_1", "mimetype": "audio/wav"}
-            ],
             "message": "success",
         }
-        result = FlashEvalResult.from_dict(data)
+        result = FlashEvalResult.from_dict(data, file=file, id="eval-123")
         self.assertEqual(result.naturalness, 3.6)
-        self.assertEqual(len(result.files), 1)
-        self.assertEqual(result.files[0].filename, "audio.wav")
+        self.assertEqual(result.file.path, "/path/to/audio.wav")
+        self.assertEqual(result.id, "eval-123")
         self.assertEqual(result.message, "success")
 
-    def test_from_dict_without_scores(self):
-        data = {"files": [], "message": None}
-        result = FlashEvalResult.from_dict(data)
+    @patch("os.access", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    def test_from_dict_without_scores(self, mock_isfile, mock_access):
+        file = self._create_file()
+        data = {"message": None}
+        result = FlashEvalResult.from_dict(data, file=file)
         self.assertIsNone(result.naturalness)
-        self.assertEqual(len(result.files), 0)
+        self.assertIsNone(result.id)
         self.assertIsNone(result.message)
 
-    def test_from_dict_empty(self):
-        result = FlashEvalResult.from_dict({})
+    @patch("os.access", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    def test_from_dict_empty(self, mock_isfile, mock_access):
+        file = self._create_file()
+        result = FlashEvalResult.from_dict({}, file=file)
         self.assertIsNone(result.naturalness)
-        self.assertEqual(result.files, [])
         self.assertIsNone(result.message)
 
-    def test_from_dict_scores_not_dict(self):
-        data = {"scores": "invalid", "files": []}
-        result = FlashEvalResult.from_dict(data)
+    @patch("os.access", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    def test_from_dict_scores_not_dict(self, mock_isfile, mock_access):
+        file = self._create_file()
+        data = {"scores": "invalid"}
+        result = FlashEvalResult.from_dict(data, file=file)
         self.assertIsNone(result.naturalness)
 
-    def test_from_dict_multiple_files(self):
-        data = {
-            "scores": {"naturalness": 4.2},
-            "files": [
-                {"filename": "a.wav", "filetype": "TARGET_1", "mimetype": "audio/wav"},
-                {"filename": "b.mp3", "filetype": "TARGET_1", "mimetype": "audio/mpeg"},
-            ],
-        }
-        result = FlashEvalResult.from_dict(data)
-        self.assertEqual(result.naturalness, 4.2)
-        self.assertEqual(len(result.files), 2)
-        self.assertEqual(result.files[1].filename, "b.mp3")
+    @patch("os.access", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    def test_file_preserves_original_path(self, mock_isfile, mock_access):
+        file = self._create_file(path="/home/user/recordings/speech.wav")
+        data = {"scores": {"naturalness": 4.2}}
+        result = FlashEvalResult.from_dict(data, file=file)
+        self.assertEqual(result.file.path, "/home/user/recordings/speech.wav")
+        self.assertEqual(result.file.model_tag, "flash_eval")
 
 
 if __name__ == "__main__":
