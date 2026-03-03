@@ -1,3 +1,12 @@
+## 0.33.3
+
+- Replace `FlashFileInfo` with `File` class in `FlashEvalResult` for consistent file representation
+- Expose original `file_path` via `result.file.path` and server-assigned evaluation ID via `result.id`
+
+## 0.33.2
+
+- Add `flash_eval` API for instant audio naturalness scoring
+
 ## 0.29.0
 
 - Add `RANKING` evaluation type support
