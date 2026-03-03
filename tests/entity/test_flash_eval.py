@@ -18,10 +18,10 @@ class TestFlashEvalResult(unittest.TestCase):
             "scores": {"naturalness": 3.6},
             "message": "success",
         }
-        result = FlashEvalResult.from_dict(data, file=file, eval_id="eval-123")
+        result = FlashEvalResult.from_dict(data, file=file, id="eval-123")
         self.assertEqual(result.naturalness, 3.6)
         self.assertEqual(result.file.path, "/path/to/audio.wav")
-        self.assertEqual(result.eval_id, "eval-123")
+        self.assertEqual(result.id, "eval-123")
         self.assertEqual(result.message, "success")
 
     @patch("os.access", return_value=True)
@@ -31,7 +31,7 @@ class TestFlashEvalResult(unittest.TestCase):
         data = {"message": None}
         result = FlashEvalResult.from_dict(data, file=file)
         self.assertIsNone(result.naturalness)
-        self.assertIsNone(result.eval_id)
+        self.assertIsNone(result.id)
         self.assertIsNone(result.message)
 
     @patch("os.access", return_value=True)
