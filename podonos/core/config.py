@@ -185,10 +185,10 @@ class EvalConfig:
             EvalType.CSMOS.value,
             EvalType.CUSTOM_SINGLE.value,
             EvalType.CUSTOM_DOUBLE.value,
-            # RANKING not yet released
+            EvalType.RANKING.value,
         ]:
             raise ValueError(
-                '"type" must be one of {NMOS, QMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE}. \n'
+                '"type" must be one of {NMOS, QMOS, CMOS, CSMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING}. \n'
                 + f"Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}"
             )
         return EvalType(eval_type)
@@ -214,6 +214,7 @@ class EvalConfig:
             Language.JAPANESE.value,
             Language.ITALIAN.value,
             Language.POLISH.value,
+            Language.INDONESIAN.value,
             Language.AUDIO.value,
         ]:
             raise ValueError(
@@ -251,9 +252,11 @@ class EvalConfig:
             return 2
         elif EvalType.is_triple(eval_type):
             return 3
+        elif EvalType.is_ranking(eval_type):
+            return 2  # Placeholder; actual size set by _update_ranking_batch_size_before_upload
         else:
             raise ValueError(
-                '"eval_type" must be one of {NMOS, QMOS, P808, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE}.'
+                '"eval_type" must be one of {NMOS, QMOS, P808, CMOS, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING}.'
             )
 
     # TODO: allow floating point hours, e.g. 0.5.

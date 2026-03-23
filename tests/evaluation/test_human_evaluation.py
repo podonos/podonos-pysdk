@@ -170,7 +170,7 @@ class TestHumanEvaluation(unittest.TestCase):
         self.assertEqual(evaluator._eval_config.eval_type, EvalType.CUSTOM_SINGLE)  # type: ignore
 
     def test_create_from_template_ranking_builds_ranking_evaluator(self):
-        """Test creating from RANKING template - now raises NotImplementedError"""
+        """Test creating from RANKING template succeeds"""
         # Given
         template = Template(
             id="template_id",
@@ -189,13 +189,14 @@ class TestHumanEvaluation(unittest.TestCase):
             eval_id
         )
 
-        # When/Then - RANKING templates now raise NotImplementedError
-        with self.assertRaises(NotImplementedError) as context:
-            self.human_eval.create_from_template(
-                name="Test Ranking", template_id="RANKING_TEMPLATE", num_eval=3
-            )
-        self.assertIn("RANKING", str(context.exception))
-        self.assertIn("not yet released", str(context.exception))
+        # When
+        evaluator = self.human_eval.create_from_template(
+            name="Test Ranking", template_id="RANKING_TEMPLATE", num_eval=3
+        )
+
+        # Then
+        self.assertIsNotNone(evaluator)
+        self.assertEqual(evaluator._eval_config.eval_type, EvalType.RANKING)  # type: ignore
 
     def test_create_from_template_with_cmos_template(self):
         """Test creating from CMOS template"""
