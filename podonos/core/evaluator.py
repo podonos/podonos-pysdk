@@ -250,17 +250,21 @@ class Evaluator:
     def add_ranking_set(self, files: List[File]) -> None:
         """Add one ranking set (ordered candidates) for RANKING evaluation.
 
-        Note: This feature is not yet released.
-
         Constraints enforced across calls:
         - All groups must have the same number of files.
         - Order of model_tag must be identical across groups.
         - Files must be stimuli (no reference).
         """
-        raise NotImplementedError(
-            "RANKING evaluation type is not yet released. "
-            "Please use other evaluation types such as NMOS, QMOS, CMOS, etc."
-        )
+        if not self._initialized:
+            raise ValueError("Evaluator is not initialized")
+
+        self._validate_eval_type("add_ranking_set")
+
+        validated_files = self._file_validator.validate_files(files)
+        audio_group = self._file_transformer.transform_into_audio_group(validated_files)
+        self._ordered_file_groups.append(audio_group)
+        for audio in audio_group.audios:
+            self._upload_one_file(evaluation_id=self.get_evaluation_id(), audio=audio)
 
     def _validate_close(self) -> None:
         """Validate the state before closing.

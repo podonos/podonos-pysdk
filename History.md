@@ -1,3 +1,9 @@
+## 0.35.0
+
+- Release `RANKING` evaluation type for public use
+- Add Indonesian language support (`id-id`)
+- Drop Python 3.8 and 3.9 support (documented; already requires-python >= 3.10)
+
 ## 0.34.0
 
 - **Breaking**: Replace `FlashFileInfo` with `File` class in `FlashEvalResult` (`result.files` → `result.file`)

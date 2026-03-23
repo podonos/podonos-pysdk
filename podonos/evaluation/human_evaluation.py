@@ -83,7 +83,7 @@ class HumanEvaluation:
         if not EvalType.is_eval_type(type):
             raise ValueError(
                 "Not supported evaluation types. Use one of the "
-                "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE'}"
+                "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE', 'RANKING'}"
             )
 
         eval_config = EvalConfig(
@@ -164,13 +164,6 @@ class HumanEvaluation:
         template = self._template_service.get_template_by_code(template_id)
         if template.batch_size is None:
             raise ValueError(f"Template with id {template_id} has no batch size")
-
-        # Reject RANKING templates as the feature is not yet released
-        if template.evaluation_type == "SPEECH_RANKING":
-            raise NotImplementedError(
-                "RANKING evaluation type is not yet released. "
-                "This template cannot be used at this time."
-            )
 
         # Determine eval_type from template.evaluation_type if present, else from batch_size
         selected_eval_type = EvalType.selected_from_template_evaluation_type(
@@ -257,15 +250,8 @@ class HumanEvaluation:
                 custom_type = CustomType.from_value(custom_type)
             except ValueError:
                 raise ValueError(
-                    "custom_type must be one of SINGLE, DOUBLE, or SINGLE_REF"
+                    "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, or RANKING"
                 )
-
-        # Reject RANKING as it's not yet released
-        if custom_type == CustomType.RANKING:
-            raise NotImplementedError(
-                "RANKING evaluation type is not yet released. "
-                "Please use SINGLE, DOUBLE, or SINGLE_REF."
-            )
 
         if custom_type == CustomType.SINGLE:
             eval_type = EvalType.CUSTOM_SINGLE
@@ -276,6 +262,9 @@ class HumanEvaluation:
         elif custom_type == CustomType.SINGLE_REF:
             eval_type = EvalType.CMOS
             batch_size = 2
+        elif custom_type == CustomType.RANKING:
+            eval_type = EvalType.RANKING
+            batch_size = 2  # Placeholder; actual size set by _update_ranking_batch_size_before_upload
         else:
             raise ValueError(
                 "custom_type must be one of SINGLE, DOUBLE, or SINGLE_REF"

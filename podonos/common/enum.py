@@ -11,7 +11,7 @@ class EvalType(Enum):
     NMOS = "NMOS"
     QMOS = "QMOS"
     P808 = "P808"
-    RANKING = "RANKING"  # Internal use only - not yet released to users
+    RANKING = "RANKING"
     SMOS = "SMOS"
     PREF = "PREF"
     CMOS = "CMOS"
@@ -60,8 +60,8 @@ class EvalType(Enum):
 
     @staticmethod
     def get_ranking_types() -> List["EvalType"]:
-        """Get all ranking evaluation types (not yet released)"""
-        return []  # RANKING not yet released
+        """Get all ranking evaluation types"""
+        return [EvalType.RANKING]
 
     @staticmethod
     def selected_from_template_evaluation_type(
@@ -80,7 +80,7 @@ class EvalType(Enum):
             "SPEECH_CMOS": EvalType.CMOS,
             "SPEECH_DMOS": EvalType.DMOS,
             "SPEECH_CSMOS": EvalType.CSMOS,
-            # "SPEECH_RANKING": EvalType.RANKING,  # Not yet released
+            "SPEECH_RANKING": EvalType.RANKING,
         }
         if evaluation_type in mapping:
             return mapping[evaluation_type]
@@ -106,7 +106,8 @@ class EvalType(Enum):
             return EvalType.get_double_types()
         if selected in EvalType.get_triple_types():
             return EvalType.get_triple_types()
-        # Ranking not yet released
+        if selected in EvalType.get_ranking_types():
+            return EvalType.get_ranking_types()
         return []
 
     @staticmethod
@@ -121,8 +122,8 @@ class EvalType(Enum):
 
     @staticmethod
     def is_ranking(type_str: str) -> bool:
-        """Check if type is ranking (not yet released)"""
-        return False  # RANKING not yet released
+        """Check if type is ranking"""
+        return EvalType(type_str) in EvalType.get_ranking_types()
 
     @staticmethod
     def is_triple(type_str: str) -> bool:
@@ -140,28 +141,21 @@ class CustomType(Enum):
     SINGLE = "SINGLE"
     DOUBLE = "DOUBLE"
     SINGLE_REF = "SINGLE_REF"
-    RANKING = "RANKING"  # Internal use only - not yet released to users
+    RANKING = "RANKING"
 
     @classmethod
     def from_value(cls, value: str) -> "CustomType":
-        # Reject RANKING as not yet released
-        if value == "RANKING":
-            raise ValueError(
-                "Invalid custom_type: RANKING. "
-                "Use one of: SINGLE, DOUBLE, SINGLE_REF"
-            )
         for member in cls:
             if member.value == value:
                 return member
         raise ValueError(
             f"Invalid custom_type: {value}. "
-            f"Use one of: SINGLE, DOUBLE, SINGLE_REF"
+            f"Use one of: SINGLE, DOUBLE, SINGLE_REF, RANKING"
         )
 
     @staticmethod
     def values() -> List[str]:
-        # Exclude RANKING as it's not yet released
-        return [item.value for item in CustomType if item != CustomType.RANKING]
+        return [item.value for item in CustomType]
 
 
 class AIEvalType(Enum):
@@ -199,6 +193,7 @@ class Language(Enum):
     JAPANESE = "ja-jp"
     ITALIAN = "it-it"
     POLISH = "pl-pl"
+    INDONESIAN = "id-id"
     AUDIO = "audio"
 
     @classmethod

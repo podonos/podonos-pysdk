@@ -1,6 +1,6 @@
 import unittest
 
-from podonos.common.enum import AIEvalType, EvalType, Language
+from podonos.common.enum import AIEvalType, CustomType, EvalType, Language
 
 
 class TestLanguageEnum(unittest.TestCase):
@@ -163,7 +163,31 @@ class TestEvalTypeEnum(unittest.TestCase):
         self.assertEqual(set(EvalType.get_supported_types_for(EvalType.NMOS)), set(EvalType.get_single_types()))
         self.assertEqual(set(EvalType.get_supported_types_for(EvalType.PREF)), set(EvalType.get_double_types()))
         self.assertEqual(set(EvalType.get_supported_types_for(EvalType.CSMOS)), set(EvalType.get_triple_types()))
-        self.assertEqual(EvalType.get_supported_types_for(EvalType.RANKING), [])
+        self.assertEqual(EvalType.get_supported_types_for(EvalType.RANKING), [EvalType.RANKING])
+
+    def test_is_ranking(self):
+        self.assertTrue(EvalType.is_ranking("RANKING"))
+        self.assertFalse(EvalType.is_ranking("NMOS"))
+        self.assertFalse(EvalType.is_ranking("PREF"))
+
+    def test_get_ranking_types(self):
+        self.assertEqual(EvalType.get_ranking_types(), [EvalType.RANKING])
+
+    def test_selected_from_template_ranking(self):
+        self.assertEqual(
+            EvalType.selected_from_template_evaluation_type("SPEECH_RANKING"),
+            EvalType.RANKING,
+        )
+
+    def test_custom_type_from_value_ranking(self):
+        self.assertEqual(CustomType.from_value("RANKING"), CustomType.RANKING)
+
+    def test_custom_type_values_includes_ranking(self):
+        self.assertIn("RANKING", CustomType.values())
+
+    def test_language_indonesian(self):
+        self.assertEqual(Language.INDONESIAN.value, "id-id")
+        self.assertEqual(Language.from_value("id-id"), Language.INDONESIAN)
 
 
 class TestAIEvalTypeEnum(unittest.TestCase):
