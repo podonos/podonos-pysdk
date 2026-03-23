@@ -83,7 +83,7 @@ class HumanEvaluation:
         if not EvalType.is_eval_type(type):
             raise ValueError(
                 "Not supported evaluation types. Use one of the "
-                "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE', 'RANKING'}"
+                "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'CSMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE', 'RANKING'}"
             )
 
         eval_config = EvalConfig(
@@ -267,7 +267,7 @@ class HumanEvaluation:
             batch_size = 2  # Placeholder; actual size set by _update_ranking_batch_size_before_upload
         else:
             raise ValueError(
-                "custom_type must be one of SINGLE, DOUBLE, or SINGLE_REF"
+                "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, or RANKING"
             )
         # Load template data
         template_data = TemplateJsonLoader.load_json(json, json_file)
