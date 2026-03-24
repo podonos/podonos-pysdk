@@ -29,7 +29,6 @@ pkginfo==1.11.0
 pluggy==1.5.0
 podonos==0.20.0
 pycparser==2.22
-Pygments==2.18.0
 pyparsing==2.4.6
 pyproject_hooks==1.1.0
 pytest==8.2.2
