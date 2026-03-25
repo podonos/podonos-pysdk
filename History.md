@@ -1,3 +1,8 @@
+## 0.36.0
+
+- Fix missing `filetype` dependency in pyproject.toml
+- Remove unused `Pygments` package dependency
+
 ## 0.35.0
 
 - Release `RANKING` evaluation type for public use

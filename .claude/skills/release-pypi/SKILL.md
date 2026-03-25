@@ -72,8 +72,9 @@ See: https://packaging.python.org/en/latest/guides/distributing-packages-using-s
 
 ### 1e. Unit tests (non-negotiable)
 ```bash
-coverage run -m pytest --source ./podonos && coverage report
+.venv/bin/coverage run --source=./podonos -m pytest && .venv/bin/coverage report
 ```
+NOTE: `--source` is a coverage flag, NOT a pytest flag. It must come before `-m pytest`.
 If tests fail, STOP. No skip flag, no exceptions, not even for hotfixes.
 
 Parse the coverage percentage from the output. If coverage < 70%, warn:
@@ -82,17 +83,47 @@ Parse the coverage percentage from the output. If coverage < 70%, warn:
 - B) Abort — add more tests first
 
 ### 1f. Build tools
-```bash
-python -m build --version && python -m twine --version && coverage --version
-```
-If any is missing, STOP: "Install build tools: pip install build twine coverage"
 
-### 1g. Integration tests (optional)
+NOTE: Always use `.venv/bin/python` — the system `python` may not exist or lack required modules.
+
+```bash
+.venv/bin/python -m build --version && .venv/bin/python -m twine --version && .venv/bin/coverage --version
+```
+If any is missing, install them: `.venv/bin/python -m pip install build twine coverage`
+
+NOTE: The venv may lack pip. If so, bootstrap it first:
+```bash
+.venv/bin/python -m ensurepip --upgrade
+```
+
+### 1g. Check if version already exists on PyPI
+```bash
+.venv/bin/python -m pip index versions podonos
+```
+If CURRENT_VERSION (or intended RELEASE_VERSION) already exists on PyPI and no bump was
+requested, warn the user early: "v{VERSION} already exists on PyPI. You must bump the
+version." Ask for patch/minor/major bump before proceeding.
+
+### 1h. Integration tests (optional)
 Ask via AskUserQuestion:
-- A) Run integration tests (`./tests/integration/run_integration_tests.sh`)
+- A) Run integration tests
 - B) Skip integration tests
 
-If A and the script exists, run it. If it fails, warn and ask whether to continue or abort.
+**Do NOT use `run_integration_tests.sh`** — it has multiple unresolved issues:
+- Requires `conda` which may not be installed (`brew install miniconda` to install)
+- Even if conda is installed, TOS must be accepted first
+- `conda activate` doesn't work in non-interactive scripts without `conda init`
+- Script lacks `set -e` — silently swallows all errors and prints success regardless
+- The script doesn't pass `--api_key` to `integration_test_all.py`
+
+**Instead**, run the integration test directly. Pull the API key from 1Password:
+```bash
+API_KEY=$(op read "op://Engineering/DEV Podonos API Key/password")
+.venv/bin/python tests/integration/integration_test_all.py --api_key="$API_KEY"
+```
+This must be run from the project root directory. If the `op` CLI is not installed or
+not authenticated, ask the user for the API key manually.
+
 If skipped, note "Integration tests: skipped" for the summary.
 
 ## Step 2: Version Verification (or Bump)
@@ -159,13 +190,16 @@ until the next `##` heading) and store as `CHANGELOG_ENTRY`.
 
 Verify the package installs and imports correctly before building:
 ```bash
-python -m venv /tmp/podonos-pre-check && \
+.venv/bin/python -m venv /tmp/podonos-pre-check && \
 source /tmp/podonos-pre-check/bin/activate && \
-pip install -r requirements.txt && pip install -e . && \
+pip install -e . && \
 python -c "import podonos; print(podonos.__version__)" && \
 deactivate
 rm -rf /tmp/podonos-pre-check
 ```
+
+NOTE: Use `pip install -e .` (not `pip install -r requirements.txt`) — the package should
+install all its own dependencies automatically via `pyproject.toml [project.dependencies]`.
 
 If import fails or version doesn't match `RELEASE_VERSION`, STOP:
 "Local install check failed. Fix the issue before proceeding."
@@ -174,7 +208,7 @@ If import fails or version doesn't match `RELEASE_VERSION`, STOP:
 
 ```bash
 rm -rf dist/ podonos.egg-info/
-python -m build
+.venv/bin/python -m build
 ls dist/
 ```
 
@@ -184,7 +218,7 @@ If either is missing, STOP: "Build failed — check output above."
 ## Step 4: Upload to Test PyPI
 
 ```bash
-python -m twine upload --repository testpypi dist/*
+.venv/bin/python -m twine upload --repository testpypi dist/*
 ```
 
 Wait for propagation:
@@ -194,13 +228,18 @@ sleep 10
 
 Verify installation from Test PyPI in a temp venv:
 ```bash
-python -m venv /tmp/podonos-release-test && \
+.venv/bin/python -m venv /tmp/podonos-release-test && \
 source /tmp/podonos-release-test/bin/activate && \
-pip install --no-cache-dir -i https://test.pypi.org/simple/ podonos && \
+pip install --no-cache-dir --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ podonos && \
 python -c "import podonos; print(podonos.__version__)" && \
 deactivate
 rm -rf /tmp/podonos-release-test
 ```
+
+NOTE: Use `--index-url` (not `-i`) for Test PyPI, plus `--extra-index-url` pointing to
+production PyPI. This lets pip find the podonos package on Test PyPI while resolving its
+dependencies (glog, soundfile, etc.) from production PyPI. Using `-i` alone will fail
+because Test PyPI doesn't host all dependency packages.
 
 If install fails due to missing dependencies on Test PyPI (common — Test PyPI doesn't
 have all packages), warn but do NOT block. Note: "Test PyPI install had dependency issues
@@ -244,7 +283,7 @@ If a version bump commit was made, offer to revert it:
 ## Step 6: Upload to Production PyPI
 
 ```bash
-python -m twine upload dist/*
+.venv/bin/python -m twine upload dist/*
 ```
 
 If this fails with an auth error, provide guidance:
@@ -257,20 +296,29 @@ Bump to a new version and try again."
 
 ## Step 7: Post-release Verification
 
-Wait for PyPI propagation:
+Wait for PyPI propagation (30 seconds — 15 is often not enough):
 ```bash
-sleep 15
+sleep 30
 ```
 
 Verify installation from production PyPI in a temp venv:
 ```bash
-python -m venv /tmp/podonos-release-verify && \
+.venv/bin/python -m venv /tmp/podonos-release-verify && \
 source /tmp/podonos-release-verify/bin/activate && \
-pip install --no-cache-dir podonos && \
+pip install --no-cache-dir podonos=={RELEASE_VERSION} && \
 python -c "import podonos; print(podonos.__version__)" && \
 deactivate
 rm -rf /tmp/podonos-release-verify
 ```
+
+NOTE: Pin the version with `podonos=={RELEASE_VERSION}` to ensure you're testing the
+new release, not a cached older version.
+
+**IMPORTANT**: Do NOT pre-install dependencies (e.g., `pip install -r requirements.txt`)
+before installing from PyPI. The whole point of this check is to verify that
+`pip install podonos` automatically resolves all dependencies declared in
+`pyproject.toml [project.dependencies]`. If dependencies are missing from pyproject.toml,
+this step should catch it.
 
 Verify the installed version matches `RELEASE_VERSION`.
 If it doesn't match, warn: "Installed version {X} doesn't match expected {RELEASE_VERSION}.
@@ -280,14 +328,38 @@ PyPI may still be propagating. Check manually: pip install podonos=={RELEASE_VER
 
 Only run this step after Step 7 succeeds.
 
-### Create and push git tag
+### Create git tag
 ```bash
 git tag -a "v{RELEASE_VERSION}" -m "Release v{RELEASE_VERSION}"
-git push origin main --follow-tags
 ```
 
-If push fails (e.g., remote has new commits), warn and provide guidance.
+### Push to remote
+
+**Branch protection**: The `main` branch has branch protection rules that prevent direct
+pushes. Instead of `git push origin main`, create a release branch and PR:
+
+```bash
+git checkout -b release/v{RELEASE_VERSION}
+git push origin release/v{RELEASE_VERSION} --follow-tags
+```
+
+Then create a PR:
+```bash
+gh pr create --title "Release v{RELEASE_VERSION}" \
+  --body "Release v{RELEASE_VERSION} to PyPI" \
+  --base main --head release/v{RELEASE_VERSION}
+```
+
+If direct push to main works (no branch protection), that's fine too. But be prepared
+for it to fail and fall back to the PR approach.
+
 Do NOT force push.
+
+### Post-merge cleanup (if PR was used)
+After the PR is merged, switch back to main and clean up:
+```bash
+git checkout main && git pull origin main && git branch -d release/v{RELEASE_VERSION}
+```
 
 ### Create GitHub Release
 ```bash
