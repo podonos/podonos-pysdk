@@ -249,8 +249,8 @@ class Client:
             verify_batch_size=verify_batch_size,
         )
 
-    @validate_args(file_path=Rules.file_path_not_none)
-    def flash_eval(self, file_path: str) -> FlashEvalResult:
+    @validate_args(file_path=Rules.file_path_not_none, language=Rules.str_non_empty_or_none)
+    def flash_eval(self, file_path: str, language: str | None = None) -> FlashEvalResult:
         """Runs auto-evaluation on an audio file and returns the naturalness score.
 
         Example:
@@ -260,8 +260,14 @@ class Client:
             >>> print(result.naturalness)
             3.58
 
+            # For Spanish (es-es) audio:
+            >>> result = client.flash_eval(file_path="path/to/audio_es.wav", language="es-es")
+
         Args:
             file_path: Path to the audio file to evaluate.
+            language: Language code for model routing (e.g. 'es-es').
+                      When omitted, the default en-us model is used.
+                      Supported: 'en-us', 'es-es'.
 
         Returns:
             FlashEvalResult containing the naturalness score.
@@ -271,7 +277,7 @@ class Client:
         """
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
-        return self._flash_eval_service.eval(file_path)
+        return self._flash_eval_service.eval(file_path, language=language)
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
