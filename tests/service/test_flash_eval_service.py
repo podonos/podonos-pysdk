@@ -221,5 +221,50 @@ class TestFlashEvalService(unittest.TestCase):
         self.assertEqual(result.file.path, original_path)
 
 
+    @patch("os.path.getsize", return_value=1024)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.access", return_value=True)
+    @patch("builtins.open", mock_open(read_data=b"fake audio data"))
+    def test_eval_with_language_passes_to_init(self, mock_access, mock_isfile, mock_getsize):
+        """Test that language parameter is included in init payload."""
+        init_response = self._setup_init_response()
+        upload_response = self._setup_upload_response()
+        eval_response = self._setup_eval_response(naturalness=3.0)
+
+        self.mock_api_client.post.side_effect = [init_response, eval_response]
+        self.mock_api_client.external_put.return_value = upload_response
+
+        result = self.service.eval("/path/to/test_es.wav", language="es-es")
+
+        self.assertEqual(result.naturalness, 3.0)
+
+        # Verify init payload includes language
+        init_call = self.mock_api_client.post.call_args_list[0]
+        init_payload = init_call[1]["data"] if "data" in init_call[1] else init_call[0][1]
+        self.assertEqual(init_payload["language"], "es-es")
+
+    @patch("os.path.getsize", return_value=1024)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.access", return_value=True)
+    @patch("builtins.open", mock_open(read_data=b"fake audio data"))
+    def test_eval_without_language_omits_from_init(self, mock_access, mock_isfile, mock_getsize):
+        """Test that language is not in init payload when omitted."""
+        init_response = self._setup_init_response()
+        upload_response = self._setup_upload_response()
+        eval_response = self._setup_eval_response(naturalness=4.1)
+
+        self.mock_api_client.post.side_effect = [init_response, eval_response]
+        self.mock_api_client.external_put.return_value = upload_response
+
+        result = self.service.eval("/path/to/test.wav")
+
+        self.assertEqual(result.naturalness, 4.1)
+
+        # Verify init payload does NOT include language
+        init_call = self.mock_api_client.post.call_args_list[0]
+        init_payload = init_call[1]["data"] if "data" in init_call[1] else init_call[0][1]
+        self.assertNotIn("language", init_payload)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from podonos.common.exception import HTTPError
 from podonos.common.util import get_content_type_by_filename
@@ -21,14 +21,17 @@ class FlashEvalService:
     def __init__(self, api_client: APIClient):
         self.api_client = api_client
 
-    @validate_args(file_path=Rules.file_path_not_none)
-    def eval(self, file_path: str) -> FlashEvalResult:
+    @validate_args(file_path=Rules.file_path_not_none, language=Rules.str_non_empty_or_none)
+    def eval(self, file_path: str, language: Optional[str] = None) -> FlashEvalResult:
         """Run auto-evaluation on an audio file.
 
         Executes the 3-step flow: init -> upload -> eval.
 
         Args:
             file_path: Path to the audio file to evaluate.
+            language: Language code for model routing (e.g. 'es-es').
+                      When omitted, the default en-us model is used.
+                      Supported: 'en-us', 'es-es'.
 
         Returns:
             FlashEvalResult with naturalness score and original file reference.
@@ -43,7 +46,7 @@ class FlashEvalService:
         mimetype = get_content_type_by_filename(file_path)
 
         # Step 1: Initialize and get presigned URL
-        key, presigned_url = self._init(filename=filename, mimetype=mimetype)
+        key, presigned_url = self._init(filename=filename, mimetype=mimetype, language=language)
 
         # Step 2: Upload file to object storage
         self._upload(presigned_url=presigned_url, file_path=file_path, mimetype=mimetype)
@@ -53,8 +56,8 @@ class FlashEvalService:
 
         return FlashEvalResult.from_dict(response_data, file=file, id=key)
 
-    @validate_args(filename=Rules.str_non_empty, mimetype=Rules.str_non_empty)
-    def _init(self, filename: str, mimetype: str) -> Tuple[str, str]:
+    @validate_args(filename=Rules.str_non_empty, mimetype=Rules.str_non_empty, language=Rules.str_non_empty_or_none)
+    def _init(self, filename: str, mimetype: str, language: Optional[str] = None) -> Tuple[str, str]:
         """Step 1: Initialize upload and get presigned URL + key.
 
         Returns:
@@ -71,6 +74,8 @@ class FlashEvalService:
                     }
                 ]
             }
+            if language and language.strip():
+                payload["language"] = language.strip()
             response = self.api_client.post("flash/v1/init", data=payload)
             response.raise_for_status()
 
