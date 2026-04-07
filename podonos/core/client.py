@@ -250,7 +250,7 @@ class Client:
         )
 
     @validate_args(file_path=Rules.file_path_not_none, language=Rules.str_non_empty_or_none)
-    def flash_eval(self, file_path: str, language: str | None = None) -> FlashEvalResult:
+    def flash_eval(self, file_path: str, language: Optional[str] = None) -> FlashEvalResult:
         """Runs auto-evaluation on an audio file and returns the naturalness score.
 
         Example:

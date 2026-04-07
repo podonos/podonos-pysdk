@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from podonos.common.exception import HTTPError
 from podonos.common.util import get_content_type_by_filename
@@ -22,7 +22,7 @@ class FlashEvalService:
         self.api_client = api_client
 
     @validate_args(file_path=Rules.file_path_not_none, language=Rules.str_non_empty_or_none)
-    def eval(self, file_path: str, language: str | None = None) -> FlashEvalResult:
+    def eval(self, file_path: str, language: Optional[str] = None) -> FlashEvalResult:
         """Run auto-evaluation on an audio file.
 
         Executes the 3-step flow: init -> upload -> eval.
@@ -57,7 +57,7 @@ class FlashEvalService:
         return FlashEvalResult.from_dict(response_data, file=file, id=key)
 
     @validate_args(filename=Rules.str_non_empty, mimetype=Rules.str_non_empty, language=Rules.str_non_empty_or_none)
-    def _init(self, filename: str, mimetype: str, language: str | None = None) -> Tuple[str, str]:
+    def _init(self, filename: str, mimetype: str, language: Optional[str] = None) -> Tuple[str, str]:
         """Step 1: Initialize upload and get presigned URL + key.
 
         Returns:
