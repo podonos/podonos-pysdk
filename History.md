@@ -1,3 +1,8 @@
+## 0.37.0
+
+- Add `language` parameter to `flash_eval()` for Spanish (es-es) naturalness scoring support
+- Supported languages: `en-us` (default), `es-es`
+
 ## 0.36.0
 
 - Fix missing `filetype` dependency in pyproject.toml
