@@ -74,8 +74,8 @@ class FlashEvalService:
                     }
                 ]
             }
-            if language is not None:
-                payload["language"] = language
+            if language and language.strip():
+                payload["language"] = language.strip()
             response = self.api_client.post("flash/v1/init", data=payload)
             response.raise_for_status()
 
