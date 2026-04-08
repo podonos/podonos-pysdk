@@ -351,9 +351,12 @@ class Evaluator:
         ]
         if silent_audios:
             silent_names = [a.path for a in silent_audios]
+            MAX_DISPLAY = 10
+            displayed = ', '.join(silent_names[:MAX_DISPLAY])
+            suffix = f" (and {len(silent_names) - MAX_DISPLAY} more)" if len(silent_names) > MAX_DISPLAY else ""
             log.warning(
                 f"{len(silent_audios)} file(s) detected as near-silent audio: "
-                f"{', '.join(silent_names)}. "
+                f"{displayed}{suffix}. "
                 f"These files may not contain audible content and could affect evaluation results."
             )
 

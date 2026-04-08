@@ -637,19 +637,27 @@ class AudioMeta:
                         f"Error: {seek_error}"
                     ) from seek_error
 
-                # Check for near-silent audio
-                import numpy as np
-
+                # Check for near-silent audio (chunked to bound memory usage)
                 f.seek(0)
-                data = f.read(dtype="float32")
-                if len(data) > 0:
-                    max_abs = float(np.max(np.abs(data)))
-                    if max_abs < WARN_SILENT_AMPLITUDE_THRESHOLD:
-                        self._is_silent = True
-                        log.warning(
-                            f"Near-silent audio detected (max amplitude: {max_abs:.6f}). "
-                            f"This file may not contain audible content. File: {path}"
-                        )
+                max_abs = 0.0
+                has_audio_data = False
+                while True:
+                    chunk = f.read(frames=65536, dtype="float32")
+                    if len(chunk) == 0:
+                        break
+                    has_audio_data = True
+                    chunk_max = float(max(abs(float(s)) for s in chunk.ravel()))
+                    if chunk_max > max_abs:
+                        max_abs = chunk_max
+                    if max_abs >= WARN_SILENT_AMPLITUDE_THRESHOLD:
+                        break
+
+                if has_audio_data and max_abs < WARN_SILENT_AMPLITUDE_THRESHOLD:
+                    self._is_silent = True
+                    log.warning(
+                        f"Near-silent audio detected (max amplitude: {max_abs:.6f}). "
+                        f"This file may not contain audible content. File: {path}"
+                    )
 
                 # Warn for edge cases (don't fail)
                 duration_in_ms = int(nframes * 1000.0 / float(framerate))
