@@ -1,3 +1,8 @@
+## 0.38.0
+
+- Add client-side silent audio detection before upload
+- Add colored log output for improved debugging experience
+
 ## 0.37.0
 
 - Add `language` parameter to `flash_eval()` for Spanish (es-es) naturalness scoring support
