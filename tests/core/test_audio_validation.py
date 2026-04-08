@@ -36,6 +36,7 @@ class TestAudioValidation(unittest.TestCase):
         cls._create_empty_wav()
         cls._create_format_mismatch()
         cls._create_short_audio()
+        cls._create_silent_audio()
 
     @classmethod
     def tearDownClass(cls):
@@ -83,6 +84,18 @@ class TestAudioValidation(unittest.TestCase):
         audio_data = np.random.randn(11025).astype(np.float32)  # ~250ms at 44100Hz
         sf.write(path, audio_data, 44100)
         return path
+
+    @classmethod
+    def _create_silent_audio(cls):
+        """Create a WAV file with near-silent audio (max amplitude below threshold)."""
+        path = os.path.join(cls.fixtures_dir, "silent.wav")
+        # Near-silent: max amplitude 0.0003, well below 0.003 threshold
+        duration_seconds = 2.0
+        sample_rate = 24000
+        samples = int(duration_seconds * sample_rate)
+        data = np.random.uniform(-0.0003, 0.0003, samples).astype(np.float32)
+        sf.write(path, data, sample_rate)
+        cls.silent_audio_path = path
 
     def test_should_raise_for_corrupted_audio(self):
         """Test that corrupted audio files raise InvalidFileError."""
@@ -179,6 +192,18 @@ class TestAudioValidation(unittest.TestCase):
         self.assertGreater(meta.duration_in_ms, 0)
         self.assertGreater(meta.nchannels, 0)
         self.assertGreater(meta.framerate, 0)
+
+    def test_silent_audio_detected(self):
+        """Test that near-silent audio is detected and is_silent is set."""
+        meta = AudioMeta(self.silent_audio_path)
+        self.assertTrue(meta.is_silent)
+        # Duration should still be valid
+        self.assertGreater(meta.duration_in_ms, 0)
+
+    def test_normal_audio_not_silent(self):
+        """Test that normal audio is not flagged as silent."""
+        meta = AudioMeta(TESTDATA_SPEECH_CH1_MP3)
+        self.assertFalse(meta.is_silent)
 
 
 if __name__ == "__main__":

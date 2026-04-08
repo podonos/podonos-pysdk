@@ -22,6 +22,7 @@ from podonos.errors import InvalidFileError
 WARN_SHORT_DURATION_MS = 500  # Keep existing 500ms threshold
 WARN_LONG_DURATION_MS = 600000  # 10 minutes
 WARN_LOW_SAMPLE_RATE = 8000
+WARN_SILENT_AMPLITUDE_THRESHOLD = 0.003  # ~-50 dBFS, below any usable speech
 
 
 class File:
@@ -489,6 +490,7 @@ class AudioMeta:
 
     @validate_args(path=Rules.str_non_empty)
     def __init__(self, path: str) -> None:
+        self._is_silent = False
         # Validate first
         self._validate_audio_format(path)
         self._validate_audio_integrity(path)
@@ -512,6 +514,10 @@ class AudioMeta:
     @property
     def duration_in_ms(self) -> int:
         return self._duration_in_ms
+
+    @property
+    def is_silent(self) -> bool:
+        return self._is_silent
 
     @validate_args(filepath=Rules.file_path_not_none)
     def _detect_audio_format(self, filepath: str) -> str:
@@ -630,6 +636,28 @@ class AudioMeta:
                         f"Audio file appears truncated or corrupted: {path}. "
                         f"Error: {seek_error}"
                     ) from seek_error
+
+                # Check for near-silent audio (chunked to bound memory usage)
+                f.seek(0)
+                max_abs = 0.0
+                has_audio_data = False
+                while True:
+                    chunk = f.read(frames=65536, dtype="float32")
+                    if len(chunk) == 0:
+                        break
+                    has_audio_data = True
+                    chunk_max = float(max(abs(float(s)) for s in chunk.ravel()))
+                    if chunk_max > max_abs:
+                        max_abs = chunk_max
+                    if max_abs >= WARN_SILENT_AMPLITUDE_THRESHOLD:
+                        break
+
+                if has_audio_data and max_abs < WARN_SILENT_AMPLITUDE_THRESHOLD:
+                    self._is_silent = True
+                    log.warning(
+                        f"Near-silent audio detected (max amplitude: {max_abs:.6f}). "
+                        f"This file may not contain audible content. File: {path}"
+                    )
 
                 # Warn for edge cases (don't fail)
                 duration_in_ms = int(nframes * 1000.0 / float(framerate))
@@ -790,6 +818,10 @@ class Audio(File):
     @property
     def order_in_group(self) -> int:
         return self._order_in_group
+
+    @property
+    def is_silent(self) -> bool:
+        return self._metadata.is_silent
 
     @property
     def content_md5(self) -> Optional[str]:
