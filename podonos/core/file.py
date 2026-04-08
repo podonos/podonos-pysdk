@@ -646,7 +646,7 @@ class AudioMeta:
                     if len(chunk) == 0:
                         break
                     has_audio_data = True
-                    chunk_max = float(max(abs(float(s)) for s in chunk.ravel()))
+                    chunk_max = float(abs(chunk).max())
                     if chunk_max > max_abs:
                         max_abs = chunk_max
                     if max_abs >= WARN_SILENT_AMPLITUDE_THRESHOLD:
