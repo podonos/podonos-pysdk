@@ -344,6 +344,19 @@ class Evaluator:
                     max_retries=MAX_UPLOAD_RETRIES,
                 )
 
+        silent_audios = [
+            audio for group in self._ordered_file_groups
+            for audio in group.audios
+            if audio.is_silent
+        ]
+        if silent_audios:
+            silent_names = [a.path for a in silent_audios]
+            log.warning(
+                f"{len(silent_audios)} file(s) detected as near-silent audio: "
+                f"{', '.join(silent_names)}. "
+                f"These files may not contain audible content and could affect evaluation results."
+            )
+
         log.info("Triggering file processing...")
         process_response = self._evaluation_service.process_files(
             self.get_evaluation_id()
