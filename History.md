@@ -1,3 +1,7 @@
+## 0.38.1
+
+- Improve performance of silent audio detection using numpy vectorized operations
+
 ## 0.38.0
 
 - Add client-side silent audio detection before upload
