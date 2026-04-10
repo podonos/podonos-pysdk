@@ -1058,5 +1058,53 @@ class TestEvaluatorMethodValidation(unittest.TestCase):
         self.assertIn("ranking evaluation types", str(context.exception))
 
 
+@patch("os.path.isfile", return_value=True)
+@patch("os.access", return_value=True)
+class TestClientFlashEval(unittest.TestCase):
+    """Client-level forwarding tests for flash_eval to prevent regressions
+    in the public API surface (parameter passthrough to FlashEvalService)."""
+
+    def setUp(self):
+        self.valid_api_key = "test_key"
+        self.api_client = APIClient(self.valid_api_key, "http://testapi.com")
+        self.client = Client(self.api_client)
+        # Replace the real service with a mock so we can assert forwarding
+        self.client._flash_eval_service = MagicMock()
+        self.mock_result = MagicMock()
+        self.client._flash_eval_service.eval.return_value = self.mock_result
+
+    def test_flash_eval_forwards_file_path_only(self, mock_access, mock_isfile):
+        result = self.client.flash_eval("/path/to/audio.wav")
+        self.client._flash_eval_service.eval.assert_called_once_with(
+            "/path/to/audio.wav", language=None, category=None
+        )
+        self.assertIs(result, self.mock_result)
+
+    def test_flash_eval_forwards_language(self, mock_access, mock_isfile):
+        self.client.flash_eval("/path/to/audio.wav", language="es-es")
+        self.client._flash_eval_service.eval.assert_called_once_with(
+            "/path/to/audio.wav", language="es-es", category=None
+        )
+
+    def test_flash_eval_forwards_category(self, mock_access, mock_isfile):
+        self.client.flash_eval("/path/to/audio.wav", category="noise_quality")
+        self.client._flash_eval_service.eval.assert_called_once_with(
+            "/path/to/audio.wav", language=None, category="noise_quality"
+        )
+
+    def test_flash_eval_forwards_both_language_and_category(self, mock_access, mock_isfile):
+        self.client.flash_eval(
+            "/path/to/audio.wav", language="es-es", category="noise_quality"
+        )
+        self.client._flash_eval_service.eval.assert_called_once_with(
+            "/path/to/audio.wav", language="es-es", category="noise_quality"
+        )
+
+    def test_flash_eval_raises_when_not_initialized(self, mock_access, mock_isfile):
+        self.client._initialized = False
+        with self.assertRaises(ValueError):
+            self.client.flash_eval("/path/to/audio.wav")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

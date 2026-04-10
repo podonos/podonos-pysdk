@@ -1,3 +1,11 @@
+## 0.39.0
+
+- Add `category` parameter to `flash_eval()` to support noise_quality scoring
+- `FlashEvalResult` now exposes both `naturalness` and `noise_quality` fields;
+  the field populated depends on the requested category (default: naturalness)
+- Backward compatible: existing `flash_eval()` calls continue to return
+  naturalness scores; `result.noise_quality` is `None` for naturalness requests
+
 ## 0.38.1
 
 - Improve performance of silent audio detection using numpy vectorized operations

@@ -265,6 +265,87 @@ class TestFlashEvalService(unittest.TestCase):
         init_payload = init_call[1]["data"] if "data" in init_call[1] else init_call[0][1]
         self.assertNotIn("language", init_payload)
 
+    def _setup_noise_quality_eval_response(self, noise_quality=3.5):
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "scores": {"noise_quality": noise_quality},
+            "files": [
+                {"filename": "test.wav", "filetype": "TARGET_1", "mimetype": "audio/wav"}
+            ],
+            "message": None,
+        }
+        mock_response.raise_for_status.return_value = None
+        return mock_response
+
+    @patch("os.path.getsize", return_value=1024)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.access", return_value=True)
+    @patch("builtins.open", mock_open(read_data=b"fake audio data"))
+    def test_eval_with_category_noise_quality_passes_to_init(self, mock_access, mock_isfile, mock_getsize):
+        """Test that category parameter is included in init payload."""
+        init_response = self._setup_init_response()
+        upload_response = self._setup_upload_response()
+        eval_response = self._setup_noise_quality_eval_response(noise_quality=3.5)
+
+        self.mock_api_client.post.side_effect = [init_response, eval_response]
+        self.mock_api_client.external_put.return_value = upload_response
+
+        result = self.service.eval("/path/to/test.wav", category="noise_quality")
+
+        # Result has noise_quality, not naturalness
+        self.assertEqual(result.noise_quality, 3.5)
+        self.assertIsNone(result.naturalness)
+
+        # Verify init payload includes category and does NOT include language
+        init_call = self.mock_api_client.post.call_args_list[0]
+        init_payload = init_call[1]["data"] if "data" in init_call[1] else init_call[0][1]
+        self.assertEqual(init_payload["category"], "noise_quality")
+        self.assertNotIn("language", init_payload)
+
+    @patch("os.path.getsize", return_value=1024)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.access", return_value=True)
+    @patch("builtins.open", mock_open(read_data=b"fake audio data"))
+    def test_eval_with_category_and_language_forwards_both(self, mock_access, mock_isfile, mock_getsize):
+        """Test that both category and language are forwarded to server (server ignores language when category=noise_quality)."""
+        init_response = self._setup_init_response()
+        upload_response = self._setup_upload_response()
+        eval_response = self._setup_noise_quality_eval_response(noise_quality=3.5)
+
+        self.mock_api_client.post.side_effect = [init_response, eval_response]
+        self.mock_api_client.external_put.return_value = upload_response
+
+        self.service.eval("/path/to/test.wav", language="es-es", category="noise_quality")
+
+        # Verify both are forwarded — server owns the precedence logic
+        init_call = self.mock_api_client.post.call_args_list[0]
+        init_payload = init_call[1]["data"] if "data" in init_call[1] else init_call[0][1]
+        self.assertEqual(init_payload["category"], "noise_quality")
+        self.assertEqual(init_payload["language"], "es-es")
+
+    @patch("os.path.getsize", return_value=1024)
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.access", return_value=True)
+    @patch("builtins.open", mock_open(read_data=b"fake audio data"))
+    def test_eval_without_category_omits_from_init(self, mock_access, mock_isfile, mock_getsize):
+        """Test that category is not in init payload when omitted."""
+        init_response = self._setup_init_response()
+        upload_response = self._setup_upload_response()
+        eval_response = self._setup_eval_response(naturalness=4.1)
+
+        self.mock_api_client.post.side_effect = [init_response, eval_response]
+        self.mock_api_client.external_put.return_value = upload_response
+
+        result = self.service.eval("/path/to/test.wav")
+
+        self.assertEqual(result.naturalness, 4.1)
+
+        # Verify init payload does NOT include category
+        init_call = self.mock_api_client.post.call_args_list[0]
+        init_payload = init_call[1]["data"] if "data" in init_call[1] else init_call[0][1]
+        self.assertNotIn("category", init_payload)
+
 
 if __name__ == "__main__":
     unittest.main()
