@@ -7,10 +7,12 @@ from podonos.core.file import File
 @dataclass
 class FlashEvalResult:
     naturalness: Optional[float]
-    noise_quality: Optional[float]
     file: File
     id: Optional[str]
     message: Optional[str]
+    # noise_quality has a default so existing callers constructing
+    # FlashEvalResult(naturalness, file, id, message) remain compatible.
+    noise_quality: Optional[float] = None
 
     @staticmethod
     def from_dict(data: Dict[str, Any], file: File, id: Optional[str] = None) -> "FlashEvalResult":
