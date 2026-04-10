@@ -31,6 +31,7 @@ class TestFlashEvalResult(unittest.TestCase):
         data = {"message": None}
         result = FlashEvalResult.from_dict(data, file=file)
         self.assertIsNone(result.naturalness)
+        self.assertIsNone(result.noise_quality)
         self.assertIsNone(result.id)
         self.assertIsNone(result.message)
 
@@ -40,6 +41,7 @@ class TestFlashEvalResult(unittest.TestCase):
         file = self._create_file()
         result = FlashEvalResult.from_dict({}, file=file)
         self.assertIsNone(result.naturalness)
+        self.assertIsNone(result.noise_quality)
         self.assertIsNone(result.message)
 
     @patch("os.access", return_value=True)
@@ -49,6 +51,7 @@ class TestFlashEvalResult(unittest.TestCase):
         data = {"scores": "invalid"}
         result = FlashEvalResult.from_dict(data, file=file)
         self.assertIsNone(result.naturalness)
+        self.assertIsNone(result.noise_quality)
 
     @patch("os.access", return_value=True)
     @patch("os.path.isfile", return_value=True)
@@ -58,6 +61,20 @@ class TestFlashEvalResult(unittest.TestCase):
         result = FlashEvalResult.from_dict(data, file=file)
         self.assertEqual(result.file.path, "/home/user/recordings/speech.wav")
         self.assertEqual(result.file.model_tag, "flash_eval")
+
+    @patch("os.access", return_value=True)
+    @patch("os.path.isfile", return_value=True)
+    def test_from_dict_with_noise_quality(self, mock_isfile, mock_access):
+        file = self._create_file()
+        data = {
+            "scores": {"noise_quality": 3.5},
+            "message": None,
+        }
+        result = FlashEvalResult.from_dict(data, file=file, id="eval-456")
+        self.assertIsNone(result.naturalness)
+        self.assertEqual(result.noise_quality, 3.5)
+        self.assertEqual(result.id, "eval-456")
+        self.assertIsNone(result.message)
 
 
 if __name__ == "__main__":

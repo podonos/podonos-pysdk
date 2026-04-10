@@ -249,9 +249,18 @@ class Client:
             verify_batch_size=verify_batch_size,
         )
 
-    @validate_args(file_path=Rules.file_path_not_none, language=Rules.str_non_empty_or_none)
-    def flash_eval(self, file_path: str, language: Optional[str] = None) -> FlashEvalResult:
-        """Runs auto-evaluation on an audio file and returns the naturalness score.
+    @validate_args(
+        file_path=Rules.file_path_not_none,
+        language=Rules.str_non_empty_or_none,
+        category=Rules.str_non_empty_or_none,
+    )
+    def flash_eval(
+        self,
+        file_path: str,
+        language: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> FlashEvalResult:
+        """Runs auto-evaluation on an audio file and returns the score.
 
         Example:
             >>> import podonos
@@ -263,21 +272,31 @@ class Client:
             # For Spanish (es-es) audio:
             >>> result = client.flash_eval(file_path="path/to/audio_es.wav", language="es-es")
 
+            # For noise quality measurement (language is ignored when category="noise_quality"):
+            >>> result = client.flash_eval(file_path="path/to/audio.wav", category="noise_quality")
+            >>> print(result.noise_quality)
+            3.5
+
         Args:
             file_path: Path to the audio file to evaluate.
             language: Language code for model routing (e.g. 'es-es').
                       When omitted, the default en-us model is used.
-                      Supported: 'en-us', 'es-es'.
+                      Currently available: 'en-us', 'es-es'.
+                      Ignored when category is 'noise_quality'.
+            category: Evaluation category. Defaults to 'naturalness' when omitted.
+                      Currently available: 'naturalness', 'noise_quality'.
 
         Returns:
-            FlashEvalResult containing the naturalness score.
+            FlashEvalResult. For category='naturalness' the `naturalness` field
+            is populated; for category='noise_quality' the `noise_quality` field
+            is populated.
 
         Raises:
             ValueError: if this function is called before calling init().
         """
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
-        return self._flash_eval_service.eval(file_path, language=language)
+        return self._flash_eval_service.eval(file_path, language=language, category=category)
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
