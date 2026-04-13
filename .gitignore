@@ -176,3 +176,6 @@ template_ranking.json
 
 # OMC
 .omc/
+
+# Superset worktree metadata
+.superset/
