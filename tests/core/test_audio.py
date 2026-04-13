@@ -257,6 +257,91 @@ class TestAudio(unittest.TestCase):
         self.assertEqual(file_dict["order_in_group"], 1)
 
 
+    def test_should_include_script_tags_in_create_file_dict(self):
+        # Given
+        audio = Audio(
+            path=self.test_wav,
+            name="speech_two_ch1.wav",
+            remote_object_name="remote/path.wav",
+            script="test script",
+            tags=["test"],
+            model_tag="test_model",
+            is_ref=False,
+            group="test_group",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+            script_tags=["address", "greeting"],
+        )
+
+        # When
+        file_dict = audio.to_create_file_dict()
+
+        # Then
+        self.assertEqual(file_dict["script_tags"], ["address", "greeting"])
+
+    def test_should_include_script_tag_in_to_dict(self):
+        # Given
+        audio = Audio(
+            path=self.test_wav,
+            name="speech_two_ch1.wav",
+            remote_object_name="remote/path.wav",
+            script="test script",
+            tags=["test"],
+            model_tag="test_model",
+            is_ref=False,
+            group="test_group",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+            script_tags=["address"],
+        )
+
+        # When
+        d = audio.to_dict()
+
+        # Then
+        self.assertEqual(d["script_tag"], ["address"])
+
+    def test_should_default_script_tags_to_empty_list_in_dicts(self):
+        # Given
+        audio = Audio(
+            path=self.test_wav,
+            name="speech_two_ch1.wav",
+            remote_object_name="remote/path.wav",
+            script="test script",
+            tags=["test"],
+            model_tag="test_model",
+            is_ref=False,
+            group="test_group",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
+
+        # When / Then
+        self.assertEqual(audio.to_create_file_dict()["script_tags"], [])
+        self.assertEqual(audio.to_dict()["script_tag"], [])
+
+    def test_from_file_should_preserve_script_tags(self):
+        # Given
+        file = File(
+            path=self.test_wav,
+            model_tag="test_model",
+            tags=["test"],
+            script_tags=["address", "greeting"],
+        )
+
+        # When
+        audio = Audio.from_file(
+            file=file,
+            creation_timestamp="2026-01-01",
+            group="test_group",
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
+
+        # Then
+        self.assertEqual(audio.script_tags, ["address", "greeting"])
+
+
 class TestAudioGroup(unittest.TestCase):
     def setUp(self):
         self.test_dir = os.path.dirname(__file__)

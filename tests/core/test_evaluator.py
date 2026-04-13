@@ -1362,5 +1362,72 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(eval_config_max.verify_batch_size, 1000)
 
 
+    # ----------------------------
+    # script_tags RANKING-only enforcement tests
+    # ----------------------------
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_file_rejects_non_empty_script_tags(self, mock_upload: Mock):
+        """Test add_file raises ValueError when file has non-empty script_tags"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.NMOS  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+        file = File(path=self.test_wav, model_tag="test_model", script_tags=["address"])
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_file(file)
+        self.assertIn("script_tags is only supported for RANKING", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_file_allows_empty_script_tags(self, mock_upload: Mock):
+        """Test add_file succeeds when file has empty script_tags (regression guard)"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.NMOS  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+        file = File(path=self.test_wav, model_tag="test_model", script_tags=[])
+
+        # When
+        self.evaluator.add_file(file)
+
+        # Then
+        self.assertEqual(len(self.evaluator._ordered_file_groups), 1)  # type: ignore
+        mock_upload.assert_called_once()
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_files_rejects_non_empty_script_tags(self, mock_upload: Mock):
+        """Test add_files raises ValueError when any file has non-empty script_tags"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.PREF  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.PREF]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+        file0 = File(path=self.test_wav, model_tag="model1", script_tags=["address"])
+        file1 = File(path=self.test_wav, model_tag="model2")
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator.add_files(file0, file1)
+        self.assertIn("script_tags is only supported for RANKING", str(context.exception))
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_add_ranking_set_allows_script_tags(self, mock_upload: Mock):
+        """Test add_ranking_set succeeds with script_tags"""
+        # Given
+        self.evaluator._eval_config._eval_type = EvalType.RANKING  # type: ignore
+        self.evaluator._eval_config._eval_batch_size = 2  # type: ignore
+        self.evaluator._supported_eval_types = [EvalType.RANKING]  # type: ignore
+        self.evaluator._evaluation = self.mock_evaluation  # type: ignore
+        files = [
+            File(path=self.test_wav, model_tag="A", script_tags=["address"]),
+            File(path=self.test_wav, model_tag="B", script_tags=["address"]),
+        ]
+
+        # When
+        self.evaluator.add_ranking_set(files)
+
+        # Then
+        self.assertEqual(len(self.evaluator._ordered_file_groups), 1)  # type: ignore
+        self.assertEqual(mock_upload.call_count, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
