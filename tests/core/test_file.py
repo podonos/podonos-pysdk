@@ -951,6 +951,34 @@ class TestFile(unittest.TestCase):
         self.assertIn("ModelB", model_tags)
 
 
+class TestFileScriptTags(unittest.TestCase):
+    """Test cases for File.script_tags parameter"""
+
+    def setUp(self):
+        self.test_dir = os.path.dirname(__file__)
+        self.test_wav = os.path.join(self.test_dir, "speech_two_ch1.wav")
+
+    def test_file_default_script_tags_is_empty_list(self):
+        """File without script_tags should default to []"""
+        f = File(path=self.test_wav, model_tag="test_model")
+        self.assertEqual(f.script_tags, [])
+
+    def test_file_script_tags_stores_values(self):
+        """File with script_tags should store them correctly"""
+        f = File(path=self.test_wav, model_tag="test_model", script_tags=["a", "b"])
+        self.assertEqual(f.script_tags, ["a", "b"])
+
+    def test_file_script_tags_deduplicates(self):
+        """File with duplicate script_tags should deduplicate them"""
+        f = File(path=self.test_wav, model_tag="test_model", script_tags=["a", "a", "b"])
+        self.assertEqual(f.script_tags, ["a", "b"])
+
+    def test_file_script_tags_coerces_types(self):
+        """File with non-string script_tags should coerce to strings"""
+        f = File(path=self.test_wav, model_tag="test_model", script_tags=[1, 2.0])
+        self.assertEqual(f.script_tags, ["1", "2.0"])
+
+
 class TestAudioMeta(unittest.TestCase):
     """Test cases for AudioMeta class and format detection functionality"""
 
