@@ -194,6 +194,12 @@ class Evaluator:
 
         self._validate_eval_type("add_file")
 
+        if file.script_tags:
+            raise ValueError(
+                "script_tags is only supported for RANKING evaluations. "
+                "Use add_ranking_set() instead."
+            )
+
         file = self._file_validator.validate_file(file)
         audio_group = self._file_transformer.transform_into_audio_group([file])
         self._ordered_file_groups.append(audio_group)
@@ -239,6 +245,12 @@ class Evaluator:
             raise ValueError("Evaluator is not initialized")
 
         self._validate_eval_type("add_files")
+
+        if any(f.script_tags for f in [file0, file1, file2] if f is not None):
+            raise ValueError(
+                "script_tags is only supported for RANKING evaluations. "
+                "Use add_ranking_set() instead."
+            )
 
         files = self._file_validator.validate_files([file0, file1, file2])
         audio_group = self._file_transformer.transform_into_audio_group(files)

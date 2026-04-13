@@ -36,6 +36,7 @@ class File:
         path: str,
         model_tag: str,
         tags: List[str] = [],
+        script_tags: List[str] = [],
         script: Optional[str] = None,
         is_ref: bool = False,
         meta_data: Dict[str, Any] = {},
@@ -45,6 +46,7 @@ class File:
             path: Path to the file to evaluate. Required.
             model_tag: String that represents the model or group. Required.
             tags: A list of string for file. Optional.
+            script_tags: A list of script-level tags. Only used for RANKING evaluations. Optional.
             script: Script of the input audio in text. Optional.
             is_ref: True if this file is to be a reference for an evaluation type that requires a reference.
                     Optional. Default is False.
@@ -58,6 +60,7 @@ class File:
         self._path = self._validate_path(path)
         self._model_tag = self._validate_model_tag(model_tag)
         self._tags = self._set_tags(tags)
+        self._script_tags = self._set_tags(script_tags)
         self._script = self._validate_script(script)
         self._is_ref = self._validate_is_ref(is_ref)
         self._meta_data = self._validate_meta_data(meta_data)
@@ -76,6 +79,10 @@ class File:
     @property
     def tags(self) -> List[str]:
         return self._tags
+
+    @property
+    def script_tags(self) -> List[str]:
+        return self._script_tags
 
     @property
     def script(self) -> Optional[str]:
@@ -719,6 +726,7 @@ class Audio(File):
         remote_object_name=Rules.str_non_empty,
         script=Rules.str_not_none_or_none,
         tags=Rules.list_not_none,
+        script_tags=Rules.list_not_none,
         model_tag=Rules.str_non_empty,
         is_ref=Rules.bool_not_none,
         meta_data=Rules.dict_not_none,
@@ -739,8 +747,17 @@ class Audio(File):
         type: QuestionFileType,
         order_in_group: int,
         meta_data: Dict[str, Any] = {},
+        script_tags: List[str] = [],
     ):
-        super().__init__(path, model_tag, tags, script, is_ref, meta_data)
+        super().__init__(
+            path=path,
+            model_tag=model_tag,
+            tags=tags,
+            script_tags=script_tags,
+            script=script,
+            is_ref=is_ref,
+            meta_data=meta_data,
+        )
         self._name = name
         self._remote_object_name = remote_object_name
         self._group = group
@@ -791,6 +808,7 @@ class Audio(File):
             remote_object_name=remote_path,
             script=file.script,
             tags=file.tags,
+            script_tags=file.script_tags,
             model_tag=file.model_tag,
             is_ref=file.is_ref if file.is_ref else False,
             meta_data=file.meta_data,
@@ -853,6 +871,7 @@ class Audio(File):
             "model_tag": self._model_tag,
             "is_ref": self._is_ref,
             "tag": self._tags,
+            "script_tag": self._script_tags,
             "type": self._type,
             "script": self._script,
             "meta_data": self._meta_data,
@@ -867,6 +886,7 @@ class Audio(File):
             "duration": self._metadata.duration_in_ms,
             "model_tag": self._model_tag,
             "tags": self._tags,
+            "script_tags": self._script_tags,
             "type": self._type,
             "script": self._script,
             "meta_data": self._meta_data,
