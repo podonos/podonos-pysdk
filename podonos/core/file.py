@@ -36,23 +36,23 @@ class File:
         path: str,
         model_tag: str,
         tags: List[str] = [],
-        script_tags: List[str] = [],
         script: Optional[str] = None,
         is_ref: bool = False,
         meta_data: Dict[str, Any] = {},
+        script_tags: List[str] = [],
     ) -> None:
         """
         Args:
             path: Path to the file to evaluate. Required.
             model_tag: String that represents the model or group. Required.
             tags: A list of string for file. Optional.
-            script_tags: A list of script-level tags. Only used for RANKING evaluations. Optional.
             script: Script of the input audio in text. Optional.
             is_ref: True if this file is to be a reference for an evaluation type that requires a reference.
                     Optional. Default is False.
             meta_data: Arbitrary key-value meta data. Keys must be strings.
                        Values must be JSON-primitive types (str, int, float, bool, None).
                        Iterable types such as list, tuple, set, dict are not allowed.
+            script_tags: A list of script-level tags. Only used for RANKING evaluations. Optional.
         """
         log.check_ne(path, "")  # type: ignore
         log.check_ne(model_tag, "")  # type: ignore
@@ -60,10 +60,10 @@ class File:
         self._path = self._validate_path(path)
         self._model_tag = self._validate_model_tag(model_tag)
         self._tags = self._set_tags(tags)
-        self._script_tags = self._set_tags(script_tags)
         self._script = self._validate_script(script)
         self._is_ref = self._validate_is_ref(is_ref)
         self._meta_data = self._validate_meta_data(meta_data)
+        self._script_tags = self._set_tags(script_tags)
 
     def __repr__(self) -> str:
         return f"File(path='{self._path}')"
