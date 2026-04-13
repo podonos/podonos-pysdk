@@ -1,3 +1,7 @@
+## 0.40.0
+
+- Add `script_tags` support to `File` class and evaluation API for tag-based script management
+
 ## 0.39.0
 
 - Add `category` parameter to `flash_eval()` to support noise_quality scoring
