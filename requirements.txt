@@ -31,7 +31,7 @@ podonos==0.20.0
 pycparser==2.22
 pyparsing==2.4.6
 pyproject_hooks==1.1.0
-pytest==8.2.2
+pytest==9.0.3
 python-dateutil==2.9.0.post0
 python-gflags==3.1.2
 readme_renderer==43.0
