@@ -194,6 +194,10 @@ class Language(Enum):
     ITALIAN = "it-it"
     POLISH = "pl-pl"
     INDONESIAN = "id-id"
+    SINHALA = "si-lk"
+    TAMIL = "ta-in"
+    KANNADA = "kn-in"
+    MALAYALAM = "ml-in"
     AUDIO = "audio"
 
     @classmethod

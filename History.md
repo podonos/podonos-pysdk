@@ -1,3 +1,7 @@
+## 0.40.1
+
+- Add Sinhala (`si-lk`), Tamil (`ta-in`), Kannada (`kn-in`), and Malayalam (`ml-in`) to `Language` enum
+
 ## 0.40.0
 
 - Add `script_tags` support to `File` class and evaluation API for tag-based script management
