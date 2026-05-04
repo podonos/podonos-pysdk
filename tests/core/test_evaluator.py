@@ -13,6 +13,7 @@ from podonos.core.evaluator import Evaluator
 from podonos.core.file import Audio, AudioGroup, File
 from podonos.entity.evaluation import EvaluationEntity
 from podonos.entity.verification import FileVerificationResult, VerifyFilesResponse
+from podonos.errors import InvalidFileError
 from tests.core.test_audio import TESTDATA_SPEECH_TWO_CH1_WAV
 
 
@@ -138,6 +139,20 @@ class TestEvaluator(unittest.TestCase):
             "The 'add_file' is only supported for single file evaluation types:",
             str(context.exception),
         )
+
+    def test_add_file_should_not_queue_upload_when_audio_validation_fails(self):
+        # Given
+        file = File(path=self.test_wav, model_tag="test_model")
+
+        # When/Then
+        with patch(
+            "podonos.core.file.AudioMeta",
+            side_effect=InvalidFileError("late decode failure"),
+        ), patch.object(self.evaluator, "_upload_one_file") as mock_upload:
+            with self.assertRaises(InvalidFileError):
+                self.evaluator.add_file(file)
+
+            mock_upload.assert_not_called()
 
     def test_should_cleanup_successfully(self):
         # Given

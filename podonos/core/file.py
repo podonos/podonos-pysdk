@@ -648,16 +648,17 @@ class AudioMeta:
                 f.seek(0)
                 max_abs = 0.0
                 has_audio_data = False
+                found_audible_chunk = False
                 while True:
                     chunk = f.read(frames=65536, dtype="float32")
                     if len(chunk) == 0:
                         break
                     has_audio_data = True
-                    chunk_max = float(abs(chunk).max())
-                    if chunk_max > max_abs:
-                        max_abs = chunk_max
-                    if max_abs >= WARN_SILENT_AMPLITUDE_THRESHOLD:
-                        break
+                    if not found_audible_chunk:
+                        chunk_max = float(abs(chunk).max())
+                        if chunk_max > max_abs:
+                            max_abs = chunk_max
+                        found_audible_chunk = max_abs >= WARN_SILENT_AMPLITUDE_THRESHOLD
 
                 if has_audio_data and max_abs < WARN_SILENT_AMPLITUDE_THRESHOLD:
                     self._is_silent = True
