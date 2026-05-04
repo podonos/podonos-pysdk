@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "podonos"
-version = "0.40.1"
+version = "0.40.2"
 description = "Managed evaluation for audio & speech"
 readme = "README.md"
 license = "MIT"
