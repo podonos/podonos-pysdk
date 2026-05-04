@@ -127,6 +127,47 @@ class TestAudioValidation(unittest.TestCase):
             AudioMeta(os.path.join(self.fixtures_dir, "fake_mp3.wav"))
         self.assertIn("does not match", str(ctx.exception))
 
+    def test_should_raise_for_late_decode_failure_after_non_silent_chunk(self):
+        """Integrity validation should read through the whole file, not stop at first audible chunk.
+
+        A tiny representative corrupt MP3 fixture would be preferable, but creating one
+        portably without FFmpeg or new dependencies is brittle. This fake SoundFile
+        simulates a file that opens and yields initial non-silent audio, then fails
+        while reading a later chunk.
+        """
+
+        class LateFailingSoundFile:
+            frames = 3
+            channels = 1
+            samplerate = 24000
+
+            def __init__(self):
+                self.read_calls = 0
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+            def seek(self, frame):
+                return frame
+
+            def read(self, frames, dtype):
+                self.read_calls += 1
+                if self.read_calls == 1:
+                    return np.array([0.01], dtype=np.float32)
+                raise sf.SoundFileError("late decode failure")
+
+        with patch(
+            "podonos.core.file.sf.SoundFile",
+            return_value=LateFailingSoundFile(),
+        ):
+            with self.assertRaises(InvalidFileError) as ctx:
+                AudioMeta(TESTDATA_SPEECH_CH1_MP3)
+
+        self.assertIn("late decode failure", str(ctx.exception))
+
     def test_should_warn_for_very_short_audio(self):
         """Test that very short audio files trigger a warning."""
         with patch("podonos.core.file.log") as mock_log:
