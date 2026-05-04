@@ -1,3 +1,7 @@
+## 0.40.2
+
+- Reject corrupted audio files before upload to prevent failed evaluations
+
 ## 0.40.1
 
 - Add Sinhala (`si-lk`), Tamil (`ta-in`), Kannada (`kn-in`), and Malayalam (`ml-in`) to `Language` enum
