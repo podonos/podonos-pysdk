@@ -215,7 +215,7 @@ class EvalConfig:
             Language.ITALIAN.value,
             Language.POLISH.value,
             Language.INDONESIAN.value,
-            Language.SINHALA.value,
+            Language.HINDI.value,
             Language.TAMIL.value,
             Language.KANNADA.value,
             Language.MALAYALAM.value,

@@ -194,7 +194,7 @@ class Language(Enum):
     ITALIAN = "it-it"
     POLISH = "pl-pl"
     INDONESIAN = "id-id"
-    SINHALA = "si-lk"
+    HINDI = "hi-in"
     TAMIL = "ta-in"
     KANNADA = "kn-in"
     MALAYALAM = "ml-in"
