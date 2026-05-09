@@ -25,7 +25,7 @@ class TestLanguageEnum(unittest.TestCase):
         self.assertEqual(Language.JAPANESE.value, "ja-jp")
         self.assertEqual(Language.ITALIAN.value, "it-it")
         self.assertEqual(Language.POLISH.value, "pl-pl")
-        self.assertEqual(Language.SINHALA.value, "si-lk")
+        self.assertEqual(Language.HINDI.value, "hi-in")
         self.assertEqual(Language.TAMIL.value, "ta-in")
         self.assertEqual(Language.KANNADA.value, "kn-in")
         self.assertEqual(Language.MALAYALAM.value, "ml-in")
@@ -194,11 +194,11 @@ class TestEvalTypeEnum(unittest.TestCase):
         self.assertEqual(Language.from_value("id-id"), Language.INDONESIAN)
 
     def test_language_south_asian(self):
-        self.assertEqual(Language.SINHALA.value, "si-lk")
+        self.assertEqual(Language.HINDI.value, "hi-in")
         self.assertEqual(Language.TAMIL.value, "ta-in")
         self.assertEqual(Language.KANNADA.value, "kn-in")
         self.assertEqual(Language.MALAYALAM.value, "ml-in")
-        self.assertEqual(Language.from_value("si-lk"), Language.SINHALA)
+        self.assertEqual(Language.from_value("hi-in"), Language.HINDI)
         self.assertEqual(Language.from_value("ta-in"), Language.TAMIL)
         self.assertEqual(Language.from_value("kn-in"), Language.KANNADA)
         self.assertEqual(Language.from_value("ml-in"), Language.MALAYALAM)
