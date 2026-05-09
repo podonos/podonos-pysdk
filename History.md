@@ -1,3 +1,7 @@
+## 0.40.3
+
+- Align Hindi locale support with the rest of the language matrix
+
 ## 0.40.2
 
 - Reject corrupted audio files before upload to prevent failed evaluations
