@@ -8,7 +8,7 @@ docutils==0.20.1
 exceptiongroup==1.2.1
 filetype==1.2.0
 glog==0.3.1
-idna==3.10
+idna==3.15
 importlib_metadata==7.1.0
 importlib_resources==6.4.0
 iniconfig==2.0.0
