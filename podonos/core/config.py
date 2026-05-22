@@ -1,8 +1,12 @@
+import os
+import uuid
+import math
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from podonos.common.constant import PODONOS_CONTACT_EMAIL
 from podonos.common.enum import AIEvalType, EvalType, Language
+from podonos.common.redaction import mask_secret
 from podonos.common.validator import Rules, validate_args
 from podonos.core.base import *
 
@@ -19,7 +23,12 @@ class EvalConfigDefault:
     GRANULARITY = 1.0
     BATCH_SIZE = 1
     MAX_UPLOAD_WORKERS = 20
-    VERIFY_BATCH_SIZE = 500
+    VERIFY_BATCH_SIZE = 100
+    API_TIMEOUT = (5, 30)
+    VERIFY_TIMEOUT = (5, 120)
+    UPLOAD_TIMEOUT = (10, 300)
+    RESUME_UPLOAD = False
+    UPLOAD_STATE_PATH = None
 
 
 class EvalConfig:
@@ -44,6 +53,12 @@ class EvalConfig:
     _skip_default_questions: bool = False
     _max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
     _verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE
+    _api_timeout: Tuple[float, float] = EvalConfigDefault.API_TIMEOUT
+    _verify_timeout: Tuple[float, float] = EvalConfigDefault.VERIFY_TIMEOUT
+    _upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT
+    _resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD
+    _upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH
+    _resume_evaluation_id: Optional[str] = None
 
     def __init__(
         self,
@@ -61,6 +76,12 @@ class EvalConfig:
         template_id: Optional[str] = None,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
         verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
+        api_timeout: Tuple[float, float] = EvalConfigDefault.API_TIMEOUT,
+        verify_timeout: Tuple[float, float] = EvalConfigDefault.VERIFY_TIMEOUT,
+        upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
+        resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
+        upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
+        resume_evaluation_id: Optional[str] = None,
         skip_default_questions: bool = False,
     ) -> None:
         self._eval_name = self._valudate_eval_name(name)
@@ -83,6 +104,14 @@ class EvalConfig:
         self._eval_template_id = template_id
         self._max_upload_workers = max_upload_workers
         self._verify_batch_size = self._validate_verify_batch_size(verify_batch_size)
+        self._api_timeout = self._validate_timeout(api_timeout, "api_timeout")
+        self._verify_timeout = self._validate_timeout(verify_timeout, "verify_timeout")
+        self._upload_timeout = self._validate_timeout(upload_timeout, "upload_timeout")
+        self._resume_upload = self._validate_resume_upload(resume_upload)
+        self._upload_state_path = self._validate_upload_state_path(upload_state_path)
+        self._resume_evaluation_id = self._validate_resume_evaluation_id(
+            resume_evaluation_id
+        )
         self._skip_default_questions = skip_default_questions
         self.log_eval_config()
 
@@ -105,6 +134,22 @@ class EvalConfig:
         log.debug(f"Evaluation Template ID: {self._eval_template_id}")
         log.debug(f"Max upload workers: {self._max_upload_workers}")
         log.debug(f"Verify batch size: {self._verify_batch_size}")
+        log.debug(f"API timeout: {self._api_timeout}")
+        log.debug(f"Verify timeout: {self._verify_timeout}")
+        log.debug(f"Upload timeout: {self._upload_timeout}")
+        log.debug(f"Resume upload: {self._resume_upload}")
+        upload_state_display = (
+            os.path.basename(self._upload_state_path)
+            if self._upload_state_path
+            else None
+        )
+        resume_id_display = (
+            mask_secret(self._resume_evaluation_id)
+            if self._resume_evaluation_id
+            else None
+        )
+        log.debug(f"Upload state path basename: {upload_state_display}")
+        log.debug(f"Resume evaluation id: {resume_id_display}")
         log.debug(f"Skip default questions: {self._skip_default_questions}")
 
     @property
@@ -150,6 +195,41 @@ class EvalConfig:
     @property
     def verify_batch_size(self) -> int:
         return self._verify_batch_size
+
+    @property
+    def api_timeout(self) -> Tuple[float, float]:
+        return self._api_timeout
+
+    @property
+    def verify_timeout(self) -> Tuple[float, float]:
+        return self._verify_timeout
+
+    @property
+    def upload_timeout(self) -> Tuple[float, float]:
+        return self._upload_timeout
+
+    @property
+    def resume_upload(self) -> bool:
+        return self._resume_upload
+
+    @property
+    def upload_state_path(self) -> Optional[str]:
+        return self._upload_state_path
+
+    @property
+    def resume_evaluation_id(self) -> Optional[str]:
+        return self._resume_evaluation_id
+
+    def resolve_upload_state_path(self) -> str:
+        """Return the local ledger path when opt-in resume_upload is enabled.
+
+        The default path is deterministic and SDK-local. Calling this method does
+        not create a file; the SQLite ledger is created only if integration code
+        instantiates UploadLedger while resume_upload is enabled.
+        """
+        if self._upload_state_path:
+            return self._upload_state_path
+        return os.path.join(os.getcwd(), ".podonos_upload_state.sqlite")
 
     @property
     def eval_batch_size(self) -> int:
@@ -302,6 +382,100 @@ class EvalConfig:
         if verify_batch_size > 1000:
             raise ValueError('"verify_batch_size" must be <= 1000.')
         return verify_batch_size
+
+    def _validate_timeout(
+        self, timeout: Tuple[float, float], name: str
+    ) -> Tuple[float, float]:
+        if not isinstance(timeout, (tuple, list)) or len(timeout) != 2:
+            raise ValueError(f'"{name}" must be a 2-item tuple/list: (connect_timeout, read_timeout).')
+
+        connect_timeout, read_timeout = timeout
+        if isinstance(connect_timeout, bool) or isinstance(read_timeout, bool):
+            raise ValueError(f'"{name}" values must be positive numbers.')
+        if not isinstance(connect_timeout, (int, float)) or not isinstance(
+            read_timeout, (int, float)
+        ):
+            raise ValueError(f'"{name}" values must be numbers.')
+        if not math.isfinite(float(connect_timeout)) or not math.isfinite(
+            float(read_timeout)
+        ):
+            raise ValueError(f'"{name}" values must be finite.')
+        if connect_timeout <= 0 or read_timeout <= 0:
+            raise ValueError(f'"{name}" values must be positive.')
+        if connect_timeout > read_timeout:
+            raise ValueError(f'"{name}" connect timeout must be <= read timeout.')
+
+        return (connect_timeout, read_timeout)
+
+    def restore_resume_session_config(self, session_config: Dict[str, Any]) -> None:
+        """Restore original session.json fields from a trusted upload ledger contract."""
+
+        if not isinstance(session_config, dict) or not session_config:
+            raise ValueError("session_config must be a non-empty dictionary")
+
+        self._eval_name = str(session_config.get("eval_name", self._eval_name))
+        self._eval_description = session_config.get(
+            "eval_description", self._eval_description
+        )
+        self._eval_num = int(session_config.get("eval_num", self._eval_num))
+        self._eval_expected_due = str(
+            session_config.get("eval_expected_due", self._eval_expected_due)
+        )
+        self._eval_creation_timestamp = str(
+            session_config.get(
+                "eval_creation_timestamp", self._eval_creation_timestamp
+            )
+        )
+        self._eval_use_annotation = bool(
+            session_config.get("eval_use_annotation", self._eval_use_annotation)
+        )
+        self._eval_auto_start = bool(
+            session_config.get("eval_auto_start", self._eval_auto_start)
+        )
+        self._eval_template_id = session_config.get(
+            "eval_template_id", self._eval_template_id
+        )
+        self._eval_use_loudness_normalization = bool(
+            session_config.get(
+                "use_loudness_normalization",
+                self._eval_use_loudness_normalization,
+            )
+        )
+        self._max_upload_workers = int(
+            session_config.get("max_upload_workers", self._max_upload_workers)
+        )
+        self._verify_batch_size = self._validate_verify_batch_size(
+            int(session_config.get("verify_batch_size", self._verify_batch_size))
+        )
+
+    def _validate_resume_upload(self, resume_upload: bool) -> bool:
+        if not isinstance(resume_upload, bool):  # type: ignore
+            raise ValueError('"resume_upload" must be a boolean.')
+        return resume_upload
+
+    def _validate_upload_state_path(
+        self, upload_state_path: Optional[str]
+    ) -> Optional[str]:
+        if upload_state_path is None:
+            return None
+        if not isinstance(upload_state_path, str) or not upload_state_path.strip():
+            raise ValueError('"upload_state_path" must be a non-empty string or None.')
+        return upload_state_path
+
+    def _validate_resume_evaluation_id(
+        self, resume_evaluation_id: Optional[str]
+    ) -> Optional[str]:
+        if resume_evaluation_id is None:
+            return None
+        if not isinstance(resume_evaluation_id, str) or not resume_evaluation_id.strip():
+            raise ValueError(
+                '"resume_evaluation_id" must be a non-empty string or None.'
+            )
+        try:
+            uuid.UUID(resume_evaluation_id)
+        except ValueError as exc:
+            raise ValueError('"resume_evaluation_id" must be a valid UUID.') from exc
+        return resume_evaluation_id
 
     def to_dict(self) -> Dict[str, Any]:
         return {

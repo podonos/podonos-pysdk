@@ -19,7 +19,8 @@ dependencies = [
     "filetype",
     "glog",
     "packaging",
-    "requests",
+    "requests>=2.33.0,<3",
+    "urllib3>=2.7.0,<3",
     "soundfile==0.12.1",
     "tqdm",
     "typing_extensions>=4.0.0"

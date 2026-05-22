@@ -87,6 +87,7 @@ class TestAPIClient(unittest.TestCase):
             self.client.initialize()
 
         self.assertIn("Invalid API key", str(context.exception))
+        self.assertNotIn(self.api_key, str(context.exception))
         mock_patch.assert_called_once_with("api-keys/last-used-time", headers=self.client._headers, data={})  # type: ignore
 
     def test_add_headers(self):
@@ -134,7 +135,14 @@ class TestAPIClient(unittest.TestCase):
 
         response = self.client.external_get(url, params=params, headers=headers, cookies=cookies)
         self.assertEqual(response.status_code, 200)
-        mock_get.assert_called_once_with(url, headers=headers, params=params, cookies=cookies, timeout=(10, 60))
+        mock_get.assert_called_once_with(
+            url,
+            headers=headers,
+            params=params,
+            cookies=cookies,
+            timeout=(10, 60),
+            allow_redirects=True,
+        )
 
     @patch("requests.put")
     def test_external_put_with_data_success(self, mock_put: Mock):
@@ -209,7 +217,14 @@ class TestAPIClient(unittest.TestCase):
         response = self.client.external_get(url)
         self.assertEqual(response.status_code, 200)
         # Should use empty dict for headers when none provided
-        mock_get.assert_called_once_with(url, headers={}, params=None, cookies=None, timeout=(10, 60))
+        mock_get.assert_called_once_with(
+            url,
+            headers={},
+            params=None,
+            cookies=None,
+            timeout=(10, 60),
+            allow_redirects=True,
+        )
 
 
 if __name__ == "__main__":

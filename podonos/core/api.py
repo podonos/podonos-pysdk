@@ -3,6 +3,7 @@ import requests
 import importlib.metadata
 import time
 import random
+import math
 
 from requests import Response
 from requests.exceptions import RequestException, Timeout, ConnectionError, HTTPError, ConnectTimeout, ReadTimeout
@@ -10,6 +11,7 @@ from typing import Dict, Any, Optional, Callable, Set, Tuple
 from packaging.version import Version
 
 from podonos.common.constant import *
+from podonos.common.redaction import mask_secret, redact_secrets
 from podonos.core.base import *
 from podonos.common.validator import validate_args, Rules
 
@@ -76,7 +78,11 @@ class APIClient:
 
         response = self.patch("api-keys/last-used-time", headers=self._headers, data={})
         if response.text != "true":
-            raise ValueError(TerminalColor.FAIL + f"Invalid API key: {self._api_key}" + TerminalColor.ENDC)
+            raise ValueError(
+                TerminalColor.FAIL
+                + f"Invalid API key: {mask_secret(self._api_key)}"
+                + TerminalColor.ENDC
+            )
         return True
 
     @validate_args(key=Rules.str_non_empty, value=Rules.str_non_empty)
@@ -108,9 +114,71 @@ class APIClient:
         jitter = random.uniform(0.1, 0.3) * delay
         return delay + jitter
 
-    def _execute_with_retry(self, request_func: Callable[[], Response]) -> Response:
+    def _format_retry_context(self, context: Optional[Dict[str, Any]]) -> str:
+        """Format retry context without leaking secrets or signed URLs."""
+        if not context:
+            return ""
+
+        safe_keys = [
+            "method",
+            "endpoint",
+            "evaluation_id",
+            "timeout",
+            "batch_index",
+            "batch_size",
+            "batch_start",
+            "file_count",
+            "total_files",
+            "external_endpoint",
+        ]
+        parts = [
+            f"{key}={redact_secrets(context[key])}"
+            for key in safe_keys
+            if key in context
+        ]
+        return " ".join(parts)
+
+    def _build_retry_context(
+        self,
+        context: Optional[Dict[str, Any]],
+        **reserved: Any,
+    ) -> Dict[str, Any]:
+        """Merge caller context while keeping transport-owned keys authoritative."""
+        request_context = dict(context or {})
+        request_context.update(reserved)
+        return request_context
+
+    @staticmethod
+    def _validate_timeout(timeout: Tuple[float, float]) -> Tuple[float, float]:
+        """Validate public timeout values before they reach requests."""
+
+        if not isinstance(timeout, (tuple, list)) or len(timeout) != 2:
+            raise ValueError("timeout must be a (connect, read) tuple")
+
+        normalized = []
+        for value in timeout:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError("timeout values must be positive numbers")
+            if not math.isfinite(float(value)):
+                raise ValueError("timeout values must be finite numbers")
+            if value <= 0:
+                raise ValueError("timeout values must be positive numbers")
+            normalized.append(value)
+
+        return normalized[0], normalized[1]
+
+    def _sanitize_log_message(self, message: str) -> str:
+        """Redact signed URL query strings and common secret-bearing fields."""
+        return redact_secrets(message)
+
+    def _execute_with_retry(
+        self,
+        request_func: Callable[[], Response],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Response:
         """Execute a request function with retry logic."""
         last_exception = None
+        context_str = self._format_retry_context(context)
 
         for attempt in range(self._max_retries + 1):
             try:
@@ -121,39 +189,60 @@ class APIClient:
                     if attempt < self._max_retries:
                         delay = self._calculate_delay(attempt)
                         log.warning(
-                            f"Request failed with status {response.status_code}, retrying in {delay:.2f}s (attempt {attempt + 1}/{self._max_retries + 1})"
+                            f"Request failed with status {response.status_code} "
+                            f"{context_str}, retrying in {delay:.2f}s "
+                            f"(attempt {attempt + 1}/{self._max_retries + 1})"
                         )
                         time.sleep(delay)
                         continue
                     else:
-                        log.error(f"Request failed after {self._max_retries + 1} attempts with status {response.status_code}")
+                        log.error(
+                            f"Request failed after {self._max_retries + 1} attempts "
+                            f"with status {response.status_code} {context_str}"
+                        )
                         response.raise_for_status()
 
                 return response
 
             except (ConnectionError, Timeout, ConnectTimeout, ReadTimeout) as e:
                 last_exception = e
+                error_message = self._sanitize_log_message(str(e))
                 if attempt < self._max_retries:
                     delay = self._calculate_delay(attempt)
-                    log.warning(f"Network error occurred: {str(e)}, retrying in {delay:.2f}s (attempt {attempt + 1}/{self._max_retries + 1})")
+                    log.warning(
+                        f"Network error occurred {context_str}: {error_message}, "
+                        f"retrying in {delay:.2f}s "
+                        f"(attempt {attempt + 1}/{self._max_retries + 1})"
+                    )
                     time.sleep(delay)
                     continue
                 else:
-                    log.error(f"Network error after {self._max_retries + 1} attempts: {str(e)}")
+                    log.error(
+                        f"Network error after {self._max_retries + 1} attempts "
+                        f"{context_str}: {error_message}"
+                    )
                     raise
             except HTTPError as e:
+                error_message = self._sanitize_log_message(str(e))
                 # For HTTP errors, check if we should retry
                 if self._should_retry(None, e) and attempt < self._max_retries:
                     delay = self._calculate_delay(attempt)
-                    log.warning(f"HTTP error occurred: {str(e)}, retrying in {delay:.2f}s (attempt {attempt + 1}/{self._max_retries + 1})")
+                    log.warning(
+                        f"HTTP error occurred {context_str}: {error_message}, "
+                        f"retrying in {delay:.2f}s "
+                        f"(attempt {attempt + 1}/{self._max_retries + 1})"
+                    )
                     time.sleep(delay)
                     continue
                 else:
-                    log.error(f"HTTP error after {self._max_retries + 1} attempts: {str(e)}")
+                    log.error(
+                        f"HTTP error after {self._max_retries + 1} attempts "
+                        f"{context_str}: {error_message}"
+                    )
                     raise
             except RequestException as e:
                 # For other request exceptions, don't retry
-                log.error(f"Request exception: {str(e)}")
+                log.error(f"Request exception {context_str}: {self._sanitize_log_message(str(e))}")
                 raise
 
         # This should never be reached, but just in case
@@ -167,13 +256,22 @@ class APIClient:
         endpoint: str,
         params: Optional[Dict[str, str]] = None,
         headers: Optional[Dict[str, str]] = None,
+        timeout: Tuple[float, float] = (5, 30),
+        context: Optional[Dict[str, Any]] = None,
     ) -> Response:
+        timeout = self._validate_timeout(timeout)
         request_header = self._headers if headers is None else headers
+        request_context = self._build_retry_context(
+            context,
+            method="GET",
+            endpoint=endpoint,
+            timeout=timeout,
+        )
 
         def make_request():
-            return requests.get(f"{self._api_url}/{endpoint}", headers=request_header, params=params, timeout=(5, 30))
+            return requests.get(f"{self._api_url}/{endpoint}", headers=request_header, params=params, timeout=timeout)
 
-        return self._execute_with_retry(make_request)
+        return self._execute_with_retry(make_request, request_context)
 
     @validate_args(endpoint=Rules.str_non_empty, data=Rules.dict_not_none, headers=Rules.dict_not_none_or_none)
     def post(
@@ -182,13 +280,21 @@ class APIClient:
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
         timeout: Tuple[float, float] = (5, 30),
+        context: Optional[Dict[str, Any]] = None,
     ) -> Response:
+        timeout = self._validate_timeout(timeout)
         request_header = self._headers if headers is None else headers
+        request_context = self._build_retry_context(
+            context,
+            method="POST",
+            endpoint=endpoint,
+            timeout=timeout,
+        )
 
         def make_request():
             return requests.post(f"{self._api_url}/{endpoint}", headers=request_header, json=data, timeout=timeout)
 
-        return self._execute_with_retry(make_request)
+        return self._execute_with_retry(make_request, request_context)
 
     @validate_args(endpoint=Rules.str_non_empty, data=Rules.dict_not_none, headers=Rules.dict_not_none_or_none)
     def put(
@@ -196,13 +302,22 @@ class APIClient:
         endpoint: str,
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
+        timeout: Tuple[float, float] = (5, 30),
+        context: Optional[Dict[str, Any]] = None,
     ) -> Response:
+        timeout = self._validate_timeout(timeout)
         request_header = self._headers if headers is None else headers
+        request_context = self._build_retry_context(
+            context,
+            method="PUT",
+            endpoint=endpoint,
+            timeout=timeout,
+        )
 
         def make_request():
-            return requests.put(f"{self._api_url}/{endpoint}", headers=request_header, json=data, timeout=(5, 30))
+            return requests.put(f"{self._api_url}/{endpoint}", headers=request_header, json=data, timeout=timeout)
 
-        return self._execute_with_retry(make_request)
+        return self._execute_with_retry(make_request, request_context)
 
     @validate_args(endpoint=Rules.str_non_empty, data=Rules.dict_not_none, headers=Rules.dict_not_none_or_none)
     def patch(
@@ -210,22 +325,44 @@ class APIClient:
         endpoint: str,
         data: Dict[str, Any],
         headers: Optional[Dict[str, str]] = None,
+        timeout: Tuple[float, float] = (5, 30),
+        context: Optional[Dict[str, Any]] = None,
     ) -> Response:
+        timeout = self._validate_timeout(timeout)
         request_header = self._headers if headers is None else headers
+        request_context = self._build_retry_context(
+            context,
+            method="PATCH",
+            endpoint=endpoint,
+            timeout=timeout,
+        )
 
         def make_request():
-            return requests.patch(f"{self._api_url}/{endpoint}", headers=request_header, json=data, timeout=(5, 30))
+            return requests.patch(f"{self._api_url}/{endpoint}", headers=request_header, json=data, timeout=timeout)
 
-        return self._execute_with_retry(make_request)
+        return self._execute_with_retry(make_request, request_context)
 
     @validate_args(endpoint=Rules.str_non_empty, headers=Rules.dict_not_none_or_none)
-    def delete(self, endpoint: str, headers: Optional[Dict[str, str]] = None) -> Response:
+    def delete(
+        self,
+        endpoint: str,
+        headers: Optional[Dict[str, str]] = None,
+        timeout: Tuple[float, float] = (5, 30),
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Response:
+        timeout = self._validate_timeout(timeout)
         request_header = self._headers if headers is None else headers
+        request_context = self._build_retry_context(
+            context,
+            method="DELETE",
+            endpoint=endpoint,
+            timeout=timeout,
+        )
 
         def make_request():
-            return requests.delete(f"{self._api_url}/{endpoint}", headers=request_header, timeout=(5, 30))
+            return requests.delete(f"{self._api_url}/{endpoint}", headers=request_header, timeout=timeout)
 
-        return self._execute_with_retry(make_request)
+        return self._execute_with_retry(make_request, request_context)
 
     @validate_args(
         url=Rules.str_non_empty, params=Rules.dict_not_none_or_none, headers=Rules.dict_not_none_or_none, cookies=Rules.dict_not_none_or_none
@@ -236,14 +373,31 @@ class APIClient:
         params: Optional[Dict[str, str]] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
+        timeout: Tuple[float, float] = (10, 60),
+        context: Optional[Dict[str, Any]] = None,
+        allow_redirects: bool = True,
     ) -> Response:
         """Make a GET request to an external URL with retry logic."""
+        timeout = self._validate_timeout(timeout)
         request_header = headers or {}
+        request_context = self._build_retry_context(
+            context,
+            method="GET",
+            external_endpoint="external_get",
+            timeout=timeout,
+        )
 
         def make_request():
-            return requests.get(url, headers=request_header, params=params, cookies=cookies, timeout=(10, 60))
+            return requests.get(
+                url,
+                headers=request_header,
+                params=params,
+                cookies=cookies,
+                timeout=timeout,
+                allow_redirects=allow_redirects,
+            )
 
-        return self._execute_with_retry(make_request)
+        return self._execute_with_retry(make_request, request_context)
 
     @validate_args(url=Rules.str_non_empty, json_data=Rules.dict_not_none_or_none, headers=Rules.dict_not_none_or_none)
     def external_put(
@@ -252,17 +406,35 @@ class APIClient:
         data: Optional[Any] = None,
         json_data: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        timeout: Tuple[float, float] = (10, 120),
+        context: Optional[Dict[str, Any]] = None,
     ) -> Response:
         """Make a PUT request to an external URL with retry logic."""
+        timeout = self._validate_timeout(timeout)
         request_header = headers or {}
+        request_context = self._build_retry_context(
+            context,
+            method="PUT",
+            external_endpoint="presigned_put",
+            timeout=timeout,
+        )
+
+        data_initial_position: Optional[int] = None
+        if data is not None and hasattr(data, "tell") and hasattr(data, "seek"):
+            try:
+                data_initial_position = data.tell()
+            except Exception:
+                data_initial_position = None
 
         def make_request():
             if json_data is not None:
-                return requests.put(url, headers=request_header, json=json_data, timeout=(10, 120))
+                return requests.put(url, headers=request_header, json=json_data, timeout=timeout)
             else:
-                return requests.put(url, headers=request_header, data=data, timeout=(10, 120))
+                if data_initial_position is not None:
+                    data.seek(data_initial_position)
+                return requests.put(url, headers=request_header, data=data, timeout=timeout)
 
-        return self._execute_with_retry(make_request)
+        return self._execute_with_retry(make_request, request_context)
 
     @validate_args(url=Rules.str_non_empty, json_data=Rules.dict_not_none_or_none, headers=Rules.dict_not_none_or_none)
     def external_post(
@@ -271,17 +443,26 @@ class APIClient:
         data: Optional[Any] = None,
         json_data: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        timeout: Tuple[float, float] = (10, 60),
+        context: Optional[Dict[str, Any]] = None,
     ) -> Response:
         """Make a POST request to an external URL with retry logic."""
+        timeout = self._validate_timeout(timeout)
         request_header = headers or {}
+        request_context = self._build_retry_context(
+            context,
+            method="POST",
+            external_endpoint="external_post",
+            timeout=timeout,
+        )
 
         def make_request():
             if json_data is not None:
-                return requests.post(url, headers=request_header, json=json_data, timeout=(10, 60))
+                return requests.post(url, headers=request_header, json=json_data, timeout=timeout)
             else:
-                return requests.post(url, headers=request_header, data=data, timeout=(10, 60))
+                return requests.post(url, headers=request_header, data=data, timeout=timeout)
 
-        return self._execute_with_retry(make_request)
+        return self._execute_with_retry(make_request, request_context)
 
     def _check_minimum_version(self) -> bool:
         response = self.get("version/sdk")

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from podonos.common.enum import CustomType
 from podonos.common.validator import Rules, validate_args, validate_custom_type
@@ -61,6 +61,11 @@ class Client:
         auto_start=Rules.bool_not_none,
         max_upload_workers=Rules.positive_not_none,
         verify_batch_size=Rules.positive_not_none,
+        api_timeout=Rules.make_type_rule((tuple, list)),
+        verify_timeout=Rules.make_type_rule((tuple, list)),
+        upload_timeout=Rules.make_type_rule((tuple, list)),
+        resume_upload=Rules.bool_not_none,
+        upload_state_path=Rules.str_not_none_or_none,
     )
     def create_evaluator(
         self,
@@ -76,6 +81,11 @@ class Client:
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
         verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
+        api_timeout: Tuple[float, float] = EvalConfigDefault.API_TIMEOUT,
+        verify_timeout: Tuple[float, float] = EvalConfigDefault.VERIFY_TIMEOUT,
+        upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
+        resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
+        upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://www.podonos.com/docs/reference#param-lan
@@ -93,7 +103,12 @@ class Client:
             use_loudness_normalization: Enable loudness normalization for evaluation.
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
-            verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 500
+            verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 100
+            api_timeout: Default API timeout tuple. Default: (5, 30)
+            verify_timeout: File verification timeout tuple. Default: (5, 120)
+            upload_timeout: Direct upload timeout tuple. Default: (10, 300)
+            resume_upload: Enable SDK-local upload ledger/resume. Default: False
+            upload_state_path: Optional SQLite ledger path when resume_upload is enabled.
 
         Returns:
             Evaluator instance.
@@ -105,18 +120,89 @@ class Client:
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
         return self._human_evaluation.create(
-            name,
-            desc,
-            type,
-            lan,
-            granularity,
-            num_eval,
-            due_hours,
-            use_annotation,
-            use_loudness_normalization,
-            auto_start,
-            max_upload_workers,
-            verify_batch_size,
+            name=name,
+            desc=desc,
+            type=type,
+            lan=lan,
+            granularity=granularity,
+            num_eval=num_eval,
+            due_hours=due_hours,
+            use_annotation=use_annotation,
+            use_loudness_normalization=use_loudness_normalization,
+            auto_start=auto_start,
+            max_upload_workers=max_upload_workers,
+            verify_batch_size=verify_batch_size,
+            api_timeout=api_timeout,
+            verify_timeout=verify_timeout,
+            upload_timeout=upload_timeout,
+            resume_upload=resume_upload,
+            upload_state_path=upload_state_path,
+        )
+
+    @validate_args(
+        evaluation_id=Rules.uuid_not_none,
+        upload_state_path=Rules.str_non_empty,
+        name=Rules.str_not_none_or_none,
+        desc=Rules.str_not_none_or_none,
+        type=Rules.str_non_empty,
+        lan=Rules.str_non_empty,
+        granularity=Rules.float_not_none,
+        num_eval=Rules.positive_not_none,
+        due_hours=Rules.positive_not_none,
+        use_annotation=Rules.bool_not_none,
+        use_loudness_normalization=Rules.bool_not_none,
+        auto_start=Rules.bool_not_none,
+        max_upload_workers=Rules.positive_not_none,
+        verify_batch_size=Rules.positive_not_none,
+        api_timeout=Rules.make_type_rule((tuple, list)),
+        verify_timeout=Rules.make_type_rule((tuple, list)),
+        upload_timeout=Rules.make_type_rule((tuple, list)),
+    )
+    def resume_evaluator(
+        self,
+        evaluation_id: str,
+        upload_state_path: str,
+        name: Optional[str] = None,
+        desc: Optional[str] = None,
+        type: str = EvalConfigDefault.TYPE.value,
+        lan: str = EvalConfigDefault.LAN.value,
+        granularity: float = EvalConfigDefault.GRANULARITY,
+        num_eval: int = EvalConfigDefault.NUM_EVAL,
+        due_hours: int = EvalConfigDefault.DUE_HOURS,
+        use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
+        use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
+        auto_start: bool = EvalConfigDefault.AUTO_START,
+        max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
+        verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
+        api_timeout: Tuple[float, float] = EvalConfigDefault.API_TIMEOUT,
+        verify_timeout: Tuple[float, float] = EvalConfigDefault.VERIFY_TIMEOUT,
+        upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
+    ) -> Evaluator:
+        """Resume uploads for an existing evaluation using an SDK upload ledger.
+
+        The caller must add files again in the same order as the interrupted run
+        so the ledger can recover each file's remote object identity.
+        """
+        if not self._initialized:
+            raise ValueError("This function is called before initialization.")
+        return self._human_evaluation.resume(
+            evaluation_id=evaluation_id,
+            upload_state_path=upload_state_path,
+            name=name,
+            desc=desc,
+            type=type,
+            lan=lan,
+            granularity=granularity,
+            num_eval=num_eval,
+            due_hours=due_hours,
+            use_annotation=use_annotation,
+            use_loudness_normalization=use_loudness_normalization,
+            auto_start=auto_start,
+            max_upload_workers=max_upload_workers,
+            verify_batch_size=verify_batch_size,
+            api_timeout=api_timeout,
+            verify_timeout=verify_timeout,
+            upload_timeout=upload_timeout,
         )
 
     @validate_args(
@@ -129,6 +215,11 @@ class Client:
         use_annotation=Rules.bool_not_none,
         use_loudness_normalization=Rules.bool_not_none,
         verify_batch_size=Rules.positive_not_none,
+        api_timeout=Rules.make_type_rule((tuple, list)),
+        verify_timeout=Rules.make_type_rule((tuple, list)),
+        upload_timeout=Rules.make_type_rule((tuple, list)),
+        resume_upload=Rules.bool_not_none,
+        upload_state_path=Rules.str_not_none_or_none,
     )
     def create_evaluator_from_template(
         self,
@@ -141,6 +232,11 @@ class Client:
         use_annotation: bool = EvalConfigDefault.USE_ANNOTATION,
         use_loudness_normalization: bool = EvalConfigDefault.USE_LOUDNESS_NORMALIZATION,
         verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
+        api_timeout: Tuple[float, float] = EvalConfigDefault.API_TIMEOUT,
+        verify_timeout: Tuple[float, float] = EvalConfigDefault.VERIFY_TIMEOUT,
+        upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
+        resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
+        upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
     ) -> Evaluator:
         """
         Creates a new evaluator using a predefined template.
@@ -154,7 +250,12 @@ class Client:
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
             use_annotation: Enable detailed annotation on script for detailed comments. Default: False
             use_loudness_normalization: Enable loudness normalization for evaluation. Default: True
-            verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 500
+            verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 100
+            api_timeout: Default API timeout tuple. Default: (5, 30)
+            verify_timeout: File verification timeout tuple. Default: (5, 120)
+            upload_timeout: Direct upload timeout tuple. Default: (10, 300)
+            resume_upload: Enable SDK-local upload ledger/resume. Default: False
+            upload_state_path: Optional SQLite ledger path when resume_upload is enabled.
 
         Returns:
             Evaluator instance.
@@ -166,15 +267,20 @@ class Client:
             raise ValueError("This function is called before initialization.")
 
         return self._human_evaluation.create_from_template(
-            name,
-            template_id,
-            num_eval,
-            desc,
-            use_annotation,
-            use_loudness_normalization,
-            auto_start,
-            max_upload_workers,
-            verify_batch_size,
+            name=name,
+            template_id=template_id,
+            num_eval=num_eval,
+            desc=desc,
+            use_annotation=use_annotation,
+            use_loudness_normalization=use_loudness_normalization,
+            auto_start=auto_start,
+            max_upload_workers=max_upload_workers,
+            verify_batch_size=verify_batch_size,
+            api_timeout=api_timeout,
+            verify_timeout=verify_timeout,
+            upload_timeout=upload_timeout,
+            resume_upload=resume_upload,
+            upload_state_path=upload_state_path,
         )
 
     @validate_args(
@@ -190,6 +296,11 @@ class Client:
         auto_start=Rules.bool_not_none,
         max_upload_workers=Rules.positive_not_none,
         verify_batch_size=Rules.positive_not_none,
+        api_timeout=Rules.make_type_rule((tuple, list)),
+        verify_timeout=Rules.make_type_rule((tuple, list)),
+        upload_timeout=Rules.make_type_rule((tuple, list)),
+        resume_upload=Rules.bool_not_none,
+        upload_state_path=Rules.str_not_none_or_none,
     )
     def create_evaluator_from_template_json(
         self,
@@ -205,6 +316,11 @@ class Client:
         auto_start: bool = EvalConfigDefault.AUTO_START,
         max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS,
         verify_batch_size: int = EvalConfigDefault.VERIFY_BATCH_SIZE,
+        api_timeout: Tuple[float, float] = EvalConfigDefault.API_TIMEOUT,
+        verify_timeout: Tuple[float, float] = EvalConfigDefault.VERIFY_TIMEOUT,
+        upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
+        resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
+        upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
 
@@ -220,7 +336,12 @@ class Client:
             use_loudness_normalization: Enable loudness normalization for evaluation. Default: False
             auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
-            verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 500
+            verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 100
+            api_timeout: Default API timeout tuple. Default: (5, 30)
+            verify_timeout: File verification timeout tuple. Default: (5, 120)
+            upload_timeout: Direct upload timeout tuple. Default: (10, 300)
+            resume_upload: Enable SDK-local upload ledger/resume. Default: False
+            upload_state_path: Optional SQLite ledger path when resume_upload is enabled.
 
         Returns:
             Evaluator instance.
@@ -247,6 +368,11 @@ class Client:
             auto_start=auto_start,
             max_upload_workers=max_upload_workers,
             verify_batch_size=verify_batch_size,
+            api_timeout=api_timeout,
+            verify_timeout=verify_timeout,
+            upload_timeout=upload_timeout,
+            resume_upload=resume_upload,
+            upload_state_path=upload_state_path,
         )
 
     @validate_args(

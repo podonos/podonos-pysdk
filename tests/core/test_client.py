@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
@@ -11,11 +12,13 @@ from uuid import uuid4
 from requests import Response
 
 import podonos
-from podonos.common.enum import EvalType
+from podonos.common.enum import EvalType, QuestionFileType
+from podonos.common.util import calculate_file_md5_base64
 from podonos.core.api import APIClient
 from podonos.core.client import Client
 from podonos.core.evaluator import Evaluator
-from podonos.core.file import File
+from podonos.core.file import Audio, File
+from podonos.core.upload_ledger import UploadLedger, build_upload_manifest_hash
 
 
 def _make_response(
@@ -31,6 +34,45 @@ def _make_response(
     else:
         resp._content = b""
     return resp
+
+
+def _resume_contract(
+    evaluation_id: str,
+    *,
+    eval_type: str = "NMOS",
+    eval_batch_size: int = 1,
+    eval_template_id: str | None = None,
+    use_annotation: bool = False,
+    use_loudness_normalization: bool = True,
+    session_overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    session_config: dict[str, Any] = {
+        "eval_name": "original-evaluation",
+        "eval_description": "original description",
+        "eval_type": eval_type,
+        "eval_language": "en-us",
+        "eval_num": 10,
+        "eval_expected_due": "2026-05-22T00:00:00.000+00:00",
+        "eval_creation_timestamp": "2026-05-21T00:00:00.000",
+        "eval_use_annotation": use_annotation,
+        "eval_auto_start": False,
+        "eval_template_id": eval_template_id,
+        "use_loudness_normalization": use_loudness_normalization,
+        "max_upload_workers": 20,
+        "verify_batch_size": 100,
+    }
+    if session_overrides:
+        session_config.update(session_overrides)
+    return {
+        "evaluation_id": evaluation_id,
+        "eval_type": eval_type,
+        "eval_language": "en-us",
+        "eval_batch_size": eval_batch_size,
+        "eval_template_id": eval_template_id,
+        "use_annotation": use_annotation,
+        "use_loudness_normalization": use_loudness_normalization,
+        "session_config": session_config,
+    }
 
 
 def mocked_requests_post(*args: Any, **kwargs: Any):
@@ -528,6 +570,432 @@ class TestClientFromTemplateJson(unittest.TestCase):
             ]
         }
 
+    def test_create_evaluator_public_resume_upload_options(self):
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        state_path = os.path.join(temp_dir.name, "state.sqlite")
+
+        # When
+        evaluator = self.client.create_evaluator(
+            resume_upload=True,
+            upload_state_path=state_path,
+        )
+
+        # Then
+        self.assertTrue(evaluator._eval_config.resume_upload)  # type: ignore[attr-defined]
+        self.assertEqual(evaluator._eval_config.upload_state_path, state_path)  # type: ignore[attr-defined]
+        self.assertIsNotNone(evaluator._upload_ledger)  # type: ignore[attr-defined]
+        self.assertTrue(os.path.exists(state_path))
+
+    @unittest.skipIf(os.name == "nt", "POSIX symlink check")
+    def test_create_evaluator_validates_upload_state_path_before_backend_create(self):
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        target_path = os.path.join(temp_dir.name, "target.sqlite")
+        symlink_path = os.path.join(temp_dir.name, "state.sqlite")
+        with open(target_path, "wb") as f:
+            f.write(b"")
+        os.symlink(target_path, symlink_path)
+
+        with self.assertRaises(ValueError):
+            self.client.create_evaluator(
+                resume_upload=True,
+                upload_state_path=symlink_path,
+            )
+
+        self.api_client.post.assert_not_called()
+
+    def test_resume_evaluator_reuses_existing_evaluation_and_ledger_remote_identity(self):
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        remote_name = "previous-run/remote-object.wav"
+        audio_path = os.path.join(os.path.dirname(__file__), "speech_ch1.mp3")
+        content_md5, file_size = calculate_file_md5_base64(audio_path)
+        manifest_audio = Audio(
+            path=audio_path,
+            name=os.path.basename(audio_path),
+            remote_object_name=remote_name,
+            script=None,
+            tags=[],
+            model_tag="model",
+            is_ref=False,
+            group=None,
+            type=QuestionFileType.STIMULUS,
+            order_in_group=0,
+        )
+        manifest_audio.set_integrity_info(content_md5, file_size)
+
+        ledger = UploadLedger(state_path)
+        ledger.upsert_queued_file(
+            evaluation_id, remote_name, audio_path, file_index=0
+        )
+        ledger.mark_md5_ready(
+            evaluation_id,
+            remote_name,
+            content_md5,
+            file_size,
+            manifest_hash=build_upload_manifest_hash(
+                manifest_audio.to_create_file_dict(), content_md5, file_size
+            ),
+        )
+        ledger.mark_uploaded(
+            evaluation_id,
+            remote_name,
+            "2026-05-22T00:00:00.000Z",
+            "2026-05-22T00:00:01.000Z",
+        )
+        ledger.mark_metadata_registering(evaluation_id, remote_name)
+        ledger.mark_metadata_registered(evaluation_id, remote_name)
+        ledger.mark_verified(evaluation_id, remote_name)
+        ledger.set_evaluation_contract(
+            evaluation_id,
+            _resume_contract(evaluation_id),
+        )
+
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = {
+            "id": evaluation_id,
+            "title": "resumed",
+            "internal_name": "resumed",
+            "batch_size": 1,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        evaluator = self.client.resume_evaluator(
+            evaluation_id=evaluation_id,
+            upload_state_path=state_path,
+            max_upload_workers=1,
+        )
+        evaluator._evaluation_service.process_files = MagicMock(  # type: ignore[method-assign]
+            return_value=SimpleNamespace(processing_count=1)
+        )
+        evaluator._evaluation_service.upload_session_json = MagicMock()  # type: ignore[method-assign]
+
+        evaluator.add_file(File(path=audio_path, model_tag="model"))
+        resumed_audio = evaluator._ordered_file_groups[0].audios[0]  # type: ignore[attr-defined]
+        self.assertEqual(resumed_audio.remote_object_name, remote_name)
+        result = evaluator.close()
+
+        self.assertEqual(result, {"status": "ok"})
+        self.assertEqual(evaluator.get_evaluation_id(), evaluation_id)
+        self.assertEqual(ledger.counts_by_status(evaluation_id)["verified"], 1)
+        self.assertEqual(evaluator._upload_manager._total_files, 0)  # type: ignore[union-attr]
+
+    def test_resume_evaluator_uses_template_id_from_ledger_contract(self):
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        template_id = "template-created-evaluation"
+        ledger = UploadLedger(state_path)
+        ledger.set_evaluation_contract(
+            evaluation_id,
+            _resume_contract(evaluation_id, eval_template_id=template_id),
+        )
+
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = {
+            "id": evaluation_id,
+            "title": "resumed",
+            "internal_name": "resumed",
+            "batch_size": 1,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        evaluator = self.client.resume_evaluator(
+            evaluation_id=evaluation_id,
+            upload_state_path=state_path,
+        )
+
+        self.assertEqual(evaluator._eval_config.eval_template_id, template_id)  # type: ignore[attr-defined]
+        self.assertEqual(evaluator.get_evaluation_id(), evaluation_id)
+
+    def test_resume_evaluator_uses_ranking_batch_size_from_ledger_contract(self):
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        ledger = UploadLedger(state_path)
+        ledger.set_evaluation_contract(
+            evaluation_id,
+            _resume_contract(
+                evaluation_id,
+                eval_type="RANKING",
+                eval_batch_size=3,
+            ),
+        )
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = {
+            "id": evaluation_id,
+            "title": "resumed",
+            "internal_name": "resumed",
+            "batch_size": 3,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        evaluator = self.client.resume_evaluator(
+            evaluation_id=evaluation_id,
+            upload_state_path=state_path,
+        )
+        evaluator._upload_one_file = MagicMock()  # type: ignore[method-assign]
+        audio_path = os.path.join(os.path.dirname(__file__), "speech_ch1.mp3")
+
+        evaluator.add_ranking_set(
+            [
+                File(path=audio_path, model_tag="model-a"),
+                File(path=audio_path, model_tag="model-b"),
+                File(path=audio_path, model_tag="model-c"),
+            ]
+        )
+
+        self.assertEqual(evaluator._eval_config.eval_type, EvalType.RANKING)  # type: ignore[attr-defined]
+        self.assertEqual(evaluator._eval_config.eval_batch_size, 3)  # type: ignore[attr-defined]
+        self.assertEqual(evaluator._upload_one_file.call_count, 3)  # type: ignore[attr-defined]
+
+    def test_resume_ranking_rejects_group_size_that_changes_contract(self):
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        ledger = UploadLedger(state_path)
+        ledger.set_evaluation_contract(
+            evaluation_id,
+            _resume_contract(
+                evaluation_id,
+                eval_type="RANKING",
+                eval_batch_size=3,
+            ),
+        )
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = {
+            "id": evaluation_id,
+            "title": "resumed",
+            "internal_name": "resumed",
+            "batch_size": 3,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        evaluator = self.client.resume_evaluator(
+            evaluation_id=evaluation_id,
+            upload_state_path=state_path,
+        )
+        evaluator._upload_one_file = MagicMock()  # type: ignore[method-assign]
+        evaluator._evaluation_service.update_specific_fields = MagicMock()  # type: ignore[method-assign]
+        audio_path = os.path.join(os.path.dirname(__file__), "speech_ch1.mp3")
+
+        with self.assertRaises(ValueError) as context:
+            evaluator.add_ranking_set(
+                [
+                    File(path=audio_path, model_tag="model-a"),
+                    File(path=audio_path, model_tag="model-b"),
+                ]
+            )
+
+        self.assertIn("original evaluation contract", str(context.exception))
+        self.assertEqual(evaluator._upload_one_file.call_count, 0)  # type: ignore[attr-defined]
+        evaluator._evaluation_service.update_specific_fields.assert_not_called()  # type: ignore[attr-defined]
+
+    def test_resume_evaluator_hydrates_original_session_config_from_ledger(self):
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        ledger = UploadLedger(state_path)
+        ledger.set_evaluation_contract(
+            evaluation_id,
+            _resume_contract(
+                evaluation_id,
+                session_overrides={
+                    "eval_name": "original-name",
+                    "eval_description": "original-desc",
+                    "eval_num": 7,
+                    "eval_auto_start": True,
+                    "verify_batch_size": 321,
+                },
+            ),
+        )
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = {
+            "id": evaluation_id,
+            "title": "resumed",
+            "internal_name": "resumed",
+            "batch_size": 1,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        evaluator = self.client.resume_evaluator(
+            evaluation_id=evaluation_id,
+            upload_state_path=state_path,
+            name="wrong-name",
+            desc="wrong-desc",
+            num_eval=99,
+            auto_start=False,
+            verify_batch_size=2,
+        )
+
+        session_config = evaluator._eval_config.to_dict()  # type: ignore[attr-defined]
+        self.assertEqual(session_config["eval_name"], "original-name")
+        self.assertEqual(session_config["eval_description"], "original-desc")
+        self.assertEqual(session_config["eval_num"], 7)
+        self.assertTrue(session_config["eval_auto_start"])
+        self.assertEqual(session_config["verify_batch_size"], 321)
+
+    def test_resume_evaluator_rejects_contract_without_session_config(self):
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        ledger = UploadLedger(state_path)
+        contract = _resume_contract(evaluation_id)
+        contract.pop("session_config")
+        ledger.set_evaluation_contract(evaluation_id, contract)
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = {
+            "id": evaluation_id,
+            "title": "resumed",
+            "internal_name": "resumed",
+            "batch_size": 1,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        with self.assertRaises(ValueError) as context:
+            self.client.resume_evaluator(
+                evaluation_id=evaluation_id,
+                upload_state_path=state_path,
+            )
+
+        self.assertIn("missing the original session configuration", str(context.exception))
+
+    def test_resume_evaluator_rejects_backend_batch_size_mismatch(self):
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        ledger = UploadLedger(state_path)
+        ledger.set_evaluation_contract(
+            evaluation_id,
+            _resume_contract(
+                evaluation_id,
+                eval_type="RANKING",
+                eval_batch_size=3,
+            ),
+        )
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = {
+            "id": evaluation_id,
+            "title": "resumed",
+            "internal_name": "resumed",
+            "batch_size": 2,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        with self.assertRaises(ValueError) as context:
+            self.client.resume_evaluator(
+                evaluation_id=evaluation_id,
+                upload_state_path=state_path,
+            )
+
+        self.assertIn("Backend evaluation batch_size", str(context.exception))
+
+    def test_resume_evaluator_rejects_path_like_evaluation_id(self):
+        with self.assertRaises(ValueError):
+            self.client.resume_evaluator(
+                evaluation_id="../../api-keys/last-used-time",
+                upload_state_path="/tmp/state.sqlite",
+            )
+
+    def test_resume_evaluator_rejects_missing_ledger_contract(self):
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        UploadLedger(state_path)
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = {
+            "id": evaluation_id,
+            "title": "resumed",
+            "internal_name": "resumed",
+            "batch_size": 1,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        with self.assertRaises(ValueError) as context:
+            self.client.resume_evaluator(
+                evaluation_id=evaluation_id,
+                upload_state_path=state_path,
+            )
+
+        self.assertIn("missing the original evaluation contract", str(context.exception))
+
+    def test_resume_evaluator_missing_upload_state_path_does_not_create_ledger(self):
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "missing-state.sqlite")
+        self.assertFalse(os.path.exists(state_path))
+        self.api_client.get = MagicMock()
+
+        with self.assertRaises(ValueError) as context:
+            self.client.resume_evaluator(
+                evaluation_id=evaluation_id,
+                upload_state_path=state_path,
+            )
+
+        self.assertIn("missing the original evaluation contract", str(context.exception))
+        self.assertFalse(os.path.exists(state_path))
+        self.api_client.get.assert_not_called()
+
     def test_create_evaluator_from_json_dict_single(self):
         # Given
         mock_post_response = MagicMock(status_code=200)
@@ -796,6 +1264,28 @@ class TestClient(unittest.TestCase):
                 }
             ]
         }
+
+    def test_create_evaluator_public_resume_upload_options(self):
+        # Given
+        mock_post_response = MagicMock(status_code=200)
+        mock_post_response.json.return_value = self.mock_eval_response
+        mock_post_response.raise_for_status.return_value = None
+        self.api_client.post = MagicMock(return_value=mock_post_response)
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        state_path = os.path.join(temp_dir.name, "state.sqlite")
+
+        # When
+        evaluator = self.client.create_evaluator(
+            resume_upload=True,
+            upload_state_path=state_path,
+        )
+
+        # Then
+        self.assertTrue(evaluator._eval_config.resume_upload)  # type: ignore[attr-defined]
+        self.assertEqual(evaluator._eval_config.upload_state_path, state_path)  # type: ignore[attr-defined]
+        self.assertIsNotNone(evaluator._upload_ledger)  # type: ignore[attr-defined]
+        self.assertTrue(os.path.exists(state_path))
 
     def test_create_evaluator_from_json_dict_single(self):
         # Given
