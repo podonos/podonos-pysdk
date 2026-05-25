@@ -94,6 +94,15 @@ class TestUploadLedger(unittest.TestCase):
         self.assertEqual(row.status, "queued")  # type: ignore[union-attr]
         self.assertNotEqual(row.updated_at, "broken")  # type: ignore[union-attr]
 
+    def test_connection_context_manager_closes_connection(self):
+        ledger, _ = self.make_ledger()
+
+        with ledger._connect() as conn:  # private helper guards Windows file cleanup
+            conn.execute("SELECT 1").fetchone()
+
+        with self.assertRaises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")
+
     def test_concurrent_worker_style_updates_are_thread_safe(self):
         ledger, _ = self.make_ledger()
         evaluation_id = "eval-concurrent"

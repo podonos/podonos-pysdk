@@ -26,6 +26,16 @@ LEDGER_STATUSES = {
 }
 
 
+class _ClosingSQLiteConnection(sqlite3.Connection):
+    """SQLite connection that closes when used as a context manager."""
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> bool:
+        try:
+            return bool(super().__exit__(exc_type, exc_value, traceback))
+        finally:
+            self.close()
+
+
 def build_upload_manifest_key(
     file_contract: Dict[str, Any], content_md5: str, file_size: int
 ) -> str:
@@ -969,6 +979,7 @@ class UploadLedger:
             self.path,
             timeout=self.busy_timeout_ms / 1000.0,
             isolation_level=None,
+            factory=_ClosingSQLiteConnection,
         )
         conn.row_factory = sqlite3.Row
         conn.execute(f"PRAGMA busy_timeout = {self.busy_timeout_ms}")
