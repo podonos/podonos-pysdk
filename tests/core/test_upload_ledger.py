@@ -30,7 +30,7 @@ class TestUploadLedger(unittest.TestCase):
         )
         self.assertEqual(queued.status, "queued")
         self.assertEqual(queued_again.status, "queued")
-        self.assertEqual(queued_again.local_path, "/tmp/local.wav")
+        self.assertEqual(queued_again.local_path, os.path.abspath("/tmp/local.wav"))
 
         md5 = ledger.mark_md5_ready(evaluation_id, remote, "abc==", 123)
         md5_again = ledger.mark_md5_ready(evaluation_id, remote, "abc==", 123)
