@@ -392,6 +392,33 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
         service.get_presigned_url.assert_not_called()
         service.upload_evaluation_file.assert_not_called()
 
+    def test_metadata_registration_skips_ledger_mark_for_missing_rows(self):
+        evaluator = self.make_evaluator()
+        missing_row_audio = self.fake_audios(1, prefix="missing-ledger")[0]
+        uploaded_audio = self.fake_audios(1, prefix="uploaded-ledger")[0]
+        self.seed_rows(evaluator, [uploaded_audio], "uploaded")
+        service = MagicMock()
+        evaluator._evaluation_service = service  # type: ignore[assignment]
+
+        evaluator._register_metadata_for_audios([missing_row_audio, uploaded_audio])  # type: ignore[arg-type]
+
+        service.create_evaluation_files.assert_called_once()
+        registered_batch = service.create_evaluation_files.call_args.args[1]
+        self.assertEqual(
+            [audio.remote_object_name for audio in registered_batch],
+            [missing_row_audio.remote_object_name, uploaded_audio.remote_object_name],
+        )
+        assert evaluator._upload_ledger is not None
+        self.assertIsNone(
+            evaluator._upload_ledger.get(
+                evaluator.get_evaluation_id(), missing_row_audio.remote_object_name
+            )
+        )
+        uploaded_row = evaluator._upload_ledger.get(
+            evaluator.get_evaluation_id(), uploaded_audio.remote_object_name
+        )
+        self.assertEqual(uploaded_row.status, "metadata_registered")  # type: ignore[union-attr]
+
     def test_processed_finalization_skips_backend_process_replay(self):
         evaluator = self.make_evaluator()
         audios = self.fake_audios(2, prefix="finalized")

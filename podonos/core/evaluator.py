@@ -689,6 +689,7 @@ class Evaluator:
         for i in range(0, len(audios), 500):
             batch = audios[i : i + 500]
             batch_to_register: List[Audio] = []
+            ledger_batch_to_mark_registered: List[Audio] = []
             for audio in batch:
                 row = self._get_ledger_row(audio)
                 if row is None:
@@ -699,6 +700,7 @@ class Evaluator:
                         self.get_evaluation_id(), audio.remote_object_name
                     )
                     batch_to_register.append(audio)
+                    ledger_batch_to_mark_registered.append(audio)
 
             if not batch_to_register:
                 continue
@@ -716,7 +718,7 @@ class Evaluator:
                     },
                 )
             except Exception as exc:
-                for audio in batch_to_register:
+                for audio in ledger_batch_to_mark_registered:
                     try:
                         self._upload_ledger.mark_metadata_registration_retry_needed(
                             self.get_evaluation_id(),
@@ -730,7 +732,7 @@ class Evaluator:
                             f"{audio.remote_object_name}: {redact_secrets(ledger_exc)}"
                         )
                 raise
-            for audio in batch_to_register:
+            for audio in ledger_batch_to_mark_registered:
                 self._upload_ledger.mark_metadata_registered(
                     self.get_evaluation_id(), audio.remote_object_name
                 )
