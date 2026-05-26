@@ -219,6 +219,10 @@ class EvalConfig:
             Language.TAMIL.value,
             Language.KANNADA.value,
             Language.MALAYALAM.value,
+            Language.SINHALA.value,
+            Language.ARABIC_EGYPT.value,
+            Language.ARABIC_UAE.value,
+            Language.ARABIC_SAUDI_ARABIA.value,
             Language.AUDIO.value,
         ]:
             raise ValueError(

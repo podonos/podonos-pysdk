@@ -1,3 +1,7 @@
+## 0.40.4
+
+- Add Sinhala (`si-lk`), Arabic - Egypt (`ar-eg`), Arabic - UAE (`ar-ae`), and Arabic - Saudi Arabia (`ar-sa`) to `Language` enum
+
 ## 0.40.3
 
 - Align Hindi locale support with the rest of the language matrix

@@ -29,6 +29,10 @@ class TestLanguageEnum(unittest.TestCase):
         self.assertEqual(Language.TAMIL.value, "ta-in")
         self.assertEqual(Language.KANNADA.value, "kn-in")
         self.assertEqual(Language.MALAYALAM.value, "ml-in")
+        self.assertEqual(Language.SINHALA.value, "si-lk")
+        self.assertEqual(Language.ARABIC_EGYPT.value, "ar-eg")
+        self.assertEqual(Language.ARABIC_UAE.value, "ar-ae")
+        self.assertEqual(Language.ARABIC_SAUDI_ARABIA.value, "ar-sa")
         self.assertEqual(Language.AUDIO.value, "audio")
 
     def test_language_from_value_en_in(self):
@@ -202,6 +206,16 @@ class TestEvalTypeEnum(unittest.TestCase):
         self.assertEqual(Language.from_value("ta-in"), Language.TAMIL)
         self.assertEqual(Language.from_value("kn-in"), Language.KANNADA)
         self.assertEqual(Language.from_value("ml-in"), Language.MALAYALAM)
+
+    def test_language_sinhala_arabic(self):
+        self.assertEqual(Language.SINHALA.value, "si-lk")
+        self.assertEqual(Language.ARABIC_EGYPT.value, "ar-eg")
+        self.assertEqual(Language.ARABIC_UAE.value, "ar-ae")
+        self.assertEqual(Language.ARABIC_SAUDI_ARABIA.value, "ar-sa")
+        self.assertEqual(Language.from_value("si-lk"), Language.SINHALA)
+        self.assertEqual(Language.from_value("ar-eg"), Language.ARABIC_EGYPT)
+        self.assertEqual(Language.from_value("ar-ae"), Language.ARABIC_UAE)
+        self.assertEqual(Language.from_value("ar-sa"), Language.ARABIC_SAUDI_ARABIA)
 
 
 class TestAIEvalTypeEnum(unittest.TestCase):
