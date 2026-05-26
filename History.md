@@ -1,3 +1,7 @@
+## 0.41.0
+
+- Harden resumable upload recovery so interrupted large-file uploads resume reliably
+
 ## 0.40.4
 
 - Add Sinhala (`si-lk`), Arabic - Egypt (`ar-eg`), Arabic - UAE (`ar-ae`), and Arabic - Saudi Arabia (`ar-sa`) to `Language` enum
