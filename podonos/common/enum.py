@@ -198,6 +198,10 @@ class Language(Enum):
     TAMIL = "ta-in"
     KANNADA = "kn-in"
     MALAYALAM = "ml-in"
+    SINHALA = "si-lk"
+    ARABIC_EGYPT = "ar-eg"
+    ARABIC_UAE = "ar-ae"
+    ARABIC_SAUDI_ARABIA = "ar-sa"
     AUDIO = "audio"
 
     @classmethod
