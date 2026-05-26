@@ -13,9 +13,16 @@ Run examples:
       PODONOS_E2E_FILE_COUNT=3 \
       python -m pytest tests/integration/test_dev_server_e2e.py -q -s
 
+    # Explicit CMOS smoke run. PODONOS_E2E_FILE_COUNT is the total file count,
+    # so it must be even; 2 files means 1 CMOS stimulus/reference pair.
+    PODONOS_E2E=1 PODONOS_E2E_CMOS=1 PODONOS_API_KEY=<KEY> \
+      PODONOS_E2E_FILE_COUNT=2 \
+      python -m pytest tests/integration/test_dev_server_e2e.py::test_dev_server_cmos_upload_verify_with_opt_in_ledger -q -s
+
     # Explicit large-load run. This intentionally uploads 5000 real files to
     # the configured backend, so it has a second opt-in guard and targets only
-    # the load test.
+    # the load test. Set PODONOS_E2E_EVAL_TYPE=CMOS to run the same 5000-file
+    # load path as 2500 CMOS stimulus/reference pairs.
     PODONOS_E2E=1 PODONOS_E2E_LOAD=1 PODONOS_API_KEY=<KEY> \
       PODONOS_E2E_FILE_COUNT=5000 \
       PODONOS_E2E_MAX_UPLOAD_WORKERS=20 \
@@ -27,6 +34,9 @@ Useful env vars:
     PODONOS_API_KEY=<KEY>                 Required API key.
     PODONOS_E2E_BASE_URL=<URL>            Defaults to https://dev.podonosapi.com.
     PODONOS_E2E_FILE_COUNT=<N>            Defaults to 2; capped at 20 for smoke safety.
+                                           For CMOS, this is total files and must be even.
+    PODONOS_E2E_CMOS=1                    Required for the dedicated CMOS smoke test.
+    PODONOS_E2E_EVAL_TYPE=NMOS|CMOS       Defaults to NMOS for the large-load test.
     PODONOS_E2E_LOAD=1                    Required for >20-file load tests.
     PODONOS_E2E_MAX_UPLOAD_WORKERS=<N>    Defaults to 2 for smoke, 20 for load.
     PODONOS_E2E_VERIFY_BATCH_SIZE=<N>     Defaults to 2 for smoke, 500 for load.
@@ -70,6 +80,7 @@ class DevServerSettings:
     verify_timeout: tuple[float, float]
     upload_timeout: tuple[float, float]
     progress_every: int
+    eval_type: str
 
 
 def _truthy_env(name: str) -> bool:
@@ -167,6 +178,9 @@ def dev_server_settings() -> DevServerSettings:
         "PODONOS_E2E_VERIFY_BATCH_SIZE", 500 if load_mode else 2
     )
     progress_every = _int_env("PODONOS_E2E_PROGRESS_EVERY", 500 if load_mode else 100)
+    eval_type = os.getenv("PODONOS_E2E_EVAL_TYPE", "NMOS").strip().upper()
+    if eval_type not in {"NMOS", "CMOS"}:
+        pytest.fail("PODONOS_E2E_EVAL_TYPE must be NMOS or CMOS")
     if max_upload_workers < 1:
         pytest.fail("PODONOS_E2E_MAX_UPLOAD_WORKERS must be >= 1")
     if verify_batch_size < 1 or verify_batch_size > 1000:
@@ -190,6 +204,7 @@ def dev_server_settings() -> DevServerSettings:
         verify_timeout=_timeout_env("PODONOS_E2E_VERIFY_TIMEOUT", (5, 120)),
         upload_timeout=_timeout_env("PODONOS_E2E_UPLOAD_TIMEOUT", (10, 300)),
         progress_every=progress_every,
+        eval_type=eval_type,
     )
 
 
@@ -210,6 +225,11 @@ def _skip_smoke_in_load_mode(settings: DevServerSettings) -> None:
         )
 
 
+def _skip_unless_cmos_enabled() -> None:
+    if not _truthy_env("PODONOS_E2E_CMOS"):
+        pytest.skip("Set PODONOS_E2E_CMOS=1 to run CMOS dev-server E2E tests.")
+
+
 def _add_files(
     etor,
     audio_path: Path,
@@ -227,6 +247,73 @@ def _add_files(
         )
         if (index + 1) % progress_every == 0 or index + 1 == file_count:
             print(f"queued {index + 1}/{file_count} files")
+
+
+def _cmos_pair_count(file_count: int) -> int:
+    if file_count < 2:
+        pytest.fail("CMOS E2E requires PODONOS_E2E_FILE_COUNT >= 2")
+    if file_count % 2 != 0:
+        pytest.fail(
+            "CMOS E2E requires an even PODONOS_E2E_FILE_COUNT because each "
+            "CMOS item uploads one stimulus and one reference file."
+        )
+    return file_count // 2
+
+
+def _add_cmos_file_pairs(
+    etor,
+    audio_path: Path,
+    file_count: int,
+    model_prefix: str,
+    progress_every: int,
+) -> None:
+    pair_count = _cmos_pair_count(file_count)
+    for index in range(pair_count):
+        etor.add_files(
+            file0=File(
+                path=str(audio_path),
+                model_tag=f"{model_prefix}_stimulus_{index % 5}",
+                script="dev server CMOS e2e test stimulus",
+                tags=["dev_e2e", "cmos", "stimulus"],
+            ),
+            file1=File(
+                path=str(audio_path),
+                model_tag=f"{model_prefix}_reference",
+                script="dev server CMOS e2e test reference",
+                tags=["dev_e2e", "cmos", "reference"],
+                is_ref=True,
+            ),
+        )
+        uploaded_count = (index + 1) * 2
+        if uploaded_count % progress_every == 0 or index + 1 == pair_count:
+            print(
+                f"queued {uploaded_count}/{file_count} files "
+                f"({index + 1}/{pair_count} CMOS pairs)"
+            )
+
+
+def _add_files_for_eval_type(
+    etor,
+    settings: DevServerSettings,
+    model_prefix: str,
+) -> None:
+    if settings.eval_type == "CMOS":
+        _add_cmos_file_pairs(
+            etor,
+            settings.audio_path,
+            settings.file_count,
+            model_prefix,
+            settings.progress_every,
+        )
+        return
+
+    _add_files(
+        etor,
+        settings.audio_path,
+        settings.file_count,
+        model_prefix,
+        settings.progress_every,
+    )
 
 
 def test_dev_server_upload_verify_smoke_without_ledger(
@@ -327,6 +414,53 @@ def test_dev_server_upload_verify_with_opt_in_ledger(
     assert "upload_state_path" not in create_dto
 
 
+def test_dev_server_cmos_upload_verify_with_opt_in_ledger(
+    dev_server_settings: DevServerSettings,
+    tmp_path: Path,
+) -> None:
+    """Real dev-server CMOS E2E for opt-in ledger state through upload/verify."""
+    _skip_smoke_in_load_mode(dev_server_settings)
+    _skip_unless_cmos_enabled()
+
+    state_path = tmp_path / "podonos-e2e-cmos-upload-state.sqlite"
+    client = _new_client(dev_server_settings)
+    etor = client.create_evaluator(
+        name=_unique_name("sdk-dev-e2e-cmos-ledger"),
+        desc="SDK dev-server CMOS E2E smoke test with opt-in upload ledger",
+        type="CMOS",
+        lan="en-us",
+        num_eval=1,
+        due_hours=12,
+        auto_start=False,
+        max_upload_workers=dev_server_settings.max_upload_workers,
+        verify_batch_size=dev_server_settings.verify_batch_size,
+        api_timeout=dev_server_settings.api_timeout,
+        verify_timeout=dev_server_settings.verify_timeout,
+        upload_timeout=dev_server_settings.upload_timeout,
+        resume_upload=True,
+        upload_state_path=str(state_path),
+    )
+
+    evaluation_id = etor.get_evaluation_id()
+    _add_cmos_file_pairs(
+        etor,
+        dev_server_settings.audio_path,
+        dev_server_settings.file_count,
+        "dev_cmos",
+        dev_server_settings.progress_every,
+    )
+
+    result = etor.close()
+
+    assert result == {"status": "ok"}
+    assert state_path.exists()
+
+    ledger = UploadLedger(str(state_path))
+    counts = ledger.counts_by_status(evaluation_id)
+    assert counts["verified"] == dev_server_settings.file_count
+    assert sum(counts.values()) == dev_server_settings.file_count
+
+
 def test_dev_server_upload_verify_large_file_count_with_opt_in_ledger(
     dev_server_settings: DevServerSettings,
     tmp_path: Path,
@@ -341,12 +475,16 @@ def test_dev_server_upload_verify_large_file_count_with_opt_in_ledger(
     state_path = tmp_path / "podonos-e2e-large-upload-state.sqlite"
     client = _new_client(dev_server_settings)
     etor = client.create_evaluator(
-        name=_unique_name(f"sdk-dev-e2e-load-{dev_server_settings.file_count}"),
+        name=_unique_name(
+            f"sdk-dev-e2e-{dev_server_settings.eval_type.lower()}-load-"
+            f"{dev_server_settings.file_count}"
+        ),
         desc=(
-            "SDK dev-server large-load E2E with opt-in upload ledger "
+            f"SDK dev-server {dev_server_settings.eval_type} large-load E2E "
+            "with opt-in upload ledger "
             f"({dev_server_settings.file_count} files)"
         ),
-        type="NMOS",
+        type=dev_server_settings.eval_type,
         lan="en-us",
         num_eval=1,
         due_hours=12,
@@ -364,17 +502,16 @@ def test_dev_server_upload_verify_large_file_count_with_opt_in_ledger(
     print(
         "large-load e2e settings: "
         f"evaluation_id={evaluation_id}, "
+        f"eval_type={dev_server_settings.eval_type}, "
         f"file_count={dev_server_settings.file_count}, "
         f"max_upload_workers={dev_server_settings.max_upload_workers}, "
         f"verify_batch_size={dev_server_settings.verify_batch_size}, "
         f"base_url={dev_server_settings.base_url}"
     )
-    _add_files(
+    _add_files_for_eval_type(
         etor,
-        dev_server_settings.audio_path,
-        dev_server_settings.file_count,
+        dev_server_settings,
         "dev_load",
-        dev_server_settings.progress_every,
     )
 
     result = etor.close()
