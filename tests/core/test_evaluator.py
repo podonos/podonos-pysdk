@@ -1,8 +1,10 @@
 import os
+import tempfile
 import unittest
 from datetime import datetime, timezone
 from typing import List
 from unittest.mock import Mock, patch
+from uuid import uuid4
 
 from glog import FailedCheckException  # type: ignore
 
@@ -11,6 +13,7 @@ from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 from podonos.core.file import Audio, AudioGroup, File
+from podonos.core.upload_ledger import UploadLedger
 from podonos.entity.evaluation import EvaluationEntity
 from podonos.entity.verification import FileVerificationResult, VerifyFilesResponse
 from podonos.errors import InvalidFileError
@@ -66,6 +69,52 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(evaluator._eval_config, eval_config)  # type: ignore
         self.assertTrue(evaluator._initialized)  # type: ignore
         self.assertEqual(evaluator._ordered_file_groups, [])  # type: ignore
+
+    def test_upload_ledger_contract_mismatch_error_omits_raw_values(self):
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        ledger = UploadLedger(state_path)
+        ledger.set_evaluation_contract(
+            "test_id",
+            {
+                "evaluation_id": "test_id",
+                "eval_type": EvalType.NMOS.value,
+                "eval_language": "en-us",
+                "eval_batch_size": 1,
+                "eval_template_id": None,
+                "use_annotation": False,
+                "use_loudness_normalization": True,
+                "session_config": {
+                    "eval_name": "customer pii name",
+                    "eval_description": "password=SECRET",
+                },
+            },
+        )
+        eval_config = EvalConfig(
+            name="different-name",
+            desc="different-description",
+            type=EvalType.NMOS.value,
+            resume_upload=True,
+            upload_state_path=state_path,
+        )
+
+        with self.assertRaises(ValueError) as context:
+            with patch.object(
+                Evaluator, "_set_evaluation", return_value=self.mock_evaluation
+            ):
+                Evaluator(
+                    api_client=self.api_client,
+                    eval_config=eval_config,
+                    supported_eval_types=[EvalType.NMOS],
+                )
+
+        message = str(context.exception)
+        self.assertIn("mismatched keys", message)
+        self.assertIn("session_config", message)
+        self.assertNotIn("customer pii name", message)
+        self.assertNotIn("password=SECRET", message)
+        self.assertNotIn("different-description", message)
 
     def test_should_create_evaluation_successfully(self):
         # Given
@@ -493,7 +542,7 @@ class TestEvaluator(unittest.TestCase):
         self.evaluator._ordered_file_groups = groups  # type: ignore
         mock_service = Mock()
 
-        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+        def mock_verify_files(eval_id: str, batch: List[Audio], *args, **kwargs) -> VerifyFilesResponse:
             return self._create_mock_verify_response(batch)
 
         mock_service.verify_files.side_effect = mock_verify_files
@@ -506,8 +555,11 @@ class TestEvaluator(unittest.TestCase):
 
         # Then
         self.assertEqual(mock_service.create_evaluation_files.call_count, 2)
-        # verify_files should be called 2 times (600 files / 500 batch size = 2 batches)
-        self.assertEqual(mock_service.verify_files.call_count, 2)
+        for call in mock_service.create_evaluation_files.call_args_list:
+            self.assertEqual(call.kwargs["timeout"], self.evaluator._eval_config.api_timeout)  # type: ignore
+        # verify_files should be called 2 times (600 files / 100 batch size = 6 batches)
+        self.assertEqual(mock_service.verify_files.call_count, 6)
+        self.assertEqual(mock_service.process_files.call_args.kwargs["timeout"], self.evaluator._eval_config.api_timeout)  # type: ignore
 
     def test_verify_files_in_batches_single_batch(self):
         """Test _verify_files_in_batches with file count less than batch size."""
@@ -522,7 +574,12 @@ class TestEvaluator(unittest.TestCase):
         result = self.evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
 
         # Then
-        mock_service.verify_files.assert_called_once_with("eval_id", audios)
+        mock_service.verify_files.assert_called_once()
+        call = mock_service.verify_files.call_args
+        self.assertEqual(call.args[0], "eval_id")
+        self.assertEqual(call.args[1], audios)
+        self.assertEqual(call.kwargs["timeout"], self.evaluator._eval_config.verify_timeout)  # type: ignore
+        self.assertIn("batch_index", call.kwargs["context"])
         self.assertTrue(result.all_verified)
         self.assertEqual(result.verified_count, 100)
         self.assertEqual(result.failed_count, 0)
@@ -531,11 +588,11 @@ class TestEvaluator(unittest.TestCase):
     def test_verify_files_in_batches_multiple_batches(self):
         """Test _verify_files_in_batches with file count exceeding batch size."""
         # Given
-        total_files = 1200  # Should create 3 batches: 500 + 500 + 200
+        total_files = 1200  # Should create 12 batches of 100 by default
         audios = [self._create_test_audio(i) for i in range(total_files)]
         mock_service = Mock()
 
-        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+        def mock_verify_files(eval_id: str, batch: List[Audio], *args, **kwargs) -> VerifyFilesResponse:
             return self._create_mock_verify_response(batch)
 
         mock_service.verify_files.side_effect = mock_verify_files
@@ -545,14 +602,13 @@ class TestEvaluator(unittest.TestCase):
         result = self.evaluator._verify_files_in_batches("eval_id", audios)  # type: ignore
 
         # Then
-        self.assertEqual(mock_service.verify_files.call_count, 3)
+        self.assertEqual(mock_service.verify_files.call_count, 12)
 
         # Verify batch sizes
         batch_size = self.evaluator._eval_config.verify_batch_size
         calls = mock_service.verify_files.call_args_list
-        self.assertEqual(len(calls[0][0][1]), batch_size)  # First batch: 500
-        self.assertEqual(len(calls[1][0][1]), batch_size)  # Second batch: 500
-        self.assertEqual(len(calls[2][0][1]), 200)  # Third batch: 200
+        self.assertEqual(len(calls[0][0][1]), batch_size)
+        self.assertEqual(len(calls[-1][0][1]), batch_size)
 
         # Verify aggregated results
         self.assertTrue(result.all_verified)
@@ -580,13 +636,13 @@ class TestEvaluator(unittest.TestCase):
     def test_verify_files_in_batches_aggregates_failures_correctly(self):
         """Test _verify_files_in_batches correctly aggregates failed results."""
         # Given
-        total_files = 1000  # 2 batches of 500
+        total_files = 1000  # 10 batches of 100 by default
         audios = [self._create_test_audio(i) for i in range(total_files)]
         mock_service = Mock()
 
         call_count = [0]
 
-        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+        def mock_verify_files(eval_id: str, batch: List[Audio], *args, **kwargs) -> VerifyFilesResponse:
             # First batch: 3 failures (indices 0, 10, 20)
             # Second batch: 2 failures (indices 0, 5)
             if call_count[0] == 0:
@@ -606,13 +662,13 @@ class TestEvaluator(unittest.TestCase):
 
         # Then
         self.assertFalse(result.all_verified)
-        self.assertEqual(result.verified_count, 995)  # 1000 - 5 failures
-        self.assertEqual(result.failed_count, 5)  # 3 from first batch + 2 from second
+        self.assertEqual(result.verified_count, 979)  # 1000 - 21 failures across 10 batches
+        self.assertEqual(result.failed_count, 21)  # 3 from first batch + 2 from each remaining batch
         self.assertEqual(len(result.results), total_files)
 
         # Verify failed results are in the correct positions
         failed_results = [r for r in result.results if not r.verified]
-        self.assertEqual(len(failed_results), 5)
+        self.assertEqual(len(failed_results), 21)
 
     def test_verify_files_in_batches_empty_list(self):
         """Test _verify_files_in_batches with empty file list."""
@@ -631,14 +687,42 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(result.failed_count, 0)
         self.assertEqual(len(result.results), 0)
 
+    def test_retry_failed_uploads_reregisters_metadata_before_verify(self):
+        """Failed verification retry must repair both bytes and metadata."""
+        failed_audio = self._create_test_audio(1)
+        mock_service = Mock()
+        self.evaluator._evaluation_service = mock_service  # type: ignore
+
+        with patch("podonos.core.evaluator.UploadManager") as mock_manager_cls:
+            mock_manager = Mock()
+            mock_manager_cls.return_value = mock_manager
+
+            self.evaluator._retry_failed_uploads([failed_audio])  # type: ignore
+
+        mock_manager.add_file_to_queue.assert_called_once_with(
+            self.evaluator.get_evaluation_id(), failed_audio
+        )
+        mock_manager.wait_and_close.assert_called_once()
+        mock_service.create_evaluation_files.assert_called_once_with(
+            self.evaluator.get_evaluation_id(),
+            [failed_audio],
+            timeout=self.evaluator._eval_config.api_timeout,  # type: ignore[attr-defined]
+            context={
+                "batch_index": 0,
+                "batch_size": 1,
+                "batch_start": 0,
+                "total_files": 1,
+            },
+        )
+
     def test_verify_files_in_batches_large_file_count(self):
         """Test _verify_files_in_batches with 1900 files (customer issue scenario)."""
         # Given
-        total_files = 1900  # Customer's file count: 500 + 500 + 500 + 400 = 4 batches
+        total_files = 1900  # Customer's file count; default verify_batch_size=100 means 19 batches
         audios = [self._create_test_audio(i) for i in range(total_files)]
         mock_service = Mock()
 
-        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+        def mock_verify_files(eval_id: str, batch: List[Audio], *args, **kwargs) -> VerifyFilesResponse:
             return self._create_mock_verify_response(batch)
 
         mock_service.verify_files.side_effect = mock_verify_files
@@ -652,7 +736,7 @@ class TestEvaluator(unittest.TestCase):
         expected_batches = (total_files + batch_size - 1) // batch_size
         self.assertEqual(
             mock_service.verify_files.call_count, expected_batches
-        )  # 4 batches
+        )
         self.assertTrue(result.all_verified)
         self.assertEqual(result.verified_count, total_files)
         self.assertEqual(result.failed_count, 0)
@@ -673,7 +757,7 @@ class TestEvaluator(unittest.TestCase):
         self.evaluator._ordered_file_groups = groups  # type: ignore
         mock_service = Mock()
 
-        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+        def mock_verify_files(eval_id: str, batch: List[Audio], *args, **kwargs) -> VerifyFilesResponse:
             return self._create_mock_verify_response(batch)
 
         mock_service.verify_files.side_effect = mock_verify_files
@@ -684,8 +768,8 @@ class TestEvaluator(unittest.TestCase):
         self.evaluator._process_audio_files_with_verification()  # type: ignore
 
         # Then
-        # verify_files should be called 3 times (1200 files / 500 batch size)
-        self.assertEqual(mock_service.verify_files.call_count, 3)
+        # verify_files should use the configured 100-file default batch size
+        self.assertEqual(mock_service.verify_files.call_count, 12)
         # create_evaluation_files should also be batched
         self.assertEqual(mock_service.create_evaluation_files.call_count, 3)
 
@@ -1156,7 +1240,69 @@ class TestEvaluator(unittest.TestCase):
         call_args = self.evaluator._evaluation_service.update_specific_fields.call_args  # type: ignore
         payload = call_args[0][1]
         self.assertEqual(payload["batch_size"], 3)
+        self.assertEqual(call_args.kwargs["timeout"], self.evaluator._eval_config.api_timeout)  # type: ignore
+        self.assertEqual(
+            call_args.kwargs["context"]["operation"],
+            "ranking_batch_size_resolution",
+        )
         self.assertEqual(self.evaluator._eval_config.eval_batch_size, 3)  # type: ignore
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_resume_upload_ranking_persists_batch_size_before_first_upload(
+        self, mock_upload: Mock
+    ):
+        """Regression: crash after first RANKING upload must not leave batch_size=2."""
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "ranking-resume.sqlite")
+        evaluation_id = str(uuid4())
+        current_time = datetime.now(timezone.utc)
+        ranking_evaluation = EvaluationEntity(
+            id=evaluation_id,
+            title="ranking",
+            internal_name=None,
+            description=None,
+            batch_size=2,
+            status="DRAFT",
+            created_time=current_time,
+            updated_time=current_time,
+        )
+        eval_config = EvalConfig(
+            type=EvalType.RANKING.value,
+            resume_upload=True,
+            upload_state_path=state_path,
+            api_timeout=(8, 88),
+        )
+        with patch.object(Evaluator, "_set_evaluation", return_value=ranking_evaluation):
+            evaluator = Evaluator(
+                api_client=self.api_client,
+                eval_config=eval_config,
+                supported_eval_types=[EvalType.RANKING],
+            )
+        evaluator._evaluation_service.update_specific_fields = Mock()  # type: ignore
+
+        evaluator.add_ranking_set(
+            [
+                File(path=self.test_wav, model_tag="A"),
+                File(path=self.test_wav, model_tag="B"),
+                File(path=self.test_wav, model_tag="C"),
+            ]
+        )
+
+        evaluator._evaluation_service.update_specific_fields.assert_called_once()  # type: ignore
+        call_args = evaluator._evaluation_service.update_specific_fields.call_args  # type: ignore
+        self.assertEqual(call_args[0][0], evaluation_id)
+        self.assertEqual(call_args[0][1]["batch_size"], 3)
+        self.assertEqual(call_args.kwargs["timeout"], (8, 88))
+        self.assertEqual(
+            call_args.kwargs["context"]["operation"],
+            "ranking_batch_size_resolution",
+        )
+        self.assertEqual(mock_upload.call_count, 3)
+        contract = UploadLedger(state_path).get_evaluation_contract(evaluation_id)
+        self.assertIsNotNone(contract)
+        self.assertEqual(contract["eval_batch_size"], 3)  # type: ignore[index]
+        self.assertEqual(evaluator._eval_config.eval_batch_size, 3)  # type: ignore
 
     @patch.object(Evaluator, "_upload_one_file")
     def test_update_specific_fields_receives_correct_batch_size_from_add_ranking_set(
@@ -1312,7 +1458,7 @@ class TestEvaluator(unittest.TestCase):
         audios = [self._create_test_audio(i) for i in range(total_files)]
         mock_service = Mock()
 
-        def mock_verify_files(eval_id: str, batch: List[Audio]) -> VerifyFilesResponse:
+        def mock_verify_files(eval_id: str, batch: List[Audio], *args, **kwargs) -> VerifyFilesResponse:
             return self._create_mock_verify_response(batch)
 
         mock_service.verify_files.side_effect = mock_verify_files
@@ -1341,9 +1487,8 @@ class TestEvaluator(unittest.TestCase):
         eval_config = EvalConfig(type=EvalType.NMOS.value)
 
         # Then
-        self.assertEqual(
-            eval_config.verify_batch_size, EvalConfigDefault.VERIFY_BATCH_SIZE
-        )
+        self.assertEqual(eval_config.verify_batch_size, EvalConfigDefault.VERIFY_BATCH_SIZE)
+        self.assertEqual(eval_config.verify_batch_size, 100)
 
     def test_eval_config_verify_batch_size_custom(self):
         """Test EvalConfig accepts custom verify_batch_size."""
@@ -1375,6 +1520,97 @@ class TestEvaluator(unittest.TestCase):
         # Given/When/Then - maximum value
         eval_config_max = EvalConfig(type=EvalType.NMOS.value, verify_batch_size=1000)
         self.assertEqual(eval_config_max.verify_batch_size, 1000)
+
+    def test_eval_config_timeout_defaults(self):
+        """Test EvalConfig exposes client-local timeout defaults."""
+        eval_config = EvalConfig(type=EvalType.NMOS.value)
+
+        self.assertEqual(eval_config.api_timeout, (5, 30))
+        self.assertEqual(eval_config.verify_timeout, (5, 120))
+        self.assertEqual(eval_config.upload_timeout, (10, 300))
+
+    def test_eval_config_timeout_custom_and_validation(self):
+        """Test EvalConfig accepts custom timeout tuples and rejects invalid values."""
+        eval_config = EvalConfig(
+            type=EvalType.NMOS.value,
+            api_timeout=(1, 2),
+            verify_timeout=(3, 4),
+            upload_timeout=(5, 6),
+        )
+
+        self.assertEqual(eval_config.api_timeout, (1, 2))
+        self.assertEqual(eval_config.verify_timeout, (3, 4))
+        self.assertEqual(eval_config.upload_timeout, (5, 6))
+
+        with self.assertRaises(ValueError):
+            EvalConfig(type=EvalType.NMOS.value, verify_timeout=(0, 10))
+        with self.assertRaises(ValueError):
+            EvalConfig(type=EvalType.NMOS.value, upload_timeout=(10, 1))
+        with self.assertRaises(ValueError):
+            EvalConfig(type=EvalType.NMOS.value, api_timeout=(True, 30))
+        with self.assertRaises(ValueError):
+            EvalConfig(type=EvalType.NMOS.value, api_timeout=(float("nan"), 30))
+        with self.assertRaises(ValueError):
+            EvalConfig(type=EvalType.NMOS.value, api_timeout=(5, float("inf")))
+
+    def test_eval_config_timeouts_are_client_local_not_serialized(self):
+        """Timeout config should not leak into session JSON / backend DTOs."""
+        eval_config = EvalConfig(
+            type=EvalType.NMOS.value,
+            api_timeout=(1, 2),
+            verify_timeout=(3, 4),
+            upload_timeout=(5, 6),
+        )
+
+        self.assertNotIn("api_timeout", eval_config.to_dict())
+        self.assertNotIn("verify_timeout", eval_config.to_dict())
+        self.assertNotIn("upload_timeout", eval_config.to_dict())
+        self.assertNotIn("api_timeout", eval_config.to_create_request_dto())
+        self.assertNotIn("verify_timeout", eval_config.to_create_request_dto())
+        self.assertNotIn("upload_timeout", eval_config.to_create_request_dto())
+
+    def test_eval_config_upload_ledger_defaults_are_opt_in(self):
+        """Ledger/resume config defaults off and does not require a state path."""
+        eval_config = EvalConfig(type=EvalType.NMOS.value)
+
+        self.assertFalse(eval_config.resume_upload)
+        self.assertIsNone(eval_config.upload_state_path)
+        self.assertEqual(
+            eval_config.resolve_upload_state_path(),
+            os.path.join(os.getcwd(), ".podonos_upload_state.sqlite"),
+        )
+
+    def test_eval_config_upload_ledger_custom_values_and_validation(self):
+        """Ledger/resume config accepts explicit opt-in values and validates types."""
+        eval_config = EvalConfig(
+            type=EvalType.NMOS.value,
+            resume_upload=True,
+            upload_state_path="/tmp/podonos-state.sqlite",
+        )
+
+        self.assertTrue(eval_config.resume_upload)
+        self.assertEqual(eval_config.upload_state_path, "/tmp/podonos-state.sqlite")
+        self.assertEqual(
+            eval_config.resolve_upload_state_path(), "/tmp/podonos-state.sqlite"
+        )
+
+        with self.assertRaises(ValueError):
+            EvalConfig(type=EvalType.NMOS.value, resume_upload="yes")  # type: ignore[arg-type]
+        with self.assertRaises(ValueError):
+            EvalConfig(type=EvalType.NMOS.value, upload_state_path="")
+
+    def test_eval_config_upload_ledger_is_client_local_not_serialized(self):
+        """Ledger path and resume flag should not leak into backend DTOs/session JSON."""
+        eval_config = EvalConfig(
+            type=EvalType.NMOS.value,
+            resume_upload=True,
+            upload_state_path="/tmp/podonos-state.sqlite",
+        )
+
+        for key in ("resume_upload", "upload_state_path"):
+            self.assertNotIn(key, eval_config.to_dict())
+            self.assertNotIn(key, eval_config.to_create_request_dto())
+            self.assertNotIn(key, eval_config.to_create_from_template_request_dto())
 
 
     # ----------------------------
