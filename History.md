@@ -1,3 +1,7 @@
+## 0.42.0
+
+- Register uploaded file metadata exactly once across retries and resumed uploads, preventing duplicate registration of the same file
+
 ## 0.41.0
 
 - Harden resumable upload recovery so interrupted large-file uploads resume reliably
