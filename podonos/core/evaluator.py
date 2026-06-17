@@ -967,12 +967,21 @@ class Evaluator:
             retry_manager.add_file_to_queue(self.get_evaluation_id(), audio)
 
         retry_manager.wait_and_close()
-        # c1: a verify failure on an already-registered row means the S3 object was
-        # bad, not the metadata. Re-upload + re-verify only; do NOT re-POST
-        # create_evaluation_files for rows whose registration was already acked.
-        # Those fall through to the caller's existing re-verify loop. (c2's guard in
-        # _register_metadata_for_audios is the correctness net; this skip avoids the
-        # needless registration attempt and the mark_metadata_registering churn.)
+        # c1 — decouple verify-retry from registration: a verify failure means the S3
+        # object was bad, not the metadata, so re-upload + re-verify ONLY and never
+        # re-POST create_evaluation_files for a file that was already registered. This
+        # removes the duplicate-evaluation_file trigger, and it must hold in BOTH
+        # configurations:
+        #   - No ledger (the DEFAULT, resume_upload=False): there is no metadata_acked
+        #     guard at all, but EVERY file reaching the verify-retry was already
+        #     registered in the main path (_get_audios_needing_metadata_registration
+        #     returns all audios when there is no ledger, and a failed registration
+        #     would have raised before verify ran). So none of them may be
+        #     re-registered — re-upload + re-verify only.
+        #   - Ledger on: skip rows whose registration was already acked; the c2 guard
+        #     in _register_metadata_for_audios is the correctness net for the rest.
+        if self._upload_ledger is None:
+            return
         audios_to_register = [
             audio
             for audio in upload_retry_audios
