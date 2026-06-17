@@ -678,13 +678,24 @@ class Evaluator:
         Forward-compat only: the backend currently IGNORES this field (DTO uses
         Pydantic extra="ignore") and de-duplicates on the slot
         (file_meta_id, group, order) under pg_advisory_xact_lock(evaluation_id);
-        file_meta_id derives from remote_object_name. So duplicate POSTs are already
-        collapsed backend-side via the slot as long as remote_object_name + group +
-        order_in_group stay byte-identical on any re-POST (guaranteed by the reused
-        request body on HTTP-retry and the stable manifest identity). Note the key
-        formula is position-based and omits remote_object_name; if the backend ever
-        starts honoring the key, align this formula to the slot (include
-        remote_object_name) so the two dedup dimensions cannot disagree.
+        file_meta_id derives from remote_object_name and `group` is the RAW wire
+        group (the manifest ordinal substitution is local-only and does not change
+        the wire payload). Duplicate-POST coverage today, without the key:
+          - HTTP-transport retry: the reused request body keeps the whole slot
+            byte-identical, so the backend collapses it.
+          - cross-process resume re-POST: re-registration is gated behind a verify
+            FAILURE (an already-acked row is skipped by the c2 guard; a
+            metadata_registering row is verified first and only re-registered if
+            verify fails, i.e. the original POST never persisted), so there is no
+            committed original row to duplicate. NOTE the wire group_id regenerates
+            per run, so for a comparison group the slot is NOT stable across resume;
+            the only residual gap is the narrow "original committed but verify
+            falsely failed" edge, which this key (stable across group_id regen)
+            would close once the backend honors it.
+        The key formula is position-based and omits remote_object_name; if the
+        backend ever starts honoring the key, align it to the slot (include
+        remote_object_name, and/or persist a stable group id) so the two dedup
+        dimensions cannot disagree.
 
         If the ordinal cannot be resolved (a degenerate path where the audio belongs
         to no known group), fall back to the row's remote_object_name so DISTINCT
