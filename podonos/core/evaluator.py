@@ -672,15 +672,25 @@ class Evaluator:
         """Stable per-row idempotency key for create_evaluation_files (c3, shape b).
 
         Derived from stable identity (evaluation_id + group_ordinal + order_in_group),
-        NOT the random remote_object_name, so it survives a re-upload and lets the
-        backend collapse a retried/lost-response POST.
+        NOT the random remote_object_name, so it stays byte-identical across an
+        HTTP-transport retry of the same request.
+
+        Forward-compat only: the backend currently IGNORES this field (DTO uses
+        Pydantic extra="ignore") and de-duplicates on the slot
+        (file_meta_id, group, order) under pg_advisory_xact_lock(evaluation_id);
+        file_meta_id derives from remote_object_name. So duplicate POSTs are already
+        collapsed backend-side via the slot as long as remote_object_name + group +
+        order_in_group stay byte-identical on any re-POST (guaranteed by the reused
+        request body on HTTP-retry and the stable manifest identity). Note the key
+        formula is position-based and omits remote_object_name; if the backend ever
+        starts honoring the key, align this formula to the slot (include
+        remote_object_name) so the two dedup dimensions cannot disagree.
 
         If the ordinal cannot be resolved (a degenerate path where the audio belongs
         to no known group), fall back to the row's remote_object_name so DISTINCT
-        files never collapse onto the same key (`:0:` aliasing would make the backend
-        merge separate slots into one row — the original under-count symptom). The
-        fallback is distinct-per-file rather than stable-across-reupload, which is
-        the correct trade for a case that should not occur in production.
+        files never collapse onto the same key (`:0:` aliasing). The fallback is
+        distinct-per-file rather than stable-across-reupload, which is the correct
+        trade for a case that should not occur in production.
         """
         ordinal = self._resolve_group_ordinal(audio)
         if ordinal is None:

@@ -217,11 +217,14 @@ class EvaluationService:
         """Build the create_evaluation_files request body (c3, shape b).
 
         When idempotency_keys is provided, a per-row `idempotency_key` is zipped into
-        each file dict so the backend can collapse a retried/lost-response POST. The
-        same `data` dict is reused across the HTTP-transport retry in
-        ``api._execute_with_retry`` (the closure captures one body), so the key is
-        byte-stable across retries for free. When None (e.g. callers that do not
-        compute keys), the body is built exactly as before.
+        each file dict. This is forward-compat metadata: the backend currently
+        ignores the field (DTO uses Pydantic extra="ignore", so there is no
+        validation error) and de-duplicates retried/lost-response POSTs on the slot
+        (file_meta_id, group, order) under an advisory lock. The same `data` dict is
+        reused across the HTTP-transport retry in ``api._execute_with_retry`` (the
+        closure captures one body), so the key is byte-stable across retries for
+        free. When None (e.g. callers that do not compute keys), the body is built
+        exactly as before.
         """
         if idempotency_keys is None:
             return [audio.to_create_file_dict() for audio in audios]
