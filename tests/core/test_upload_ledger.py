@@ -9,6 +9,7 @@ from podonos.core.upload_ledger import (
     InvalidUploadLedgerTransition,
     UploadLedger,
     build_upload_manifest_key,
+    stable_manifest_contract,
 )
 
 
@@ -417,6 +418,198 @@ class TestUploadLedger(unittest.TestCase):
         _, path = self.make_ledger()
 
         self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+
+    def test_mark_metadata_registered_sets_metadata_acked(self):
+        ledger, _ = self.make_ledger()
+        e, r = "eval-1", "remote-1.wav"
+        ledger.upsert_queued_file(e, r, "/tmp/local.wav")
+        ledger.mark_md5_ready(e, r, "abc==", 123)
+        ledger.mark_uploaded(e, r, "2026-05-22T00:00:00.000Z", "2026-05-22T00:00:01.000Z")
+        self.assertFalse(ledger.get(e, r).metadata_acked)  # type: ignore[union-attr]
+        registered = ledger.mark_metadata_registered(e, r)
+        self.assertTrue(registered.metadata_acked)
+
+    def test_metadata_acked_is_monotonic_across_status_churn(self):
+        ledger, _ = self.make_ledger()
+        e, r = "eval-1", "remote-1.wav"
+        ledger.upsert_queued_file(e, r, "/tmp/local.wav")
+        ledger.mark_md5_ready(e, r, "abc==", 123)
+        ledger.mark_uploaded(e, r, "2026-05-22T00:00:00.000Z", "2026-05-22T00:00:01.000Z")
+        ledger.mark_metadata_registered(e, r)
+        # metadata_registered -> verify_failed -> md5_ready -> uploaded must keep ack
+        ledger.mark_verify_failed(e, r, "VERIFY_FAILED", "bad")
+        self.assertTrue(ledger.get(e, r).metadata_acked)  # type: ignore[union-attr]
+        ledger.mark_md5_ready(e, r, "def==", 456)
+        ledger.mark_uploaded(e, r, "2026-05-22T00:01:00.000Z", "2026-05-22T00:01:01.000Z")
+        self.assertTrue(ledger.get(e, r).metadata_acked)  # type: ignore[union-attr]
+        # reset_for_reupload must not clear the monotonic ack either
+        ledger.reset_for_reupload(e, r, "/tmp/local.wav")
+        self.assertTrue(ledger.get(e, r).metadata_acked)  # type: ignore[union-attr]
+
+    def test_migration_backfills_metadata_acked_for_registered_and_verified(self):
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        path = os.path.join(temp_dir.name, "prefix-state.sqlite")
+        conn = sqlite3.connect(path)
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE upload_ledger (
+                    evaluation_id TEXT NOT NULL,
+                    remote_object_name TEXT NOT NULL,
+                    local_path TEXT NOT NULL,
+                    file_index INTEGER,
+                    status TEXT NOT NULL,
+                    content_md5 TEXT,
+                    file_size INTEGER,
+                    manifest_key TEXT,
+                    manifest_hash TEXT,
+                    upload_start_at TEXT,
+                    upload_finish_at TEXT,
+                    error_type TEXT,
+                    error_message TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (evaluation_id, remote_object_name),
+                    CHECK (status IN (
+                        'queued','md5_ready','uploaded','metadata_registering',
+                        'metadata_registered','verified','upload_failed','verify_failed'
+                    ))
+                );
+                INSERT INTO upload_ledger
+                    (evaluation_id, remote_object_name, local_path, status, created_at, updated_at)
+                VALUES
+                    ('eval-1','r-queued.wav','/tmp/q.wav','queued','now','now'),
+                    ('eval-1','r-uploaded.wav','/tmp/u.wav','uploaded','now','now'),
+                    ('eval-1','r-registering.wav','/tmp/rg.wav','metadata_registering','now','now'),
+                    ('eval-1','r-registered.wav','/tmp/rd.wav','metadata_registered','now','now'),
+                    ('eval-1','r-verified.wav','/tmp/v.wav','verified','now','now');
+                """
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        ledger = UploadLedger(path)
+
+        def acked(remote: str) -> bool:
+            return ledger.get("eval-1", remote).metadata_acked  # type: ignore[union-attr]
+
+        # provably-already-POSTed rows are backfilled
+        self.assertTrue(acked("r-registered.wav"))
+        self.assertTrue(acked("r-verified.wav"))
+        # everything else (including the unconfirmed metadata_registering) stays false
+        self.assertFalse(acked("r-queued.wav"))
+        self.assertFalse(acked("r-uploaded.wav"))
+        self.assertFalse(acked("r-registering.wav"))
+
+        # backfill is idempotent: re-opening does not change anything
+        reopened = UploadLedger(path)
+        self.assertTrue(reopened.get("eval-1", "r-verified.wav").metadata_acked)  # type: ignore[union-attr]
+        self.assertFalse(reopened.get("eval-1", "r-registering.wav").metadata_acked)  # type: ignore[union-attr]
+
+    def test_migration_backfills_metadata_acked_through_table_rebuild(self):
+        # Exercises the COMBINED path: an ancient table with NO metadata_registering
+        # CHECK (forces _migrate_status_check_if_needed to rebuild) AND no
+        # metadata_acked column. The rebuild must project metadata_acked via
+        # CASE EXISTS(...), then the backfill must set registered/verified -> 1.
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        path = os.path.join(temp_dir.name, "ancient-state.sqlite")
+        conn = sqlite3.connect(path)
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE upload_ledger (
+                    evaluation_id TEXT NOT NULL,
+                    remote_object_name TEXT NOT NULL,
+                    local_path TEXT NOT NULL,
+                    file_index INTEGER,
+                    status TEXT NOT NULL,
+                    content_md5 TEXT,
+                    file_size INTEGER,
+                    upload_start_at TEXT,
+                    upload_finish_at TEXT,
+                    error_type TEXT,
+                    error_message TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (evaluation_id, remote_object_name)
+                );
+                INSERT INTO upload_ledger
+                    (evaluation_id, remote_object_name, local_path, status, created_at, updated_at)
+                VALUES
+                    ('eval-1','r-registered.wav','/tmp/rd.wav','metadata_registered','now','now'),
+                    ('eval-1','r-verified.wav','/tmp/v.wav','verified','now','now'),
+                    ('eval-1','r-queued.wav','/tmp/q.wav','queued','now','now');
+                """
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        ledger = UploadLedger(path)
+        # rebuild happened (the new CHECK now permits metadata_registering)
+        ledger.upsert_queued_file("eval-1", "r-new.wav", "/tmp/n.wav")
+        ledger.mark_md5_ready("eval-1", "r-new.wav", "abc==", 1)
+        ledger.mark_uploaded("eval-1", "r-new.wav", "t0", "t1")
+        self.assertEqual(
+            ledger.mark_metadata_registering("eval-1", "r-new.wav").status,
+            "metadata_registering",
+        )
+        # backfill survived the rebuild
+        self.assertTrue(ledger.get("eval-1", "r-registered.wav").metadata_acked)  # type: ignore[union-attr]
+        self.assertTrue(ledger.get("eval-1", "r-verified.wav").metadata_acked)  # type: ignore[union-attr]
+        self.assertFalse(ledger.get("eval-1", "r-queued.wav").metadata_acked)  # type: ignore[union-attr]
+
+    def test_stable_manifest_contract_is_stable_across_group_id_regen(self):
+        run1 = {
+            "uploaded_file_name": "a.wav",
+            "model_tag": "m",
+            "group": "1700000000000_uuid-A",
+            "order_in_group": 0,
+        }
+        run2 = {
+            "uploaded_file_name": "b.wav",
+            "model_tag": "m",
+            "group": "1700000001111_uuid-B",
+            "order_in_group": 0,
+        }
+        key1 = build_upload_manifest_key(stable_manifest_contract(run1, 0), "md5", 10)
+        key2 = build_upload_manifest_key(stable_manifest_contract(run2, 0), "md5", 10)
+        # different random group_id, same positional ordinal -> same identity
+        self.assertEqual(key1, key2)
+        # different ordinal (a distinct group) -> distinct identity (#318 preserved)
+        key_other = build_upload_manifest_key(
+            stable_manifest_contract(run1, 1), "md5", 10
+        )
+        self.assertNotEqual(key1, key_other)
+        # no ordinal -> raw identity kept unchanged (isolated callers / no group key)
+        raw = build_upload_manifest_key(run1, "md5", 10)
+        self.assertEqual(
+            build_upload_manifest_key(stable_manifest_contract(run1, None), "md5", 10),
+            raw,
+        )
+        no_group = {"uploaded_file_name": "a.wav", "model_tag": "m"}
+        self.assertEqual(stable_manifest_contract(no_group, 3), no_group)
+
+    def test_stable_manifest_contract_preserves_none_group_for_backward_compat(self):
+        # Single-stimulus rows carry group=None, which is already a stable constant.
+        # Substituting it to an ordinal would change the manifest identity and break
+        # resume of ledgers written by prior SDK versions (stored with group=None).
+        single = {
+            "uploaded_file_name": "a.wav",
+            "model_tag": "m",
+            "group": None,
+            "order_in_group": 0,
+        }
+        # even with a resolved ordinal, a None group is left untouched
+        self.assertIsNone(stable_manifest_contract(single, 0)["group"])
+        legacy_key = build_upload_manifest_key(single, "md5", 10)
+        self.assertEqual(
+            build_upload_manifest_key(stable_manifest_contract(single, 0), "md5", 10),
+            legacy_key,
+        )
 
 
 if __name__ == "__main__":

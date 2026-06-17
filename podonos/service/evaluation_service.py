@@ -187,12 +187,13 @@ class EvaluationService:
         audios: List[Audio],
         timeout: Tuple[float, float] = EvalConfigDefault.API_TIMEOUT,
         context: Optional[Dict[str, Any]] = None,
+        idempotency_keys: Optional[List[str]] = None,
     ):
         try:
             endpoint = f"evaluations/{evaluation_id}/files"
             response = self.api_client.put(
                 endpoint,
-                {"files": [audio.to_create_file_dict() for audio in audios]},
+                {"files": self._build_create_files_body(audios, idempotency_keys)},
                 timeout=timeout,
                 context={
                     "endpoint": endpoint,
@@ -208,6 +209,34 @@ class EvaluationService:
                 f"Failed to create evaluation files: {e}",
                 status_code=getattr(getattr(e, "response", None), "status_code", None),
             )
+
+    @staticmethod
+    def _build_create_files_body(
+        audios: List[Audio], idempotency_keys: Optional[List[str]]
+    ) -> List[Dict[str, Any]]:
+        """Build the create_evaluation_files request body (c3, shape b).
+
+        When idempotency_keys is provided, a per-row `idempotency_key` is zipped into
+        each file dict. This is forward-compat metadata: the backend currently
+        ignores the field (DTO uses Pydantic extra="ignore", so there is no
+        validation error) and de-duplicates retried/lost-response POSTs on the slot
+        (file_meta_id, group, order) under an advisory lock. The same `data` dict is
+        reused across the HTTP-transport retry in ``api._execute_with_retry`` (the
+        closure captures one body), so the key is byte-stable across retries for
+        free. When None (e.g. callers that do not compute keys), the body is built
+        exactly as before.
+        """
+        if idempotency_keys is None:
+            return [audio.to_create_file_dict() for audio in audios]
+        if len(idempotency_keys) != len(audios):
+            raise ValueError(
+                "idempotency_keys length must equal audios length "
+                f"({len(idempotency_keys)} != {len(audios)})"
+            )
+        return [
+            {**audio.to_create_file_dict(), "idempotency_key": key}
+            for audio, key in zip(audios, idempotency_keys)
+        ]
 
     @validate_args(evaluation_id=Rules.uuid_not_none, remote_object_name=Rules.str_not_none)
     def get_presigned_url(

@@ -12,10 +12,12 @@ from podonos.core.base import log
 from podonos.core.config import EvalConfig
 from podonos.core.file import Audio, AudioGroup, File, FileTransformer, FileValidator
 from podonos.core.upload_ledger import (
+    GROUP_ORDINAL_ATTR,
     UploadLedger,
     UploadLedgerRow,
     build_upload_manifest_hash,
     build_upload_manifest_key,
+    stable_manifest_contract,
 )
 from podonos.core.upload_manager import UploadManager
 from podonos.entity.evaluation import EvaluationEntity
@@ -283,6 +285,7 @@ class Evaluator:
         file = self._file_validator.validate_file(file)
         audio_group = self._file_transformer.transform_into_audio_group([file])
         self._ordered_file_groups.append(audio_group)
+        self._assign_group_ordinal(audio_group)
         self._upload_one_file(
             evaluation_id=self.get_evaluation_id(), audio=audio_group.audios[0]
         )
@@ -335,6 +338,7 @@ class Evaluator:
         files = self._file_validator.validate_files([file0, file1, file2])
         audio_group = self._file_transformer.transform_into_audio_group(files)
         self._ordered_file_groups.append(audio_group)
+        self._assign_group_ordinal(audio_group)
         for audio in audio_group.audios:
             self._upload_one_file(evaluation_id=self.get_evaluation_id(), audio=audio)
 
@@ -355,6 +359,7 @@ class Evaluator:
         validated_files = self._file_validator.validate_files(files)
         audio_group = self._file_transformer.transform_into_audio_group(validated_files)
         self._ordered_file_groups.append(audio_group)
+        self._assign_group_ordinal(audio_group)
         if self._eval_config.resume_upload:
             try:
                 self._update_ranking_batch_size_before_upload()
@@ -464,7 +469,12 @@ class Evaluator:
         process_request_hash = self._finalization_hash(
             {
                 "evaluation_id": self.get_evaluation_id(),
-                "files": [audio.to_create_file_dict() for audio in all_audios],
+                # Use the stable group ordinal (not the random per-run group id) so
+                # the process-files dedupe hash is byte-stable across a cross-process
+                # resume of comparison/ranking groups; otherwise a resumed run would
+                # miss is_processed() and needlessly re-trigger process_files.
+                # (Single-stimulus group=None is unchanged -> backward compatible.)
+                "files": [self._stable_manifest_contract(audio) for audio in all_audios],
             }
         )
         if self._upload_ledger is not None and self._upload_ledger.is_processed(
@@ -560,6 +570,10 @@ class Evaluator:
             return None
         return self._upload_ledger.get(self.get_evaluation_id(), audio.remote_object_name)
 
+    def _is_metadata_acked(self, audio: Audio) -> bool:
+        row = self._get_ledger_row(audio)
+        return bool(row is not None and getattr(row, "metadata_acked", False))
+
     def _should_skip_upload(self, audio: Audio) -> bool:
         if self._upload_ledger is None:
             return False
@@ -575,7 +589,16 @@ class Evaluator:
         )
         self._apply_ledger_remote_identity(audio, row)
         if not self._ledger_row_matches_local_file(audio, row):
-            if row.status in {"metadata_registering", "metadata_registered", "verified"}:
+            # Fail closed for any row whose metadata was already POSTed to the
+            # backend (registered/verified status OR the monotonic ack): resetting
+            # it for re-upload would keep metadata_acked=True, so the changed
+            # metadata would be skipped by the c2 guard and never re-registered,
+            # leaving stale backend metadata. A genuine verify-failure re-upload
+            # does NOT reach here (the contract is unchanged, so the row matches).
+            if (
+                row.status in {"metadata_registering", "metadata_registered", "verified"}
+                or getattr(row, "metadata_acked", False)
+            ):
                 raise ValueError(
                     "Upload ledger row does not match the current local file for "
                     "the current upload item. Start a fresh evaluation or remove the stale "
@@ -601,6 +624,90 @@ class Evaluator:
         self._next_file_index += 1
         return file_index
 
+    def _assign_group_ordinal(self, audio_group: AudioGroup) -> None:
+        """Stamp every audio in a freshly appended group with its stable positional
+        ordinal (the group's index in `_ordered_file_groups`). This is the single
+        source of truth shared by the manifest key, the manifest hash, and the c3
+        idempotency key, and it is what makes resume identity stable across a process
+        restart (a random per-run group_id would not be)."""
+        ordinal = len(self._ordered_file_groups) - 1
+        for audio in audio_group.audios:
+            setattr(audio, GROUP_ORDINAL_ATTR, ordinal)
+
+    def _resolve_group_ordinal(self, audio: Audio) -> Optional[int]:
+        """Return the audio's stable group ordinal.
+
+        Fast path: the value stamped at queue time by `_assign_group_ordinal`.
+        Fallback (tests that inject `_ordered_file_groups` without going through
+        `add_*`): a cached identity map over the ordered groups. Returns None only
+        when the audio belongs to no known group, in which case callers keep the raw
+        identity rather than substituting a wrong ordinal.
+        """
+        existing = getattr(audio, GROUP_ORDINAL_ATTR, None)
+        if existing is not None:
+            return int(existing)
+        ordinal = self._group_ordinal_map().get(id(audio))
+        if ordinal is not None:
+            setattr(audio, GROUP_ORDINAL_ATTR, ordinal)
+        return ordinal
+
+    def _group_ordinal_map(self) -> Dict[int, int]:
+        groups = self._ordered_file_groups
+        cache = getattr(self, "_group_ordinal_cache", None)
+        if cache is not None and cache[0] is groups and cache[1] == len(groups):
+            return cache[2]
+        mapping: Dict[int, int] = {}
+        for ordinal, group in enumerate(groups):
+            for audio in group.audios:
+                mapping[id(audio)] = ordinal
+        self._group_ordinal_cache = (groups, len(groups), mapping)
+        return mapping
+
+    def _stable_manifest_contract(self, audio: Audio) -> Dict[str, Any]:
+        return stable_manifest_contract(
+            audio.to_create_file_dict(), self._resolve_group_ordinal(audio)
+        )
+
+    def _idempotency_key(self, audio: Audio) -> str:
+        """Stable per-row idempotency key for create_evaluation_files (c3, shape b).
+
+        Derived from stable identity (evaluation_id + group_ordinal + order_in_group),
+        NOT the random remote_object_name, so it stays byte-identical across an
+        HTTP-transport retry of the same request.
+
+        Forward-compat only: the backend currently IGNORES this field (DTO uses
+        Pydantic extra="ignore") and de-duplicates on the slot
+        (file_meta_id, group, order) under pg_advisory_xact_lock(evaluation_id);
+        file_meta_id derives from remote_object_name and `group` is the RAW wire
+        group (the manifest ordinal substitution is local-only and does not change
+        the wire payload). Duplicate-POST coverage today, without the key:
+          - HTTP-transport retry: the reused request body keeps the whole slot
+            byte-identical, so the backend collapses it.
+          - cross-process resume re-POST: re-registration is gated behind a verify
+            FAILURE (an already-acked row is skipped by the c2 guard; a
+            metadata_registering row is verified first and only re-registered if
+            verify fails, i.e. the original POST never persisted), so there is no
+            committed original row to duplicate. NOTE the wire group_id regenerates
+            per run, so for a comparison group the slot is NOT stable across resume;
+            the only residual gap is the narrow "original committed but verify
+            falsely failed" edge, which this key (stable across group_id regen)
+            would close once the backend honors it.
+        The key formula is position-based and omits remote_object_name; if the
+        backend ever starts honoring the key, align it to the slot (include
+        remote_object_name, and/or persist a stable group id) so the two dedup
+        dimensions cannot disagree.
+
+        If the ordinal cannot be resolved (a degenerate path where the audio belongs
+        to no known group), fall back to the row's remote_object_name so DISTINCT
+        files never collapse onto the same key (`:0:` aliasing). The fallback is
+        distinct-per-file rather than stable-across-reupload, which is the correct
+        trade for a case that should not occur in production.
+        """
+        ordinal = self._resolve_group_ordinal(audio)
+        if ordinal is None:
+            return f"{self.get_evaluation_id()}:r-{audio.remote_object_name}"
+        return f"{self.get_evaluation_id()}:{ordinal}:{audio.order_in_group}"
+
     def _apply_ledger_remote_identity(
         self, audio: Audio, row: UploadLedgerRow
     ) -> None:
@@ -612,7 +719,7 @@ class Evaluator:
         content_md5, file_size = calculate_file_md5_base64(audio.path)
         audio.set_integrity_info(content_md5, file_size)
         return build_upload_manifest_key(
-            audio.to_create_file_dict(), content_md5, file_size
+            self._stable_manifest_contract(audio), content_md5, file_size
         )
 
     def _ledger_row_matches_local_file(
@@ -631,7 +738,7 @@ class Evaluator:
         audio.set_integrity_info(content_md5, file_size)
         if row.status != "upload_failed":
             manifest_hash = build_upload_manifest_hash(
-                audio.to_create_file_dict(), content_md5, file_size
+                self._stable_manifest_contract(audio), content_md5, file_size
             )
             if row.manifest_hash != manifest_hash:
                 return False
@@ -667,6 +774,13 @@ class Evaluator:
             self._hydrate_audio_from_ledger(audio, row)
             if row.status in {"metadata_registering", "metadata_registered", "verify_failed"}:
                 audios_for_verification.append(audio)
+            elif row.status == "uploaded" and getattr(row, "metadata_acked", False):
+                # c1 re-uploads an already-registered (acked) row and skips
+                # re-registration, expecting the in-run re-verify loop to verify it.
+                # If the process died before that loop, on resume the row is
+                # uploaded+acked: the c2 guard skips registration, so it must be
+                # routed back to verification here or it would finalize unverified.
+                audios_for_verification.append(audio)
         return audios_for_verification
 
     def _register_metadata_for_audios(self, audios: List[Audio]) -> None:
@@ -683,23 +797,34 @@ class Evaluator:
                         "batch_start": i,
                         "total_files": len(audios),
                     },
+                    idempotency_keys=[self._idempotency_key(a) for a in batch],
                 )
             return
 
+        skipped_acked = 0
         for i in range(0, len(audios), 500):
             batch = audios[i : i + 500]
             batch_to_register: List[Audio] = []
+            idempotency_keys: List[str] = []
             ledger_batch_to_mark_registered: List[Audio] = []
             for audio in batch:
                 row = self._get_ledger_row(audio)
+                # c2 guard: never re-POST an already-acknowledged registration,
+                # regardless of the row's current status. This is the single
+                # correctness net at the only caller of create_evaluation_files.
+                if row is not None and getattr(row, "metadata_acked", False):
+                    skipped_acked += 1
+                    continue
                 if row is None:
                     batch_to_register.append(audio)
+                    idempotency_keys.append(self._idempotency_key(audio))
                     continue
                 if row.status == "uploaded":
                     self._upload_ledger.mark_metadata_registering(
                         self.get_evaluation_id(), audio.remote_object_name
                     )
                     batch_to_register.append(audio)
+                    idempotency_keys.append(self._idempotency_key(audio))
                     ledger_batch_to_mark_registered.append(audio)
 
             if not batch_to_register:
@@ -716,6 +841,7 @@ class Evaluator:
                         "batch_start": i,
                         "total_files": len(audios),
                     },
+                    idempotency_keys=idempotency_keys,
                 )
             except Exception as exc:
                 for audio in ledger_batch_to_mark_registered:
@@ -736,6 +862,12 @@ class Evaluator:
                 self._upload_ledger.mark_metadata_registered(
                     self.get_evaluation_id(), audio.remote_object_name
                 )
+
+        if skipped_acked:
+            log.info(
+                f"Skipped metadata registration for {skipped_acked} "
+                "already-acked row(s)."
+            )
 
     def _persist_verify_results(
         self, evaluation_id: str, results: List[FileVerificationResult]
@@ -835,7 +967,28 @@ class Evaluator:
             retry_manager.add_file_to_queue(self.get_evaluation_id(), audio)
 
         retry_manager.wait_and_close()
-        self._register_metadata_for_audios(upload_retry_audios)
+        # c1 — decouple verify-retry from registration: a verify failure means the S3
+        # object was bad, not the metadata, so re-upload + re-verify ONLY and never
+        # re-POST create_evaluation_files for a file that was already registered. This
+        # removes the duplicate-evaluation_file trigger, and it must hold in BOTH
+        # configurations:
+        #   - No ledger (the DEFAULT, resume_upload=False): there is no metadata_acked
+        #     guard at all, but EVERY file reaching the verify-retry was already
+        #     registered in the main path (_get_audios_needing_metadata_registration
+        #     returns all audios when there is no ledger, and a failed registration
+        #     would have raised before verify ran). So none of them may be
+        #     re-registered — re-upload + re-verify only.
+        #   - Ledger on: skip rows whose registration was already acked; the c2 guard
+        #     in _register_metadata_for_audios is the correctness net for the rest.
+        if self._upload_ledger is None:
+            return
+        audios_to_register = [
+            audio
+            for audio in upload_retry_audios
+            if not self._is_metadata_acked(audio)
+        ]
+        if audios_to_register:
+            self._register_metadata_for_audios(audios_to_register)
 
     def _find_original_name(self, remote_object_name: str) -> str:
         for group in self._ordered_file_groups:

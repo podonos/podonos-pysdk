@@ -76,6 +76,40 @@ def build_upload_manifest_hash(
     return hashlib.sha256(encoded).hexdigest()
 
 
+# Transient Audio attribute carrying the resolved stable group ordinal.
+GROUP_ORDINAL_ATTR = "_podonos_group_ordinal"
+
+
+def stable_manifest_contract(
+    file_contract: Dict[str, Any], group_ordinal: Optional[int]
+) -> Dict[str, Any]:
+    """Return a copy of ``file_contract`` with the random per-run ``group`` replaced
+    by the stable positional ``group_ordinal``, so manifest identity (key and hash)
+    is byte-stable across a cross-process resume.
+
+    Substitution happens ONLY when the contract carries a NON-NULL ``group`` (the
+    random per-run ``group_id`` minted for comparison groups) AND an ordinal is
+    resolved. It is deliberately skipped when:
+      - ``group`` is ``None`` (single-stimulus: NMOS/QMOS/P808/CUSTOM_SINGLE). A
+        ``None`` group is already a stable constant, so substituting it to ``0``
+        would gratuitously change the manifest identity and break BACKWARD
+        COMPATIBILITY with ledgers persisted by prior SDK versions (whose stored
+        key/hash used ``group=None``). Leaving it untouched keeps those resumes
+        working while losing nothing (there was no instability to fix).
+      - the ordinal is unresolved (``None``) or the contract has no ``group`` key
+        (minimal test doubles): keep the raw identity rather than alias to a wrong
+        ordinal.
+    The same ordinal is shared by the manifest key, the manifest hash, and the c3
+    idempotency key, so all three consumers agree (see evaluator/upload_manager).
+    """
+
+    if group_ordinal is None or file_contract.get("group") is None:
+        return dict(file_contract)
+    contract = dict(file_contract)
+    contract["group"] = group_ordinal
+    return contract
+
+
 @dataclass(frozen=True)
 class UploadLedgerRow:
     evaluation_id: str
@@ -93,6 +127,12 @@ class UploadLedgerRow:
     upload_finish_at: Optional[str] = None
     error_type: Optional[str] = None
     error_message: Optional[str] = None
+    # Monotonic "create_evaluation_files POST acknowledged" flag. Set true once on a
+    # 2xx registration (see mark_metadata_registered) and NEVER reset by any later
+    # status transition. Kept distinct from the mutable `status` precisely so the
+    # "already POSTed" fact survives verify_failed -> uploaded churn and resume.
+    # MUST be the last field (defaulted) of this frozen dataclass.
+    metadata_acked: bool = False
 
 
 class InvalidUploadLedgerTransition(ValueError):
@@ -250,6 +290,8 @@ class UploadLedger:
             remote_object_name,
             target_status="queued",
             allowed_from=tuple(LEDGER_STATUSES),
+            # NOTE: metadata_acked is intentionally NOT in this updates dict. It is
+            # monotonic — a re-upload must never clear the "already POSTed" fact.
             updates={
                 "local_path": local_path,
                 "content_md5": None,
@@ -334,7 +376,13 @@ class UploadLedger:
                 "metadata_registered",
                 "verify_failed",
             ),
-            updates={"error_type": None, "error_message": None},
+            # Set the monotonic ack atomically with the status flip: a successful
+            # create_evaluation_files POST is the durable "already registered" fact.
+            updates={
+                "error_type": None,
+                "error_message": None,
+                "metadata_acked": 1,
+            },
         )
 
     def mark_metadata_registering(
@@ -679,6 +727,7 @@ class UploadLedger:
                         upload_finish_at TEXT,
                         error_type TEXT,
                         error_message TEXT,
+                        metadata_acked INTEGER NOT NULL DEFAULT 0,
                         created_at TEXT NOT NULL,
                         updated_at TEXT NOT NULL,
                         PRIMARY KEY (evaluation_id, remote_object_name),
@@ -716,6 +765,9 @@ class UploadLedger:
                 self._ensure_column(conn, "file_index", "INTEGER")
                 self._ensure_column(conn, "manifest_key", "TEXT")
                 self._ensure_column(conn, "manifest_hash", "TEXT")
+                self._ensure_column(
+                    conn, "metadata_acked", "INTEGER NOT NULL DEFAULT 0"
+                )
                 self._ensure_table_column(
                     conn,
                     "upload_ledger_finalization",
@@ -730,6 +782,7 @@ class UploadLedger:
                 )
                 self._migrate_status_check_if_needed(conn)
                 self._deduplicate_file_indexes(conn)
+                self._backfill_metadata_acked(conn)
                 conn.execute(
                     """
                     CREATE INDEX IF NOT EXISTS idx_upload_ledger_status
@@ -905,6 +958,7 @@ class UploadLedger:
                 upload_finish_at TEXT,
                 error_type TEXT,
                 error_message TEXT,
+                metadata_acked INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY (evaluation_id, remote_object_name),
@@ -933,6 +987,7 @@ class UploadLedger:
                 upload_finish_at,
                 error_type,
                 error_message,
+                metadata_acked,
                 created_at,
                 updated_at
             )
@@ -957,6 +1012,14 @@ class UploadLedger:
                 upload_finish_at,
                 error_type,
                 error_message,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM pragma_table_info('upload_ledger_old')
+                        WHERE name = 'metadata_acked'
+                    )
+                    THEN metadata_acked
+                    ELSE 0
+                END,
                 created_at,
                 updated_at
             FROM upload_ledger_old;
@@ -968,6 +1031,28 @@ class UploadLedger:
         # File order is no longer identity. Keep legacy duplicate indexes as
         # diagnostics instead of mutating them for a uniqueness constraint.
         return
+
+    def _backfill_metadata_acked(self, conn: sqlite3.Connection) -> None:
+        """Backfill the monotonic ack for rows that were provably already POSTed.
+
+        A row at status `metadata_registered` or `verified` had a successful
+        `create_evaluation_files` POST before this column existed (e.g. a ledger
+        written by a pre-fix SDK then resumed by a fixed one), so it must be
+        treated as acked to protect the in-flight cross-version resume. The
+        `metadata_acked = 0` predicate makes this UPDATE a no-op on already
+        migrated databases (idempotent on every open). `metadata_registering`
+        rows are intentionally NOT backfilled: they were not confirmed POSTed,
+        and are protected on resume by the c3 idempotency key + backend dedup.
+        """
+
+        conn.execute(
+            """
+            UPDATE upload_ledger
+            SET metadata_acked = 1
+            WHERE metadata_acked = 0
+              AND status IN ('metadata_registered', 'verified')
+            """
+        )
 
     def _harden_permissions(self) -> None:
         if os.name == "nt" or not os.path.exists(self.path):
@@ -1015,6 +1100,7 @@ class UploadLedger:
             upload_finish_at=row["upload_finish_at"],
             error_type=row["error_type"],
             error_message=row["error_message"],
+            metadata_acked=bool(row["metadata_acked"]),
             created_at=str(row["created_at"]),
             updated_at=str(row["updated_at"]),
         )
