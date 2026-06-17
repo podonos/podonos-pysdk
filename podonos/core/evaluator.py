@@ -469,7 +469,12 @@ class Evaluator:
         process_request_hash = self._finalization_hash(
             {
                 "evaluation_id": self.get_evaluation_id(),
-                "files": [audio.to_create_file_dict() for audio in all_audios],
+                # Use the stable group ordinal (not the random per-run group id) so
+                # the process-files dedupe hash is byte-stable across a cross-process
+                # resume of comparison/ranking groups; otherwise a resumed run would
+                # miss is_processed() and needlessly re-trigger process_files.
+                # (Single-stimulus group=None is unchanged -> backward compatible.)
+                "files": [self._stable_manifest_contract(audio) for audio in all_audios],
             }
         )
         if self._upload_ledger is not None and self._upload_ledger.is_processed(

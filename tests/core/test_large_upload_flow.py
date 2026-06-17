@@ -1252,6 +1252,58 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
             evaluator._build_current_manifest_key(other_group),  # type: ignore[arg-type]
         )
 
+    def test_process_finalization_hash_stable_across_comparison_group_id_regen(self):
+        # The process-files dedupe hash must not flip when a comparison group's
+        # random group_id is regenerated on a cross-process resume (else is_processed
+        # misses and process_files needlessly re-runs). Single-stimulus group=None
+        # must keep the legacy raw hash for backward compatibility.
+        evaluator = self.make_evaluator()
+        content_md5, file_size = calculate_file_md5_base64(TESTDATA_SPEECH_CH1_MP3)
+
+        def mk(group_id, ordinal):
+            audio = Audio(
+                path=TESTDATA_SPEECH_CH1_MP3,
+                name="speech_ch1.mp3",
+                remote_object_name="slot.wav",  # rebound from ledger on resume -> stable
+                script="s",
+                tags=["t"],
+                model_tag="m",
+                is_ref=False,
+                group=group_id,
+                type=QuestionFileType.STIMULUS,
+                order_in_group=0,
+            )
+            audio.set_integrity_info(content_md5, file_size)
+            setattr(audio, "_podonos_group_ordinal", ordinal)
+            return audio
+
+        def proc_hash(audio):
+            return evaluator._finalization_hash(  # type: ignore[attr-defined]
+                {
+                    "evaluation_id": evaluator.get_evaluation_id(),
+                    "files": [evaluator._stable_manifest_contract(audio)],  # type: ignore[attr-defined]
+                }
+            )
+
+        # comparison group: regenerated random group_id, same ordinal -> same hash
+        self.assertEqual(proc_hash(mk("rand-A", 0)), proc_hash(mk("rand-B", 0)))
+        # the fix is load-bearing: raw to_create_file_dict would differ
+        raw_a = evaluator._finalization_hash(  # type: ignore[attr-defined]
+            {"evaluation_id": evaluator.get_evaluation_id(), "files": [mk("rand-A", 0).to_create_file_dict()]}
+        )
+        raw_b = evaluator._finalization_hash(  # type: ignore[attr-defined]
+            {"evaluation_id": evaluator.get_evaluation_id(), "files": [mk("rand-B", 0).to_create_file_dict()]}
+        )
+        self.assertNotEqual(raw_a, raw_b)
+        # single-stimulus (group=None) keeps the legacy raw hash (backward compatible)
+        single = mk(None, 0)
+        self.assertEqual(
+            proc_hash(single),
+            evaluator._finalization_hash(  # type: ignore[attr-defined]
+                {"evaluation_id": evaluator.get_evaluation_id(), "files": [single.to_create_file_dict()]}
+            ),
+        )
+
     def test_default_evaluator_does_not_create_state_file(self):
         evaluator = self.make_evaluator(resume_upload=False)
 
