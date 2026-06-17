@@ -104,6 +104,11 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
         assert evaluator._upload_ledger is not None  # type: ignore[attr-defined]
         now = "2026-05-22T00:00:00.000Z"
         content_md5, file_size = calculate_file_md5_base64(TESTDATA_SPEECH_CH1_MP3)
+        # Mirror the production invariant: reaching metadata_registered/verified means
+        # create_evaluation_files returned 2xx, so metadata_acked is set. (mark_metadata_
+        # registered sets status+ack atomically; a registered-but-unacked row cannot
+        # occur in the real flow, so fixtures must not fabricate one.)
+        metadata_acked = 1 if status in ("metadata_registered", "verified") else 0
         for audio in audios:
             audio.set_integrity_info(content_md5, file_size)
         with evaluator._upload_ledger._transaction() as conn:  # type: ignore[union-attr]
@@ -120,9 +125,10 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
                     manifest_hash,
                     upload_start_at,
                     upload_finish_at,
+                    metadata_acked,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
@@ -138,10 +144,11 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
                         build_upload_manifest_hash(
                             audio.to_create_file_dict(), content_md5, file_size
                         ),
-                        now,
-                        now,
-                        now,
-                        now,
+                        now,  # upload_start_at
+                        now,  # upload_finish_at
+                        metadata_acked,
+                        now,  # created_at
+                        now,  # updated_at
                     )
                     for audio in audios
                 ],
@@ -319,11 +326,22 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
             "verified",
         )
 
-    def test_upload_retry_registers_metadata_before_reverification(self):
+    def test_acked_row_reuploads_and_reverifies_without_reregistration(self):
+        # A row that was actually registered (metadata_acked=True — the production
+        # invariant for metadata_registered) and then fails S3 verify is re-uploaded
+        # and re-verified, but its metadata is NOT re-POSTed. That is the exactly-once
+        # guarantee: a verify failure means the object is bad, not the metadata.
+        # (seed_rows seeds the realistic acked state; a registered-but-unacked row
+        # cannot occur through the real flow.)
         evaluator = self.make_evaluator()
-        audios = self.fake_audios(1, prefix="upload-retry-metadata")
+        audios = self.fake_audios(1, prefix="acked-upload-retry")
         self.seed_rows(evaluator, audios, "metadata_registered")
-        evaluator._ordered_file_groups = [SimpleNamespace(audios=audios)]  # type: ignore[assignment]
+        evaluator._ordered_file_groups = self.single_stimulus_groups(audios)  # type: ignore[assignment]
+        self.assertTrue(
+            evaluator._upload_ledger.get(  # type: ignore[union-attr]
+                evaluator.get_evaluation_id(), audios[0].remote_object_name
+            ).metadata_acked
+        )
 
         service = evaluator._evaluation_service
         service.process_files = MagicMock(  # type: ignore[method-assign]
@@ -346,10 +364,10 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
                     False,
                     None,
                     VerificationErrorDetail(
-                        code="METADATA_NOT_FOUND",
-                        message="metadata missing after upload",
-                        expected=None,
-                        actual=None,
+                        code="SIZE_MISMATCH",
+                        message="bad object after upload",
+                        expected="1",
+                        actual="0",
                     ),
                 )
             ],
@@ -367,22 +385,22 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
                 )
             ],
         )
-
-        def verify_after_metadata_retry(*args, **kwargs):
-            if service.verify_files.call_count == 1:  # type: ignore[attr-defined]
-                return failure_response
-            self.assertTrue(service.create_evaluation_files.called)  # type: ignore[attr-defined]
-            return success_response
-
         service.verify_files = MagicMock(  # type: ignore[method-assign]
-            side_effect=verify_after_metadata_retry
+            side_effect=[failure_response, success_response]
         )
 
         evaluator._process_audio_files_with_verification()  # type: ignore[arg-type]
 
+        # re-uploaded (object repaired) and re-verified, but NOT re-registered
         service.upload_evaluation_file.assert_called_once()
-        service.create_evaluation_files.assert_called_once()
+        service.create_evaluation_files.assert_not_called()
         self.assertEqual(service.verify_files.call_count, 2)
+        self.assertEqual(
+            evaluator._upload_ledger.get(  # type: ignore[union-attr]
+                evaluator.get_evaluation_id(), audios[0].remote_object_name
+            ).status,
+            "verified",
+        )
 
     def test_metadata_registration_create_failure_rolls_back_to_uploaded(self):
         evaluator = self.make_evaluator()
