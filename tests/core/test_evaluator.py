@@ -687,9 +687,13 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(result.failed_count, 0)
         self.assertEqual(len(result.results), 0)
 
-    def test_retry_failed_uploads_reregisters_metadata_before_verify(self):
-        """Failed verification retry must repair both bytes and metadata."""
+    def test_retry_failed_uploads_reuploads_without_reregistering_metadata(self):
+        """A verify-failure retry repairs the S3 object (re-upload) ONLY; it must not
+        re-POST create_evaluation_files for a file that was already registered. On the
+        default config (no upload ledger) this is the exactly-once guarantee that
+        removes the duplicate-evaluation_file trigger."""
         failed_audio = self._create_test_audio(1)
+        self.assertIsNone(self.evaluator._upload_ledger)  # type: ignore[attr-defined]
         mock_service = Mock()
         self.evaluator._evaluation_service = mock_service  # type: ignore
 
@@ -699,27 +703,13 @@ class TestEvaluator(unittest.TestCase):
 
             self.evaluator._retry_failed_uploads([failed_audio])  # type: ignore
 
+        # re-uploaded (bytes repaired) ...
         mock_manager.add_file_to_queue.assert_called_once_with(
             self.evaluator.get_evaluation_id(), failed_audio
         )
         mock_manager.wait_and_close.assert_called_once()
-        mock_service.create_evaluation_files.assert_called_once_with(
-            self.evaluator.get_evaluation_id(),
-            [failed_audio],
-            timeout=self.evaluator._eval_config.api_timeout,  # type: ignore[attr-defined]
-            context={
-                "batch_index": 0,
-                "batch_size": 1,
-                "batch_start": 0,
-                "total_files": 1,
-            },
-            # This audio belongs to no _ordered_file_groups in this unit test, so the
-            # ordinal is unresolved and the key falls back to a distinct per-file value
-            # (remote_object_name) rather than collapsing onto :0:.
-            idempotency_keys=[
-                f"{self.evaluator.get_evaluation_id()}:r-{failed_audio.remote_object_name}"
-            ],
-        )
+        # ... but NOT re-registered (already registered in the main path)
+        mock_service.create_evaluation_files.assert_not_called()
 
     def test_verify_files_in_batches_large_file_count(self):
         """Test _verify_files_in_batches with 1900 files (customer issue scenario)."""

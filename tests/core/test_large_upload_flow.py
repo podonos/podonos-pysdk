@@ -1322,6 +1322,74 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
             ),
         )
 
+    def test_no_ledger_verify_failure_does_not_reregister(self):
+        # resume_upload=False is the DEFAULT, so there is NO upload ledger and the
+        # metadata_acked guard does not exist. A verify failure must still NOT re-POST
+        # create_evaluation_files for a file already registered in the main path —
+        # otherwise the duplicate-evaluation_file incident recurs on the default config.
+        evaluator = self.make_evaluator(resume_upload=False)
+        self.assertIsNone(evaluator._upload_ledger)  # type: ignore[attr-defined]
+        audios = self.fake_audios(3, prefix="no-ledger")
+        content_md5, file_size = calculate_file_md5_base64(TESTDATA_SPEECH_CH1_MP3)
+        for audio in audios:
+            audio.set_integrity_info(content_md5, file_size)
+        evaluator._ordered_file_groups = self.single_stimulus_groups(audios)  # type: ignore[assignment]
+
+        service = evaluator._evaluation_service  # real EvaluationService instance
+        service.process_files = MagicMock(  # type: ignore[method-assign]
+            return_value=SimpleNamespace(processing_count=0)
+        )
+        service.create_evaluation_files = MagicMock()  # type: ignore[method-assign]
+        service.get_presigned_url = MagicMock(  # type: ignore[method-assign]
+            return_value="https://example.com/x"
+        )
+        service.upload_evaluation_file = MagicMock(return_value=MagicMock())  # type: ignore[method-assign]
+
+        failed_once = {"done": False}
+
+        def verify_files(evaluation_id, batch, **kwargs):
+            results = []
+            for audio in batch:
+                if (
+                    audio.remote_object_name == audios[1].remote_object_name
+                    and not failed_once["done"]
+                ):
+                    results.append(
+                        FileVerificationResult(
+                            audio.remote_object_name,
+                            False,
+                            None,
+                            VerificationErrorDetail(
+                                code="SIZE_MISMATCH",
+                                message="bad",
+                                expected="1",
+                                actual="0",
+                            ),
+                        )
+                    )
+                else:
+                    results.append(
+                        FileVerificationResult(audio.remote_object_name, True, "m", None)
+                    )
+            failed = sum(1 for r in results if not r.verified)
+            if failed:
+                failed_once["done"] = True
+            return VerifyFilesResponse(
+                all_verified=(failed == 0),
+                verified_count=len(results) - failed,
+                failed_count=failed,
+                results=results,
+            )
+
+        service.verify_files = MagicMock(side_effect=verify_files)  # type: ignore[method-assign]
+
+        evaluator._process_audio_files_with_verification()
+
+        # registered exactly ONCE (the initial main-path registration); the
+        # verify-failed file is re-uploaded and re-verified but NOT re-registered.
+        service.create_evaluation_files.assert_called_once()
+        service.upload_evaluation_file.assert_called_once()
+
     def test_default_evaluator_does_not_create_state_file(self):
         evaluator = self.make_evaluator(resume_upload=False)
 
