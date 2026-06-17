@@ -4,7 +4,7 @@ import unittest
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import List
+from typing import List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 from podonos.common.enum import EvalType, QuestionFileType
@@ -16,7 +16,9 @@ from podonos.core.file import Audio, File
 from podonos.core.upload_ledger import (
     build_upload_manifest_hash,
     build_upload_manifest_key,
+    stable_manifest_contract,
 )
+from podonos.service.evaluation_service import EvaluationService
 from podonos.entity.evaluation import EvaluationEntity
 from podonos.entity.verification import (
     FileVerificationResult,
@@ -32,6 +34,12 @@ class FakeAudio:
     path: str
     remote_object_name: str
     is_silent: bool = False
+    # group/order_in_group exist so the c3 idempotency key and the group-ordinal
+    # resolution work against the double. to_create_file_dict() stays minimal (no
+    # "group" key) on purpose: stable_manifest_contract only substitutes when a
+    # "group" key is present, so seeded manifest hashes stay byte-stable.
+    group: Optional[str] = None
+    order_in_group: int = 0
 
     def to_create_file_dict(self):
         return {"uploaded_file_name": self.remote_object_name, "original_name": self.path}
@@ -43,6 +51,16 @@ class FakeAudio:
     def set_upload_at(self, start_at: str, finish_at: str) -> None:
         self.upload_start_at = start_at
         self.upload_finish_at = finish_at
+
+
+@dataclass
+class FakeGroup:
+    """Minimal AudioGroup stand-in carrying its audios (and an optional group_id),
+    used to model the realistic one-group-per-single-stimulus-file layout so the
+    positional group ordinal resolves to distinct values."""
+
+    audios: List["FakeAudio"]
+    group_id: Optional[str] = None
 
 
 class TestLargeUploadLedgerFlow(unittest.TestCase):
@@ -850,6 +868,389 @@ class TestLargeUploadLedgerFlow(unittest.TestCase):
         self.assertIsNotNone(row)
         self.assertEqual(row.status, "queued")
         self.assertEqual(row.local_path, new_path)
+
+    def single_stimulus_groups(self, audios: List[FakeAudio]) -> List[FakeGroup]:
+        """One group per file, mirroring real NMOS/QMOS single-stimulus layout."""
+        return [FakeGroup(audios=[audio]) for audio in audios]
+
+    def _ack_row(self, evaluator: Evaluator, remote: str) -> None:
+        """Drive a seeded metadata_registered row through the real setter so its
+        monotonic metadata_acked flag is set (seed_rows inserts default 0)."""
+        evaluator._upload_ledger.mark_metadata_registered(  # type: ignore[union-attr]
+            evaluator.get_evaluation_id(), remote
+        )
+
+    # ---- US-004 / c2 guard + c1 skip ----
+
+    def test_metadata_acked_row_is_never_reregistered(self):
+        evaluator = self.make_evaluator()
+        audios = self.fake_audios(1, prefix="acked")
+        self.seed_rows(evaluator, audios, "metadata_registered")
+        ledger = evaluator._upload_ledger
+        e = evaluator.get_evaluation_id()
+        r = audios[0].remote_object_name
+        self._ack_row(evaluator, r)  # metadata_acked = 1
+        content_md5, file_size = calculate_file_md5_base64(TESTDATA_SPEECH_CH1_MP3)
+        # churn metadata_registered -> verify_failed -> uploaded; ack must persist
+        ledger.mark_verify_failed(e, r, "VERIFY_FAILED", "bad")  # type: ignore[union-attr]
+        ledger.mark_md5_ready(e, r, content_md5, file_size)  # type: ignore[union-attr]
+        ledger.mark_uploaded(e, r, "t0", "t1")  # type: ignore[union-attr]
+        self.assertEqual(ledger.get(e, r).status, "uploaded")  # type: ignore[union-attr]
+        self.assertTrue(ledger.get(e, r).metadata_acked)  # type: ignore[union-attr]
+
+        service = MagicMock()
+        evaluator._evaluation_service = service  # type: ignore[assignment]
+        evaluator._ordered_file_groups = self.single_stimulus_groups(audios)  # type: ignore[assignment]
+        evaluator._register_metadata_for_audios(audios)  # type: ignore[arg-type]
+
+        service.create_evaluation_files.assert_not_called()
+
+    def test_c2_guard_logs_skip_count(self):
+        evaluator = self.make_evaluator()
+        audios = self.fake_audios(1, prefix="logskip")
+        self.seed_rows(evaluator, audios, "metadata_registered")
+        self._ack_row(evaluator, audios[0].remote_object_name)
+        service = MagicMock()
+        evaluator._evaluation_service = service  # type: ignore[assignment]
+        evaluator._ordered_file_groups = self.single_stimulus_groups(audios)  # type: ignore[assignment]
+
+        with self.assertLogs(level="INFO") as cm:
+            evaluator._register_metadata_for_audios(audios)  # type: ignore[arg-type]
+
+        self.assertTrue(
+            any("Skipped metadata registration for 1" in line for line in cm.output)
+        )
+        service.create_evaluation_files.assert_not_called()
+
+    def test_reverify_after_verify_failure_does_not_reregister(self):
+        evaluator = self.make_evaluator()
+        audios = self.fake_audios(1, prefix="reverify")
+        self.seed_rows(evaluator, audios, "metadata_registered")
+        e = evaluator.get_evaluation_id()
+        r = audios[0].remote_object_name
+        self._ack_row(evaluator, r)  # acked
+        evaluator._upload_ledger.mark_verify_failed(e, r, "VERIFY_FAILED", "bad")  # type: ignore[union-attr]
+
+        service = Mock()
+        evaluator._evaluation_service = service  # type: ignore[assignment]
+        with patch("podonos.core.evaluator.UploadManager") as mock_manager_cls:
+            mock_manager = Mock()
+            mock_manager_cls.return_value = mock_manager
+            evaluator._retry_failed_uploads(audios)  # type: ignore[arg-type]
+
+        # re-uploaded but NOT re-registered (c1 skip + c2 guard)
+        mock_manager.add_file_to_queue.assert_called_once()
+        service.create_evaluation_files.assert_not_called()
+
+    # ---- US-002 / c4 ordinal + manifest stability + merge gate ----
+
+    def test_single_stimulus_groups_get_distinct_ordinals(self):
+        evaluator = self.make_evaluator()
+        audios = self.fake_audios(4, prefix="single")
+        evaluator._ordered_file_groups = self.single_stimulus_groups(audios)  # type: ignore[assignment]
+        e = evaluator.get_evaluation_id()
+
+        keys = [evaluator._idempotency_key(a) for a in audios]  # type: ignore[arg-type]
+        self.assertEqual(keys, [f"{e}:{i}:0" for i in range(4)])
+        self.assertEqual(len(set(keys)), 4)  # no collision -> no under-count
+        ordinals = [evaluator._resolve_group_ordinal(a) for a in audios]  # type: ignore[arg-type]
+        self.assertEqual(ordinals, [0, 1, 2, 3])
+
+    def test_group_ordinal_shared_between_manifest_and_idempotency_key(self):
+        evaluator = self.make_evaluator()
+        audios = self.fake_audios(3, prefix="shared")
+        evaluator._ordered_file_groups = self.single_stimulus_groups(audios)  # type: ignore[assignment]
+        for ordinal, audio in enumerate(audios):
+            key = evaluator._idempotency_key(audio)  # type: ignore[arg-type]
+            self.assertTrue(key.endswith(f":{ordinal}:0"))
+            # the same persisted scalar feeds the manifest contract (G1)
+            self.assertEqual(getattr(audio, "_podonos_group_ordinal"), ordinal)
+
+    def test_queue_time_key_equals_md5_ready_persisted_key(self):
+        evaluator = self.make_evaluator()
+        evaluator._evaluation_service.get_presigned_url = MagicMock(  # type: ignore[method-assign]
+            return_value="https://example.com/presigned-url"
+        )
+        evaluator._evaluation_service.upload_evaluation_file = MagicMock(  # type: ignore[method-assign]
+            return_value=MagicMock()
+        )
+        evaluator.add_file(File(path=TESTDATA_SPEECH_CH1_MP3, model_tag="model"))
+        evaluator._wait_for_uploads()
+
+        ledger = evaluator._upload_ledger
+        rows = ledger.list_by_status(evaluator.get_evaluation_id(), "uploaded")  # type: ignore[union-attr]
+        self.assertEqual(len(rows), 1)
+        audio = evaluator._ordered_file_groups[0].audios[0]
+        # The key the md5-ready site persisted must equal the queue-time key for the
+        # same audio (catches the upload_manager overwrite-no-op regression).
+        self.assertIsNotNone(rows[0].manifest_key)
+        self.assertEqual(rows[0].manifest_key, evaluator._build_current_manifest_key(audio))
+
+    def test_merge_gate_rejects_reordered_acked_row_but_not_same_order(self):
+        evaluator = self.make_evaluator()
+        ledger = evaluator._upload_ledger
+        e = evaluator.get_evaluation_id()
+        content_md5, file_size = calculate_file_md5_base64(TESTDATA_SPEECH_CH1_MP3)
+
+        def make_audio(remote: str, group_id: str) -> Audio:
+            audio = Audio(
+                path=TESTDATA_SPEECH_CH1_MP3,
+                name="speech_ch1.mp3",
+                remote_object_name=remote,
+                script="s",
+                tags=["t"],
+                model_tag="m",
+                is_ref=False,
+                group=group_id,
+                type=QuestionFileType.STIMULUS,
+                order_in_group=0,
+            )
+            audio.set_integrity_info(content_md5, file_size)
+            return audio
+
+        orig = make_audio("slot.wav", "random-group-A")
+        setattr(orig, "_podonos_group_ordinal", 0)
+        hash0 = build_upload_manifest_hash(
+            stable_manifest_contract(orig.to_create_file_dict(), 0),
+            content_md5,
+            file_size,
+        )
+        ledger.upsert_queued_file(e, "slot.wav", orig.path)  # type: ignore[union-attr]
+        ledger.mark_md5_ready(e, "slot.wav", content_md5, file_size, manifest_hash=hash0)  # type: ignore[union-attr]
+        ledger.mark_uploaded(e, "slot.wav", "t0", "t1")  # type: ignore[union-attr]
+        ledger.mark_metadata_registered(e, "slot.wav")  # type: ignore[union-attr] # acked
+        ledger.mark_verified(e, "slot.wav")  # type: ignore[union-attr]
+
+        # same-order resume: regenerated group_id but SAME ordinal -> hash matches ->
+        # no false-positive raise, skips as verified.
+        same = make_audio("slot.wav", "random-group-B")
+        setattr(same, "_podonos_group_ordinal", 0)
+        response = evaluator._verify_files_in_batches(e, [same])  # type: ignore[arg-type]
+        self.assertTrue(response.all_verified)
+
+        # reordered resume: byte-identical file, DIFFERENT ordinal -> hash differs ->
+        # loud ValueError instead of a silent duplicate.
+        reordered = make_audio("slot.wav", "random-group-C")
+        setattr(reordered, "_podonos_group_ordinal", 1)
+        with self.assertRaises(ValueError):
+            evaluator._verify_files_in_batches(e, [reordered])  # type: ignore[arg-type]
+
+    # ---- US-003 / c3 idempotency key ----
+
+    def test_idempotency_keys_aligned_to_batch_to_register(self):
+        # N1: keys are built in lockstep with the post-guard register list, so an
+        # acked (skipped) row does not shift the remaining keys onto wrong files.
+        evaluator = self.make_evaluator()
+        audios = self.fake_audios(3, prefix="align")
+        self.seed_rows(evaluator, audios, "uploaded")
+        # ack the MIDDLE row so it is skipped by the guard
+        self._ack_row(evaluator, audios[1].remote_object_name)
+        service = MagicMock()
+        evaluator._evaluation_service = service  # type: ignore[assignment]
+        evaluator._ordered_file_groups = self.single_stimulus_groups(audios)  # type: ignore[assignment]
+
+        evaluator._register_metadata_for_audios(audios)  # type: ignore[arg-type]
+
+        call = service.create_evaluation_files.call_args
+        registered = call.args[1]
+        keys = call.kwargs["idempotency_keys"]
+        e = evaluator.get_evaluation_id()
+        # row 1 skipped; the surviving rows keep their OWN ordinals (0 and 2)
+        self.assertEqual(
+            [a.remote_object_name for a in registered],
+            [audios[0].remote_object_name, audios[2].remote_object_name],
+        )
+        self.assertEqual(keys, [f"{e}:0:0", f"{e}:2:0"])
+        self.assertEqual(len(keys), len(registered))
+
+    def test_build_create_files_body_zips_keys_and_validates_length(self):
+        audios = self.fake_audios(2, prefix="body")
+        body = EvaluationService._build_create_files_body(audios, ["k0", "k1"])
+        self.assertEqual([f["idempotency_key"] for f in body], ["k0", "k1"])
+        self.assertEqual(body[0]["uploaded_file_name"], audios[0].remote_object_name)
+        # None -> no idempotency_key field (OQ2 backward-compatible path)
+        plain = EvaluationService._build_create_files_body(audios, None)
+        self.assertNotIn("idempotency_key", plain[0])
+        with self.assertRaises(ValueError):
+            EvaluationService._build_create_files_body(audios, ["only-one"])
+
+    def test_e2e_verify_failure_yields_exactly_one_row_per_slot(self):
+        evaluator = self.make_evaluator()
+        audios = self.fake_audios(5, prefix="e2e")
+        self.seed_rows(evaluator, audios, "uploaded")
+        evaluator._ordered_file_groups = self.single_stimulus_groups(audios)  # type: ignore[assignment]
+        e = evaluator.get_evaluation_id()
+
+        registered_keys: List[str] = []
+
+        def create_files(evaluation_id, batch, **kwargs):
+            registered_keys.extend(kwargs.get("idempotency_keys") or [])
+
+        failed_once = {"done": False}
+
+        def verify_files(evaluation_id, batch, **kwargs):
+            results = []
+            for audio in batch:
+                if (
+                    audio.remote_object_name == audios[2].remote_object_name
+                    and not failed_once["done"]
+                ):
+                    results.append(
+                        FileVerificationResult(
+                            audio.remote_object_name,
+                            False,
+                            None,
+                            VerificationErrorDetail(
+                                code="SIZE_MISMATCH",
+                                message="bad",
+                                expected="1",
+                                actual="0",
+                            ),
+                        )
+                    )
+                else:
+                    results.append(
+                        FileVerificationResult(audio.remote_object_name, True, "m", None)
+                    )
+            failed = sum(1 for r in results if not r.verified)
+            if failed:
+                failed_once["done"] = True
+            return VerifyFilesResponse(
+                all_verified=(failed == 0),
+                verified_count=len(results) - failed,
+                failed_count=failed,
+                results=results,
+            )
+
+        service = evaluator._evaluation_service  # real EvaluationService instance
+        service.process_files = MagicMock(return_value=SimpleNamespace(processing_count=0))  # type: ignore[method-assign]
+        service.create_evaluation_files = MagicMock(side_effect=create_files)  # type: ignore[method-assign]
+        service.verify_files = MagicMock(side_effect=verify_files)  # type: ignore[method-assign]
+        service.get_presigned_url = MagicMock(return_value="https://example.com/x")  # type: ignore[method-assign]
+        service.upload_evaluation_file = MagicMock(return_value=MagicMock())  # type: ignore[method-assign]
+
+        evaluator._process_audio_files_with_verification()
+
+        # exactly one registration per slot; the re-verified slot was NOT re-POSTed
+        self.assertEqual(len(registered_keys), 5)
+        self.assertEqual(set(registered_keys), {f"{e}:{i}:0" for i in range(5)})
+        self.assertEqual(registered_keys.count(f"{e}:2:0"), 1)
+        self.assertEqual(
+            evaluator._upload_ledger.counts_by_status(e)["verified"],  # type: ignore[union-attr]
+            5,
+        )
+
+    def test_should_skip_upload_fails_closed_on_acked_row_with_changed_metadata(self):
+        # An already-acked row whose per-file metadata changed must fail loudly, not
+        # silently reset+skip (which would leave stale metadata at the backend).
+        evaluator = self.make_evaluator()
+        ledger = evaluator._upload_ledger
+        e = evaluator.get_evaluation_id()
+        content_md5, file_size = calculate_file_md5_base64(TESTDATA_SPEECH_CH1_MP3)
+
+        def make_audio(script: str) -> Audio:
+            audio = Audio(
+                path=TESTDATA_SPEECH_CH1_MP3,
+                name="speech_ch1.mp3",
+                remote_object_name="slot.wav",
+                script=script,
+                tags=["t"],
+                model_tag="m",
+                is_ref=False,
+                group=None,
+                type=QuestionFileType.STIMULUS,
+                order_in_group=0,
+            )
+            audio.set_integrity_info(content_md5, file_size)
+            return audio
+
+        original = make_audio("original-script")
+        hash0 = build_upload_manifest_hash(
+            stable_manifest_contract(original.to_create_file_dict(), None),
+            content_md5,
+            file_size,
+        )
+        ledger.upsert_queued_file(e, "slot.wav", original.path, file_index=0)  # type: ignore[union-attr]
+        ledger.mark_md5_ready(e, "slot.wav", content_md5, file_size, manifest_hash=hash0)  # type: ignore[union-attr]
+        ledger.mark_uploaded(e, "slot.wav", "t0", "t1")  # type: ignore[union-attr]
+        ledger.mark_metadata_registered(e, "slot.wav")  # acked
+        ledger.mark_verify_failed(e, "slot.wav", "VERIFY_FAILED", "bad")  # type: ignore[union-attr]
+
+        changed = make_audio("CHANGED-script")
+        with self.assertRaises(ValueError):
+            evaluator._should_skip_upload(changed)  # type: ignore[arg-type]
+        # the row was NOT reset for re-upload (would have stranded stale metadata)
+        row = ledger.get(e, "slot.wav")  # type: ignore[union-attr]
+        self.assertEqual(row.status, "verify_failed")
+        self.assertTrue(row.metadata_acked)
+
+    def test_resume_routes_uploaded_acked_row_back_to_verification(self):
+        # c1 crash window: an acked row was re-uploaded (status uploaded) but the
+        # process died before the in-run re-verify. On resume it must be routed to
+        # verification (the c2 guard skips its registration), not finalized unverified.
+        evaluator = self.make_evaluator()
+        audios = self.fake_audios(1, prefix="crashwindow")
+        self.seed_rows(evaluator, audios, "metadata_registered")
+        e = evaluator.get_evaluation_id()
+        r = audios[0].remote_object_name
+        self._ack_row(evaluator, r)
+        content_md5, file_size = calculate_file_md5_base64(TESTDATA_SPEECH_CH1_MP3)
+        evaluator._upload_ledger.mark_verify_failed(e, r, "V", "bad")  # type: ignore[union-attr]
+        evaluator._upload_ledger.mark_md5_ready(e, r, content_md5, file_size)  # type: ignore[union-attr]
+        evaluator._upload_ledger.mark_uploaded(e, r, "t0", "t1")  # type: ignore[union-attr]
+        row = evaluator._upload_ledger.get(e, r)  # type: ignore[union-attr]
+        self.assertEqual(row.status, "uploaded")
+        self.assertTrue(row.metadata_acked)
+
+        needing = evaluator._get_audios_needing_verification(audios)  # type: ignore[arg-type]
+        self.assertEqual([a.remote_object_name for a in needing], [r])
+
+    def test_idempotency_key_unresolved_ordinal_is_distinct_per_file(self):
+        evaluator = self.make_evaluator()
+        a = self.fake_audios(1, prefix="alpha")[0]
+        b = self.fake_audios(1, prefix="beta")[0]
+        # neither audio belongs to a group -> unresolved ordinal -> the keys must
+        # still be distinct (a `:0:` collapse would make the backend merge slots)
+        key_a = evaluator._idempotency_key(a)  # type: ignore[arg-type]
+        key_b = evaluator._idempotency_key(b)  # type: ignore[arg-type]
+        self.assertNotEqual(key_a, key_b)
+        self.assertIn(a.remote_object_name, key_a)
+
+    def test_comparison_group_manifest_stable_across_group_id_regen(self):
+        # Real-Audio coverage of the production ordinal-substitution path for a
+        # non-None (comparison) group: a regenerated random group_id with the same
+        # positional ordinal yields the same manifest key; a different ordinal does not.
+        evaluator = self.make_evaluator()
+        content_md5, file_size = calculate_file_md5_base64(TESTDATA_SPEECH_CH1_MP3)
+
+        def make_audio(remote: str, group_id: str, ordinal: int) -> Audio:
+            audio = Audio(
+                path=TESTDATA_SPEECH_CH1_MP3,
+                name="speech_ch1.mp3",
+                remote_object_name=remote,
+                script="s",
+                tags=["t"],
+                model_tag="m",
+                is_ref=False,
+                group=group_id,
+                type=QuestionFileType.STIMULUS,
+                order_in_group=0,
+            )
+            audio.set_integrity_info(content_md5, file_size)
+            setattr(audio, "_podonos_group_ordinal", ordinal)
+            return audio
+
+        run1 = make_audio("r1.wav", "1700000000000_uuid-A", 0)
+        run2 = make_audio("r2.wav", "1700000001111_uuid-B", 0)
+        self.assertEqual(
+            evaluator._build_current_manifest_key(run1),  # type: ignore[arg-type]
+            evaluator._build_current_manifest_key(run2),  # type: ignore[arg-type]
+        )
+        other_group = make_audio("r3.wav", "1700000000000_uuid-A", 1)
+        self.assertNotEqual(
+            evaluator._build_current_manifest_key(run1),  # type: ignore[arg-type]
+            evaluator._build_current_manifest_key(other_group),  # type: ignore[arg-type]
+        )
 
     def test_default_evaluator_does_not_create_state_file(self):
         evaluator = self.make_evaluator(resume_upload=False)

@@ -22,9 +22,11 @@ from podonos.common.util import calculate_file_md5_base64
 from podonos.common.validator import Rules, validate_args
 from podonos.errors.error import UploadBatchError, UploadFailure
 from podonos.core.upload_ledger import (
+    GROUP_ORDINAL_ATTR,
     UploadLedger,
     build_upload_manifest_hash,
     build_upload_manifest_key,
+    stable_manifest_contract,
 )
 
 if TYPE_CHECKING:
@@ -305,11 +307,17 @@ class UploadManager:
     ) -> None:
         if self._upload_ledger is None:
             return
+        # Use the stable group ordinal stamped onto the audio by the evaluator before
+        # it was queued, so the persisted manifest key/hash match the evaluator's
+        # queue-time key (the random per-run group would diverge and break resume).
+        stable_contract = stable_manifest_contract(
+            audio.to_create_file_dict(), getattr(audio, GROUP_ORDINAL_ATTR, None)
+        )
         manifest_hash = build_upload_manifest_hash(
-            audio.to_create_file_dict(), content_md5, file_size
+            stable_contract, content_md5, file_size
         )
         manifest_key = build_upload_manifest_key(
-            audio.to_create_file_dict(), content_md5, file_size
+            stable_contract, content_md5, file_size
         )
         try:
             self._upload_ledger.mark_md5_ready(

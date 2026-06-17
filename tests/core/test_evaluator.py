@@ -713,6 +713,12 @@ class TestEvaluator(unittest.TestCase):
                 "batch_start": 0,
                 "total_files": 1,
             },
+            # This audio belongs to no _ordered_file_groups in this unit test, so the
+            # ordinal is unresolved and the key falls back to a distinct per-file value
+            # (remote_object_name) rather than collapsing onto :0:.
+            idempotency_keys=[
+                f"{self.evaluator.get_evaluation_id()}:r-{failed_audio.remote_object_name}"
+            ],
         )
 
     def test_verify_files_in_batches_large_file_count(self):
