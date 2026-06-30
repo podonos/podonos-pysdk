@@ -194,6 +194,8 @@ class Language(Enum):
     ITALIAN = "it-it"
     POLISH = "pl-pl"
     INDONESIAN = "id-id"
+    DUTCH = "nl-nl"
+    SWEDISH = "sv-se"
     HINDI = "hi-in"
     TAMIL = "ta-in"
     KANNADA = "kn-in"
