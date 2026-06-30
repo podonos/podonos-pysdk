@@ -1,3 +1,7 @@
+## 0.43.0
+
+- Add Dutch (`nl-nl`) and Swedish (`sv-se`) to `Language` enum
+
 ## 0.42.0
 
 - Register uploaded file metadata exactly once across retries and resumed uploads, preventing duplicate registration of the same file

@@ -25,6 +25,8 @@ class TestLanguageEnum(unittest.TestCase):
         self.assertEqual(Language.JAPANESE.value, "ja-jp")
         self.assertEqual(Language.ITALIAN.value, "it-it")
         self.assertEqual(Language.POLISH.value, "pl-pl")
+        self.assertEqual(Language.DUTCH.value, "nl-nl")
+        self.assertEqual(Language.SWEDISH.value, "sv-se")
         self.assertEqual(Language.HINDI.value, "hi-in")
         self.assertEqual(Language.TAMIL.value, "ta-in")
         self.assertEqual(Language.KANNADA.value, "kn-in")

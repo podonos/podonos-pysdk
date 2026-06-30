@@ -295,6 +295,8 @@ class EvalConfig:
             Language.ITALIAN.value,
             Language.POLISH.value,
             Language.INDONESIAN.value,
+            Language.DUTCH.value,
+            Language.SWEDISH.value,
             Language.HINDI.value,
             Language.TAMIL.value,
             Language.KANNADA.value,
