@@ -182,6 +182,12 @@ class Client:
 
         The caller must add files again in the same order as the interrupted run
         so the ledger can recover each file's remote object identity.
+
+        An evaluation whose upload began on an SDK version that did not normalize
+        order_in_group cannot be repaired by resuming. Files already registered keep
+        the order they were stored with, and only the remaining files get the
+        normalized order, so the evaluation can still fail validation at checkout.
+        Create a new evaluation instead.
         """
         if not self._initialized:
             raise ValueError("This function is called before initialization.")

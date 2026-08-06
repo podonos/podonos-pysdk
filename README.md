@@ -38,6 +38,13 @@ etor.close()
 
 Once we evaluate the audio files, we will email you the evaluation report within 12 hours.
 
+For comparative evaluations (`add_files`), you do not need to shuffle the models yourself. Podonos
+randomizes the presentation order per participant, and the SDK normalizes what it stores, so the
+same model always keeps the same position across groups. See
+[Bias minimization](https://www.podonos.com/docs/reliability/bias-minimization).
+
+One positional rule remains: for `CSMOS`, the reference must be passed last (`file2`).
+
 ## 👌 How to run the code testing
 
 Run this at the base directory:
