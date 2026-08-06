@@ -1,3 +1,9 @@
+## 0.44.0
+
+- Store a stable `order_in_group` per `model_tag` in comparative evaluations. Passing the two stimuli to `add_files()` in a different order between groups no longer splits one model across two positions, which the platform rejected at checkout
+- Store the reference last for `CMOS` and `DMOS` regardless of argument order, matching `CSMOS`
+- Declare `natsort` as a runtime dependency; it was used but only listed in `requirements.txt`
+
 ## 0.43.0
 
 - Add Dutch (`nl-nl`) and Swedish (`sv-se`) to `Language` enum
