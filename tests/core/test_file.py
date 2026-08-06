@@ -565,83 +565,6 @@ class TestFile(unittest.TestCase):
         self.assertEqual(result2[0].model_tag, "google")
         self.assertEqual(result2[1].model_tag, "openai")
 
-    @unittest.skip("Skip this test because we don't track model tag pairs")
-    def test_validate_double_stimuli_model_tags_should_raise_error_for_inconsistent_pair_order(
-        self,
-    ):
-        """Test that _validate_double_stimuli_model_tags raises error for inconsistent pair ordering"""
-        # Given
-        eval_config = EvalConfig(
-            name="test_name", desc="test_desc", type="PREF", num_eval=1
-        )
-        file_validator = FileValidator(eval_config)
-
-        # First pair: google -> openai
-        file0 = File(path=self.test_wav, model_tag="google")
-        file1 = File(path=self.test_wav, model_tag="openai")
-        file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
-
-        # Second pair: reversed order openai -> google (should raise error)
-        file2 = File(path=self.test_wav, model_tag="openai")
-        file3 = File(path=self.test_wav, model_tag="google")
-
-        # When/Then
-        with self.assertRaises(ValueError) as context:
-            file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
-        self.assertIn("Inconsistent model tag pair order", str(context.exception))
-
-    @unittest.skip("Skip this test because we don't track model tag pairs")
-    def test_validate_double_stimuli_model_tags_should_allow_different_pairs(self):
-        """Test that _validate_double_stimuli_model_tags allows different model pairs"""
-        # Given
-        eval_config = EvalConfig(
-            name="test_name", desc="test_desc", type="PREF", num_eval=1
-        )
-        file_validator = FileValidator(eval_config)
-
-        # First pair: google -> openai
-        file0 = File(path=self.test_wav, model_tag="google")
-        file1 = File(path=self.test_wav, model_tag="openai")
-        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
-
-        # Second pair: elevenlabs -> openai (different pair)
-        file2 = File(path=self.test_wav, model_tag="elevenlabs")
-        file3 = File(path=self.test_wav, model_tag="openai")
-        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
-
-        # Then
-        self.assertEqual(len(result1), 2)
-        self.assertEqual(len(result2), 2)
-        self.assertEqual(result1[0].model_tag, "google")
-        self.assertEqual(result1[1].model_tag, "openai")
-        self.assertEqual(result2[0].model_tag, "elevenlabs")
-        self.assertEqual(result2[1].model_tag, "openai")
-
-    @unittest.skip("Skip this test because we don't track model tag pairs")
-    def test_validate_double_stimuli_model_tags_should_handle_case_insensitive_pairs(
-        self,
-    ):
-        """Test that _validate_double_stimuli_model_tags handles case insensitive pair comparison"""
-        # Given
-        eval_config = EvalConfig(
-            name="test_name", desc="test_desc", type="PREF", num_eval=1
-        )
-        file_validator = FileValidator(eval_config)
-
-        # First pair: Google -> OpenAI
-        file0 = File(path=self.test_wav, model_tag="Google")
-        file1 = File(path=self.test_wav, model_tag="OpenAI")
-        result1 = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
-
-        # Second pair: google -> openai (same pair, different case)
-        file2 = File(path=self.test_wav, model_tag="google")
-        file3 = File(path=self.test_wav, model_tag="openai")
-        result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
-
-        # Then
-        self.assertEqual(len(result1), 2)
-        self.assertEqual(len(result2), 2)
-
     def test_validate_double_stimuli_model_tags_should_preserve_original_case(self):
         """Test that _validate_double_stimuli_model_tags preserves original case in returned files"""
         # Given
@@ -689,16 +612,16 @@ class TestFile(unittest.TestCase):
         # Then
         self.assertEqual(len(result), 2)
 
-        # Check properties are preserved
-        self.assertEqual(result[0].model_tag, "ModelB")
-        self.assertEqual(result[0].tags, ["tag1", "tag2"])
-        self.assertEqual(result[0].script, "script1")
-        self.assertFalse(result[0].is_ref)
+        # Properties travel with the file through the model_tag sort
+        self.assertEqual(result[0].model_tag, "ModelA")
+        self.assertEqual(result[0].tags, ["tag3"])
+        self.assertEqual(result[0].script, "script2")
+        self.assertTrue(result[0].is_ref)
 
-        self.assertEqual(result[1].model_tag, "ModelA")
-        self.assertEqual(result[1].tags, ["tag3"])
-        self.assertEqual(result[1].script, "script2")
-        self.assertTrue(result[1].is_ref)
+        self.assertEqual(result[1].model_tag, "ModelB")
+        self.assertEqual(result[1].tags, ["tag1", "tag2"])
+        self.assertEqual(result[1].script, "script1")
+        self.assertFalse(result[1].is_ref)
 
     @unittest.skip("Skip this test because we don't track model tag pairs")
     def test_validate_double_stimuli_model_tags_should_handle_leading_trailing_spaces(
@@ -726,8 +649,8 @@ class TestFile(unittest.TestCase):
         file0 = File(path=self.test_wav, model_tag="100")
         file1 = File(path=self.test_wav, model_tag="2")
         result = file_validator._validate_double_stimuli_model_tags(file0, file1)  # type: ignore
-        # New logic preserves original order, not sorted
-        self.assertEqual([f.model_tag for f in result], ["100", "2"])
+        # Sorting is numeric-aware, so "2" comes before "100"
+        self.assertEqual([f.model_tag for f in result], ["2", "100"])
 
     def test_validate_double_stimuli_model_tags_should_handle_special_symbols(self):
         """Test that _validate_double_stimuli_model_tags works with special symbols in model_tags"""
@@ -846,10 +769,10 @@ class TestFile(unittest.TestCase):
             file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
         self.assertIn("The number of model tags should be 2", str(context.exception))
 
-    def test_validate_double_stimuli_model_tags_should_allow_reverse_order_of_same_pair(
+    def test_validate_double_stimuli_model_tags_should_normalize_reverse_order_of_same_pair(
         self,
     ):
-        """Test that _validate_double_stimuli_model_tags allows reverse order of the same pair"""
+        """Test that _validate_double_stimuli_model_tags accepts a reversed pair and normalizes it"""
         eval_config = EvalConfig(
             name="test_name", desc="test_desc", type="PREF", num_eval=1
         )
@@ -865,13 +788,13 @@ class TestFile(unittest.TestCase):
         file3 = File(path=self.test_wav, model_tag="google")
         result2 = file_validator._validate_double_stimuli_model_tags(file2, file3)  # type: ignore
 
-        # Then
+        # Then both calls produce the same model_tag order
         self.assertEqual(len(result1), 2)
         self.assertEqual(len(result2), 2)
         self.assertEqual(result1[0].model_tag, "google")
         self.assertEqual(result1[1].model_tag, "openai")
-        self.assertEqual(result2[0].model_tag, "openai")
-        self.assertEqual(result2[1].model_tag, "google")
+        self.assertEqual(result2[0].model_tag, "google")
+        self.assertEqual(result2[1].model_tag, "openai")
 
     def test_validate_double_stimuli_model_tags_should_reject_third_model_tag_case_insensitive(
         self,
@@ -1250,6 +1173,199 @@ class TestAudioMeta(unittest.TestCase):
             with self.assertRaises(InvalidFileError) as context:
                 AudioMeta(self.test_wav)
             self.assertIn("Unsupported audio format", str(context.exception))
+
+
+class TestDoubleStimuliOrderInGroup(unittest.TestCase):
+    """order_in_group must be stable per model_tag, whatever order the caller passes.
+
+    The platform resolves "Model A" by order_in_group and shuffles the on-screen
+    order itself, so a model_tag landing at different orders in different groups
+    mixes two models into one aggregate and is rejected at checkout.
+    """
+
+    def setUp(self):
+        self.test_dir = os.path.dirname(__file__)
+        self.test_wav = os.path.join(self.test_dir, "speech_two_ch1.wav")
+
+    def _orders(self, validator, transformer, files: List[File]):
+        """Run one add_files-equivalent group and return {model_tag: order_in_group}."""
+        validated = validator.validate_files(list(files))
+        audio_group = transformer.transform_into_audio_group(validated)
+        return {a.model_tag: a.order_in_group for a in audio_group.audios}
+
+    def test_reversed_argument_order_produces_same_order_in_group(self):
+        # Given: a caller that shuffles which model goes first on each trial
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
+        validator = FileValidator(eval_config)
+        transformer = FileTransformer(eval_config)
+
+        # When
+        first = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="model_b"),
+                File(path=self.test_wav, model_tag="model_a"),
+            ],
+        )
+        second = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="model_a"),
+                File(path=self.test_wav, model_tag="model_b"),
+            ],
+        )
+
+        # Then
+        self.assertEqual(first, {"model_a": 0, "model_b": 1})
+        self.assertEqual(first, second)
+
+    def test_model_tag_sort_is_case_insensitive_and_numeric_aware(self):
+        # Given
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
+
+        # When: numeric-aware, model_2 sorts before model_10
+        numeric = FileValidator(eval_config)._validate_double_stimuli_model_tags(  # type: ignore
+            File(path=self.test_wav, model_tag="model_10"),
+            File(path=self.test_wav, model_tag="model_2"),
+        )
+
+        # And: case-insensitive, Zebra sorts after apple
+        case = FileValidator(eval_config)._validate_double_stimuli_model_tags(  # type: ignore
+            File(path=self.test_wav, model_tag="Zebra"),
+            File(path=self.test_wav, model_tag="apple"),
+        )
+
+        # Then
+        self.assertEqual([f.model_tag for f in numeric], ["model_2", "model_10"])
+        self.assertEqual([f.model_tag for f in case], ["apple", "Zebra"])
+
+    def test_case_only_difference_still_produces_stable_order(self):
+        """The natsort key folds case, so the raw tag has to break the tie."""
+        # Given
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
+        validator = FileValidator(eval_config)
+        transformer = FileTransformer(eval_config)
+
+        # When
+        first = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="Model"),
+                File(path=self.test_wav, model_tag="model"),
+            ],
+        )
+        second = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="model"),
+                File(path=self.test_wav, model_tag="Model"),
+            ],
+        )
+
+        # Then
+        self.assertEqual(first, second)
+
+    def test_leading_zero_difference_still_produces_stable_order(self):
+        """The natsort key reads m01 and m1 as the same number, so it ties."""
+        # Given
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="PREF", num_eval=1
+        )
+        validator = FileValidator(eval_config)
+        transformer = FileTransformer(eval_config)
+
+        # When
+        first = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="m01"),
+                File(path=self.test_wav, model_tag="m1"),
+            ],
+        )
+        second = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="m1"),
+                File(path=self.test_wav, model_tag="m01"),
+            ],
+        )
+
+        # Then
+        self.assertEqual(first, second)
+
+    def test_cmos_keeps_reference_last_regardless_of_argument_order(self):
+        # Given
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="CMOS", num_eval=1
+        )
+        validator = FileValidator(eval_config)
+        transformer = FileTransformer(eval_config)
+
+        # When
+        ref_last = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="model_a"),
+                File(path=self.test_wav, model_tag="ground_truth", is_ref=True),
+            ],
+        )
+        ref_first = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="ground_truth", is_ref=True),
+                File(path=self.test_wav, model_tag="model_a"),
+            ],
+        )
+
+        # Then: the documented (stimulus, reference) call keeps its stored order
+        self.assertEqual(ref_last, {"model_a": 0, "ground_truth": 1})
+        self.assertEqual(ref_last, ref_first)
+
+    def test_csmos_keeps_reference_last_regardless_of_stimulus_order(self):
+        # Given
+        eval_config = EvalConfig(
+            name="test_name", desc="test_desc", type="CSMOS", num_eval=1
+        )
+        validator = FileValidator(eval_config)
+        transformer = FileTransformer(eval_config)
+
+        # When
+        first = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="model_b"),
+                File(path=self.test_wav, model_tag="model_a"),
+                File(path=self.test_wav, model_tag="ground_truth", is_ref=True),
+            ],
+        )
+        second = self._orders(
+            validator,
+            transformer,
+            [
+                File(path=self.test_wav, model_tag="model_a"),
+                File(path=self.test_wav, model_tag="model_b"),
+                File(path=self.test_wav, model_tag="ground_truth", is_ref=True),
+            ],
+        )
+
+        # Then: reference stays at 2 even though it sorts first alphabetically
+        self.assertEqual(first, {"model_a": 0, "model_b": 1, "ground_truth": 2})
+        self.assertEqual(first, second)
 
 
 class TestFileRanking(unittest.TestCase):
