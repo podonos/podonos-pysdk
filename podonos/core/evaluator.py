@@ -304,6 +304,13 @@ class Evaluator:
         - CMOS, DMOS: One file must be reference, one must be stimulus
         - CSMOS: One file must be reference, two must be stimulus
 
+        You do not need to shuffle the files yourself. Podonos randomizes the presentation order per
+        participant, and the SDK normalizes the stored order so the same model always keeps the same
+        position across groups: stimuli are sorted by model_tag and the reference is stored last.
+        Pass them in whatever order is convenient, with one exception: for CSMOS the reference must
+        be passed last, as file2.
+        See https://www.podonos.com/docs/reliability/bias-minimization
+
         Args:
             file0: First audio file
             file1: Second audio file
@@ -311,8 +318,8 @@ class Evaluator:
 
         Example:
         If you want to evaluate audio files together (e.g., Comparative MOS):
-            f0 = File(path="/path/to/generated.wav", model_tag='my_new_model1', tags=['male', 'english'], is_ref=True)
-            f1 = File(path="/path/to/original.wav", model_tag='my_new_model2', tags=['male', 'english', 'param1'])
+            f0 = File(path="/path/to/generated.wav", model_tag='my_new_model1', tags=['male', 'english'])
+            f1 = File(path="/path/to/original.wav", model_tag='human', tags=['male', 'english'], is_ref=True)
             add_files(file0=f0, file1=f1)
 
         If you want to evaluate two stimuli with a reference:

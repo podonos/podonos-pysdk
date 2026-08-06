@@ -180,3 +180,6 @@ template_ranking.json
 
 # Superset worktree metadata
 .superset/
+
+# Internal engineering handoffs, never publish to this repo
+HANDOFF-*.md

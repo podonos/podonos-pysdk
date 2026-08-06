@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import filetype  # type: ignore
 import soundfile as sf  # type: ignore
+from natsort import natsort_keygen, ns  # type: ignore
 
 from podonos.common.enum import EvalType, QuestionFileType
 from podonos.common.util import (
@@ -17,6 +18,17 @@ from podonos.common.validator import Rules, validate_args
 from podonos.core.base import log
 from podonos.core.config import EvalConfig
 from podonos.errors import InvalidFileError
+
+# Numeric-aware, case-insensitive model_tag ordering, matching the backend validator.
+# The raw tag is appended as a tiebreaker because the natsort key is not injective:
+# it folds case ("Model" == "model") and leading zeros ("m01" == "m1"), and a tie would
+# fall back to caller order, which is exactly what this sort exists to remove.
+_natsort_key = natsort_keygen(alg=ns.IGNORECASE)
+
+
+def _model_tag_sort_key(file: "File") -> Tuple[Any, str]:
+    return (_natsort_key(file.model_tag), file.model_tag)
+
 
 # Audio validation constants
 WARN_SHORT_DURATION_MS = 500  # Keep existing 500ms threshold
@@ -256,7 +268,6 @@ class FileValidator:
     def __init__(self, eval_config: EvalConfig):
         self._eval_config = eval_config
         self._stimulus_model_tags: Set[str] = set()
-        self._stimulus_model_pairs: List[Tuple[str, str]] = list()
         # RANKING state across groups
         self._ranking_expected_length: Optional[int] = None
         self._ranking_canonical_order: Optional[List[str]] = None
@@ -312,7 +323,16 @@ class FileValidator:
     def _validate_one_stimulus_and_one_ref_files(
         self, files: List[Optional[File]]
     ) -> List[File]:
-        """Validate files for reference-stimulus evaluations"""
+        """Validate files for reference-stimulus evaluations.
+
+        The reference is returned last so that `order_in_group` does not depend on
+        the caller's argument order. Without this, a caller alternating between
+        (stimulus, ref) and (ref, stimulus) stores the same model_tag at two
+        different orders and the evaluation is rejected at checkout.
+
+        Reference-last matches every published CMOS example and CSMOS, which
+        requires the reference in the last position.
+        """
         valid_files = [
             self._validate_file_common(file) for file in files if file is not None
         ]
@@ -322,7 +342,7 @@ class FileValidator:
         if valid_files[0].is_ref == valid_files[1].is_ref:
             raise ValueError("One file must be reference, one must be stimulus")
 
-        return valid_files
+        return sorted(valid_files, key=lambda f: f.is_ref)
 
     @validate_args(files=Rules.list_not_none)
     def _validate_two_stimuli_and_one_ref_files(
@@ -445,6 +465,12 @@ class FileValidator:
         Validate & return the two files sorted by model_tag
         (numeric‑aware, case‑insensitive).  Locale handling is NOT applied.
 
+        Sorting is what keeps `order_in_group` stable: the caller may pass the
+        two stimuli in any order (many callers shuffle per trial), and the same
+        model_tag must always land at the same `order_in_group`, otherwise the
+        platform rejects the evaluation at checkout. This is the same
+        normalization the backend validator applies.
+
         WARNING:
             Use only for SMOS, PREF, CSMOS, CUSTOM_DOUBLE, CUSTOM_TRIPLE.
         """
@@ -452,8 +478,6 @@ class FileValidator:
             if not getattr(f, "model_tag", None):
                 raise ValueError("model_tag is required")
 
-        # file0_model_tag = file0.model_tag.lower()
-        # file1_model_tag = file1.model_tag.lower()
         if file0.model_tag == file1.model_tag:
             raise ValueError(
                 "The model tags must differ in `add_files` "
@@ -469,25 +493,8 @@ class FileValidator:
                 raise ValueError(message)
             if file1.model_tag not in self._stimulus_model_tags:
                 raise ValueError(message)
-        return [file0, file1]
 
-        # TODO: Add this back in when we have a way to track the model tag pairs.
-        # requested_model_pair = tuple(sorted([file0_model_tag, file1_model_tag]))
-        # for model_pair in self._stimulus_model_pairs:
-        #     if model_pair == requested_model_pair:
-        #         first_model_tag = model_pair[0]
-        #         second_model_tag = model_pair[1]
-        #         if first_model_tag != file0_model_tag or second_model_tag != file1_model_tag:
-        #             raise ValueError(
-        #                 f"Inconsistent model tag pair order. Previously seen pair: "
-        #                 f"({first_model_tag}, {second_model_tag}), but received: "
-        #                 f"({file0_model_tag}, {file1_model_tag}). "
-        #                 f"Please maintain consistent ordering for the same model tag pairs."
-        #             )
-        #         return [file0, file1]
-
-        # self._stimulus_model_pairs.append((file0_model_tag, file1_model_tag))
-        # return [file0, file1]
+        return sorted([file0, file1], key=_model_tag_sort_key)
 
 
 class AudioMeta:
