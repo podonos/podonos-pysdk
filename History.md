@@ -1,3 +1,10 @@
+## 0.45.0
+
+- Add `RANKING_REF`, a ranking evaluation where each group carries one reference stimulus. Pass the reference to `add_ranking_set()` with `is_ref=True` alongside at least two stimuli; it is sorted to the last `order_in_group` internally, so its argument position may vary between calls
+- Accept `RANKING_REF` in `CustomType` and in the `SPEECH_RANKING_REF` template mapping
+- Roll back the whole group when `add_ranking_set()` fails partway, so retrying after a transient error is no longer rejected for disagreeing with a group that was never added
+- Log the resolved ranking `type` and `batch_size` on successful upload
+
 ## 0.44.0
 
 - Store a stable `order_in_group` per `model_tag` in comparative evaluations. Passing the two stimuli to `add_files()` in a different order between groups no longer splits one model across two positions, which the platform rejected at checkout
