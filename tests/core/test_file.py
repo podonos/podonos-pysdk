@@ -4,6 +4,8 @@ from typing import Any, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from podonos.common.enum import EvalType as _ET
 from glog import FailedCheckException  # type: ignore
 
 from podonos.common.enum import QuestionFileType
@@ -1704,6 +1706,145 @@ class TestFileRanking(unittest.TestCase):
         with pytest.raises(ValueError) as context:
             validator.validate_files(files2)
         assert "unique model_tags within a group" in str(context.value)
+
+
+class TestFileRankingRef(unittest.TestCase):
+    """RANKING_REF: exactly one per-group reference, stored last."""
+
+    def setUp(self):
+        self.test_dir = os.path.dirname(__file__)
+        self.audio_path = os.path.join(self.test_dir, "speech_two_ch1.wav")
+
+    def _validator(self, eval_type):
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import FileValidator
+
+        cfg = EvalConfig(type=_ET.CUSTOM_DOUBLE.value)
+        cfg._eval_type = eval_type  # type: ignore
+        return FileValidator(cfg)
+
+    def _f(self, model_tag, is_ref=False):
+        from podonos.core.file import File
+
+        return File(path=self.audio_path, model_tag=model_tag, is_ref=is_ref)
+
+    def test_accepts_group_with_one_reference(self):
+        validator = self._validator(_ET.RANKING_REF)
+        valid = validator.validate_files(
+            [self._f("A"), self._f("B"), self._f("R", is_ref=True)]
+        )
+        assert [f.model_tag for f in valid] == ["A", "B", "R"]
+        assert [f.is_ref for f in valid] == [False, False, True]
+
+    def test_reference_position_in_argument_list_does_not_matter(self):
+        """The reference may sit anywhere; the stored order must be identical."""
+        expected = ["A", "B", "R"]
+        for group in (
+            [self._f("R", is_ref=True), self._f("A"), self._f("B")],
+            [self._f("A"), self._f("R", is_ref=True), self._f("B")],
+            [self._f("A"), self._f("B"), self._f("R", is_ref=True)],
+        ):
+            validator = self._validator(_ET.RANKING_REF)
+            valid = validator.validate_files(group)
+            assert [f.model_tag for f in valid] == expected
+            assert valid[-1].is_ref is True
+
+    def test_rejects_group_without_reference(self):
+        validator = self._validator(_ET.RANKING_REF)
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([self._f("A"), self._f("B")])
+        assert "exactly one reference" in str(context.value)
+
+    def test_rejects_group_with_two_references(self):
+        validator = self._validator(_ET.RANKING_REF)
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(
+                [self._f("A"), self._f("B"), self._f("R1", is_ref=True), self._f("R2", is_ref=True)]
+            )
+        assert "exactly one reference" in str(context.value)
+
+    def test_rejects_single_stimulus_with_reference(self):
+        validator = self._validator(_ET.RANKING_REF)
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([self._f("A"), self._f("R", is_ref=True)])
+        assert "at least two" in str(context.value)
+
+    def test_plain_ranking_still_rejects_a_reference(self):
+        """The only client-side guard: the SDK's upload path has no server-side
+        REFERENCE_NOT_ALLOWED_FOR_EVALUATION_TYPE equivalent."""
+        validator = self._validator(_ET.RANKING)
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(
+                [self._f("A"), self._f("B"), self._f("R", is_ref=True)]
+            )
+        assert "cannot include reference files" in str(context.value)
+
+    def test_rejects_reference_tag_colliding_with_a_stimulus_tag(self):
+        """Caught here rather than as an unexplained order error at upload."""
+        validator = self._validator(_ET.RANKING_REF)
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(
+                [self._f("A"), self._f("B"), self._f("a", is_ref=True)]
+            )
+        assert "unique model_tags within a group" in str(context.value)
+
+    def test_rejects_a_different_reference_tag_per_group(self):
+        """One reference model per evaluation, not one per script.
+
+        The backend accepts distinct tags at upload -- its check is first-seen per
+        tag and the reference always sits at the same order -- but the summary
+        screen aggregates by model_tag, so N tags render as N one-file reference
+        rows. Nothing server-side rejects it, so this is the only guard.
+        """
+        validator = self._validator(_ET.RANKING_REF)
+        validator.validate_files([self._f("A"), self._f("B"), self._f("ref_s1", is_ref=True)])
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(
+                [self._f("A"), self._f("B"), self._f("ref_s2", is_ref=True)]
+            )
+        assert "same reference model_tag in every group" in str(context.value)
+
+    def test_allows_the_same_reference_tag_across_groups(self):
+        validator = self._validator(_ET.RANKING_REF)
+        validator.validate_files([self._f("A"), self._f("B"), self._f("R", is_ref=True)])
+        valid = validator.validate_files([self._f("A"), self._f("B"), self._f("R", is_ref=True)])
+        assert [f.model_tag for f in valid] == ["A", "B", "R"]
+
+    def test_rejects_inconsistent_stimulus_order_across_groups(self):
+        validator = self._validator(_ET.RANKING_REF)
+        validator.validate_files([self._f("A"), self._f("B"), self._f("R", is_ref=True)])
+        with pytest.raises(ValueError) as context:
+            validator.validate_files([self._f("B"), self._f("A"), self._f("R", is_ref=True)])
+        assert "identical model_tag order" in str(context.value)
+
+    def test_rejects_inconsistent_group_size(self):
+        validator = self._validator(_ET.RANKING_REF)
+        validator.validate_files([self._f("A"), self._f("B"), self._f("R", is_ref=True)])
+        with pytest.raises(ValueError) as context:
+            validator.validate_files(
+                [self._f("A"), self._f("B"), self._f("C"), self._f("R", is_ref=True)]
+            )
+        assert "consistent group size" in str(context.value)
+
+    def test_transform_stores_the_reference_last_as_ref_type(self):
+        from podonos.common.enum import QuestionFileType
+        from podonos.core.config import EvalConfig
+        from podonos.core.file import FileTransformer
+
+        cfg = EvalConfig(type=_ET.CUSTOM_DOUBLE.value)
+        cfg._eval_type = _ET.RANKING_REF  # type: ignore
+        validator = self._validator(_ET.RANKING_REF)
+
+        valid = validator.validate_files(
+            [self._f("R", is_ref=True), self._f("A"), self._f("B")]
+        )
+        group = FileTransformer(cfg).transform_into_audio_group(valid)
+
+        refs = [a for a in group.audios if a.type == QuestionFileType.REF]
+        assert len(refs) == 1
+        assert refs[0].order_in_group == max(a.order_in_group for a in group.audios)
+        assert [a.order_in_group for a in group.audios] == [0, 1, 2]
+        assert [a.model_tag for a in group.audios] == ["A", "B", "R"]
 
 
 if __name__ == "__main__":

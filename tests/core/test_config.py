@@ -1,6 +1,6 @@
 import unittest
 from podonos.core.config import EvalConfig, EvalConfigDefault
-from podonos.common.enum import Language, AIEvalType
+from podonos.common.enum import Language, AIEvalType, EvalType
 
 
 class TestEvalConfig(unittest.TestCase):
@@ -169,6 +169,31 @@ class TestEvalConfig(unittest.TestCase):
         config = EvalConfig(skip_default_questions=True)
         dto = config.to_create_request_dto()
         self.assertTrue(dto["skip_default_questions"])
+
+    def test_validate_eval_type_accepts_ranking_ref(self):
+        result = self.eval_config._validate_eval_type("RANKING_REF")  # type: ignore
+        self.assertEqual(result, EvalType.RANKING_REF)
+
+    def test_ranking_ref_create_request_dto(self):
+        """The create payload's evaluation_type is what prices the evaluation.
+
+        batch_size is a placeholder -- the real group size is sent later by
+        _update_ranking_batch_size_before_upload -- but it must already clear the
+        backend minimum of 3 for SPEECH_RANKING_REF. Sending 2 fails creation with
+        "Batch size must be at least 3 for SPEECH_RANKING_REF"
+        (evaluation_domain_service.py:118, reached from
+        create_evaluation_application_service.py:103).
+        """
+        config = EvalConfig(type="RANKING_REF")
+        dto = config.to_create_request_dto()
+        self.assertEqual(dto["evaluation_type"], "SPEECH_RANKING_REF")
+        self.assertEqual(dto["batch_size"], 3)
+
+    def test_ranking_create_request_dto_unchanged(self):
+        config = EvalConfig(type="RANKING")
+        dto = config.to_create_request_dto()
+        self.assertEqual(dto["evaluation_type"], "SPEECH_RANKING")
+        self.assertEqual(dto["batch_size"], 2)
 
     def test_to_create_from_template_request_dto(self):
         self.eval_config._eval_template_id = "template123"  # type: ignore

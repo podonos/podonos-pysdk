@@ -206,7 +206,7 @@ class Evaluator:
                 f"{supported_types}"
             )
         elif method_name == "add_ranking_set":
-            supported_types = [EvalType.RANKING]
+            supported_types = EvalType.get_ranking_types()
             error_msg = (
                 f"The '{method_name}' is only supported for ranking evaluation types: "
                 f"{supported_types}"
@@ -242,7 +242,7 @@ class Evaluator:
 
     def close(self) -> Dict[str, str]:
         self._validate_close()
-        if self._eval_config.eval_type == EvalType.RANKING:
+        if EvalType.is_ranking(self._eval_config.eval_type.value):
             self._update_ranking_batch_size_before_upload()
             self._store_upload_ledger_contract()
         self._wait_for_uploads()
@@ -351,12 +351,16 @@ class Evaluator:
 
     @validate_args(files=Rules.list_not_none)
     def add_ranking_set(self, files: List[File]) -> None:
-        """Add one ranking set (ordered candidates) for RANKING evaluation.
+        """Add one ranking set (ordered candidates) for a ranking evaluation.
 
         Constraints enforced across calls:
         - All groups must have the same number of files.
-        - Order of model_tag must be identical across groups.
-        - Files must be stimuli (no reference).
+        - Order of stimulus model_tag must be identical across groups.
+        - RANKING: every file must be a stimulus (no reference).
+        - RANKING_REF: exactly one file with `is_ref=True` and at least two stimuli.
+          The reference may sit anywhere in `files`; it is sorted to the last
+          `order_in_group` internally, so alternating argument order across calls is
+          safe.
         """
         if not self._initialized:
             raise ValueError("Evaluator is not initialized")
@@ -1153,3 +1157,12 @@ class Evaluator:
             },
         )
         self._eval_config.eval_batch_size = group_size
+        # The only SDK-side trace of the batch_size/type contract on a *successful*
+        # request. The `context=` above reaches a log line only through
+        # `_format_retry_context`, which runs on retries and failures, and its
+        # safe_keys list drops "operation" anyway. A wrong value here is a wrong
+        # invoice with no error, so it gets one line.
+        log.info(
+            f"Ranking batch_size resolved: "
+            f"type={self._eval_config.eval_type.get_type()} batch_size={group_size}"
+        )

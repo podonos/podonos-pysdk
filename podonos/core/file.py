@@ -271,6 +271,7 @@ class FileValidator:
         # RANKING state across groups
         self._ranking_expected_length: Optional[int] = None
         self._ranking_canonical_order: Optional[List[str]] = None
+        self._ranking_reference_tag: Optional[str] = None
 
     @validate_args(file=Rules.instance_of(File))
     def validate_file(self, file: File) -> File:
@@ -299,7 +300,7 @@ class FileValidator:
             return self._validate_one_stimulus_and_one_ref_files(files)
         elif self._eval_config.eval_type in [EvalType.CSMOS]:
             return self._validate_two_stimuli_and_one_ref_files(files)
-        elif self._eval_config.eval_type in [EvalType.RANKING]:
+        elif self._eval_config.eval_type in EvalType.get_ranking_types():
             return self._validate_ranking_files(files)
         else:
             raise ValueError(
@@ -378,13 +379,47 @@ class FileValidator:
     @validate_args(files=Rules.list_not_none)
     def _validate_ranking_files(self, files: List[Optional[File]]) -> List[File]:
         """
-        Validate files for RANKING evaluations.
+        Validate files for RANKING and RANKING_REF evaluations.
+
         Constraints:
         - No upper limit within a group (N files), but N must be >= 2.
-        - All files in a group must be stimuli (is_ref == False).
-        - Within a group: all model_tags must be unique (case-insensitive).
-        - Across groups: file count must be identical.
-        - Across groups: order of model_tag must be identical.
+        - RANKING: all files must be stimuli (is_ref == False). The backend has no
+          equivalent check on the direct file-upload path the SDK uses
+          (REFERENCE_NOT_ALLOWED_FOR_EVALUATION_TYPE has a single call site, on the
+          model-API path), so this is the only thing standing between a mistyped
+          call and a mispriced evaluation.
+        - RANKING_REF: exactly one reference and at least two stimuli per group.
+        - Within a group: all model_tags must be unique (case-insensitive),
+          *including the reference*. Not excluding it costs no code and matches the
+          backend's effective rule: `validate_model_tag_order_slots` requires one
+          model_tag to hold the same `order` in every group, so a reference sharing
+          a stimulus tag is rejected at upload with an error that never mentions
+          references. Rejecting it here names the reference.
+        - Across groups: file count must be identical (reference included).
+        - Across groups: order of *stimulus* model_tags must be identical, and the
+          reference's model_tag must be identical too. The reference is kept out of
+          the stimulus order list only so its error message can name it.
+
+          A per-group reference tag passes the backend's upload check -- that one is
+          first-seen per tag, and the reference always lands on the same order --
+          but it is not what the rest of the product expects. The summary screen
+          aggregates by model_tag (`num_files_per_model` in
+          get_evaluation_summary_application_service), so N distinct reference tags
+          render as N separate one-file reference rows instead of one. The quote is
+          unaffected (it divides the total file count by batch_size), but the screen
+          is wrong, and nothing server-side rejects it.
+        - The reference is returned last. This is not a backend requirement -- the
+          backend sorts REF to the front of the match response regardless of stored
+          order -- but `AudioGroup.set_audios` requires list order to match
+          `order_in_group`, and `to_create_file_dict()` feeds
+          `stable_manifest_contract`, so a normal form independent of argument order
+          is what keeps a resumed upload's ledger identity stable.
+
+        Together the within-group uniqueness check and the stimuli-only canonical
+        order transitively rule out a reference tag colliding with *any* group's
+        stimulus tags: the canonical order pins every group to the same stimulus tag
+        set. Removing either one silently breaks that.
+
         This method maintains canonical state for length and model_tag order
         within the validator instance across successive calls.
         """
@@ -394,13 +429,25 @@ class FileValidator:
         if len(valid_files) < 2:
             raise ValueError("RANKING requires at least two files in a group")
 
-        for i, f in enumerate(valid_files):
-            if f.is_ref:
-                raise ValueError(
-                    f"RANKING groups cannot include reference files (index {i} has is_ref=True)"
-                )
+        stimuli = [f for f in valid_files if not f.is_ref]
+        refs = [f for f in valid_files if f.is_ref]
 
-        # Check for duplicate model_tags within the group (case-insensitive)
+        if self._eval_config.eval_type == EvalType.RANKING_REF:
+            if len(refs) != 1 or len(stimuli) < 2:
+                raise ValueError(
+                    "RANKING_REF requires exactly one reference and at least two "
+                    f"stimuli per group. Got {len(refs)} reference(s) and "
+                    f"{len(stimuli)} stimulus/stimuli."
+                )
+        else:
+            for i, f in enumerate(valid_files):
+                if f.is_ref:
+                    raise ValueError(
+                        f"RANKING groups cannot include reference files (index {i} has is_ref=True)"
+                    )
+
+        # Check for duplicate model_tags within the group (case-insensitive).
+        # The reference participates: see the docstring.
         model_tags_lower = [f.model_tag.lower() for f in valid_files]
         seen_tags: Set[str] = set()
         for i, tag_lower in enumerate(model_tags_lower):
@@ -411,7 +458,7 @@ class FileValidator:
                 )
             seen_tags.add(tag_lower)
 
-        current_order: List[str] = [f.model_tag for f in valid_files]
+        current_order: List[str] = [f.model_tag for f in stimuli]
         current_size: int = len(valid_files)
 
         if self._ranking_expected_length is None:
@@ -423,6 +470,18 @@ class FileValidator:
                     f"Expected {self._ranking_expected_length}, got {current_size}."
                 )
 
+        if refs:
+            reference_tag = refs[0].model_tag
+            if self._ranking_reference_tag is None:
+                self._ranking_reference_tag = reference_tag
+            elif reference_tag != self._ranking_reference_tag:
+                raise ValueError(
+                    "RANKING_REF requires the same reference model_tag in every group. "
+                    f"Expected '{self._ranking_reference_tag}', got '{reference_tag}'. "
+                    "Distinct reference tags upload without error but split the "
+                    "reference into one row per tag in the evaluation summary."
+                )
+
         if self._ranking_canonical_order is None:
             self._ranking_canonical_order = current_order
         else:
@@ -432,7 +491,7 @@ class FileValidator:
                     f"Expected {self._ranking_canonical_order}, got {current_order}."
                 )
 
-        return valid_files
+        return stimuli + refs
 
     @validate_args(file=Rules.instance_of(File))
     def _validate_file_common(self, file: File) -> File:
@@ -984,7 +1043,7 @@ class FileTransformer:
             return self._transform_one_stimulus_and_one_ref_files(files)
         elif self._eval_config.eval_type in [EvalType.CSMOS]:
             return self._transform_two_stimuli_and_one_ref_files(files)
-        elif self._eval_config.eval_type in [EvalType.RANKING]:
+        elif self._eval_config.eval_type in EvalType.get_ranking_types():
             return self._transform_ranking_files(files)
         else:
             raise ValueError(
@@ -1061,6 +1120,16 @@ class FileTransformer:
 
     @validate_args(files=Rules.list_not_none)
     def _transform_ranking_files(self, files: List[File]) -> AudioGroup:
+        """Enumerate the group in the order `_validate_ranking_files` returned.
+
+        For RANKING_REF that order is stimuli-then-reference. Storing the reference
+        last is not a backend requirement: the backend sorts REF to the front of the
+        match response regardless of stored `order`. It is an SDK requirement --
+        `AudioGroup.set_audios` rejects a list whose position disagrees with
+        `order_in_group`, and `to_create_file_dict()` feeds
+        `stable_manifest_contract`, so without a normal form the same file set passed
+        in a different argument order would produce a different resume identity.
+        """
         group_id = generate_random_group_name()
         return AudioGroup(
             group_id=group_id,

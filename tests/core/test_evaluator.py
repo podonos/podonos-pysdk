@@ -1676,5 +1676,129 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(mock_upload.call_count, 2)
 
 
+class TestEvaluatorRankingRef(unittest.TestCase):
+    """RANKING_REF resume and call-ordering."""
+
+    def setUp(self):
+        self.test_wav = TESTDATA_SPEECH_TWO_CH1_WAV
+        self.api_client = Mock(spec=APIClient)
+        self.state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.state_dir.cleanup)
+
+    def _evaluator(self, evaluation_id: str, state_path: str, eval_type: EvalType):
+        current_time = datetime.now(timezone.utc)
+        evaluation = EvaluationEntity(
+            id=evaluation_id,
+            title="ranking ref",
+            internal_name=None,
+            description=None,
+            batch_size=2,
+            status="DRAFT",
+            created_time=current_time,
+            updated_time=current_time,
+        )
+        eval_config = EvalConfig(
+            type=eval_type.value,
+            resume_upload=True,
+            upload_state_path=state_path,
+        )
+        with patch.object(Evaluator, "_set_evaluation", return_value=evaluation):
+            return Evaluator(
+                api_client=self.api_client,
+                eval_config=eval_config,
+                supported_eval_types=[eval_type],
+            )
+
+    def _ranking_ref_group(self, ref_tag: str = "reference"):
+        return [
+            File(path=self.test_wav, model_tag="A"),
+            File(path=self.test_wav, model_tag="B"),
+            File(path=self.test_wav, model_tag=ref_tag, is_ref=True),
+        ]
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_resume_upload_round_trips_a_reference_bearing_group(
+        self, mock_upload: Mock
+    ):
+        """The ledger contract must record the reference-inclusive batch_size."""
+        state_path = os.path.join(self.state_dir.name, "ranking-ref-resume.sqlite")
+        evaluation_id = str(uuid4())
+        evaluator = self._evaluator(evaluation_id, state_path, EvalType.RANKING_REF)
+        evaluator._evaluation_service.update_specific_fields = Mock()  # type: ignore
+
+        evaluator.add_ranking_set(self._ranking_ref_group())
+
+        call_args = evaluator._evaluation_service.update_specific_fields.call_args  # type: ignore
+        self.assertEqual(call_args[0][1]["batch_size"], 3)
+        self.assertEqual(call_args[0][1]["evaluation_type"], "SPEECH_RANKING_REF")
+        self.assertEqual(mock_upload.call_count, 3)
+
+        contract = UploadLedger(state_path).get_evaluation_contract(evaluation_id)
+        self.assertIsNotNone(contract)
+        self.assertEqual(contract["eval_type"], EvalType.RANKING_REF.value)  # type: ignore[index]
+        self.assertEqual(contract["eval_batch_size"], 3)  # type: ignore[index]
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_batch_size_resolution_is_logged_on_the_success_path(
+        self, _mock_upload: Mock
+    ):
+        """The only SDK-side trace of a contract that is otherwise silent when wrong."""
+        state_path = os.path.join(self.state_dir.name, "ranking-ref-log.sqlite")
+        evaluator = self._evaluator(str(uuid4()), state_path, EvalType.RANKING_REF)
+        evaluator._evaluation_service.update_specific_fields = Mock()  # type: ignore
+
+        with self.assertLogs(level="INFO") as captured:
+            evaluator.add_ranking_set(self._ranking_ref_group())
+
+        self.assertTrue(
+            any(
+                "Ranking batch_size resolved: type=SPEECH_RANKING_REF batch_size=3"
+                in line
+                for line in captured.output
+            ),
+            captured.output,
+        )
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_batch_size_patch_precedes_file_metadata_registration(
+        self, _mock_upload: Mock
+    ):
+        """The PATCH reaches the backend's delete-all-files path.
+
+        It is only harmless because it is sent before any file metadata exists.
+        If close() ever registers metadata first, the backend wipes the files.
+        """
+        state_path = os.path.join(self.state_dir.name, "ranking-ref-order.sqlite")
+        evaluator = self._evaluator(str(uuid4()), state_path, EvalType.RANKING_REF)
+
+        service = Mock()
+        service.process_files.return_value.processing_count = 6
+        evaluator._evaluation_service = service  # type: ignore
+
+        manager = Mock()
+        manager.attach_mock(service.update_specific_fields, "patch_fields")
+
+        with patch.object(
+            Evaluator, "_register_metadata_for_audios"
+        ) as mock_register, patch.object(
+            Evaluator, "_wait_for_uploads"
+        ), patch.object(
+            Evaluator, "_verify_files_in_batches"
+        ), patch.object(
+            Evaluator, "_upload_session_json"
+        ), patch.object(
+            Evaluator, "_cleanup"
+        ):
+            manager.attach_mock(mock_register, "register")
+            evaluator.add_ranking_set(self._ranking_ref_group())
+            evaluator.add_ranking_set(self._ranking_ref_group())
+            evaluator.close()
+
+        names = [name for name, _args, _kwargs in manager.mock_calls]
+        self.assertIn("patch_fields", names)
+        self.assertIn("register", names)
+        self.assertLess(names.index("patch_fields"), names.index("register"))
+
+
 if __name__ == "__main__":
     unittest.main()

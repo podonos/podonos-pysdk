@@ -1082,7 +1082,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
                 json=self.template_data, name="Test", custom_type="TRIPLE"
             )  # type: ignore
         self.assertIn(
-            "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, or RANKING",
+            "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, RANKING, or RANKING_REF",
             str(context.exception),
         )
 
@@ -1373,7 +1373,7 @@ class TestClient(unittest.TestCase):
                 json=self.template_data, name="Test", custom_type="TRIPLE"
             )  # type: ignore
         self.assertIn(
-            "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, or RANKING",
+            "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, RANKING, or RANKING_REF",
             str(context.exception),
         )
 

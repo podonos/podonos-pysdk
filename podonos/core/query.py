@@ -170,7 +170,7 @@ class Question(ABC):
             }
             if question_type_str not in allowed_types:
                 raise ValueError(
-                    "RANKING evaluation allows only Instruction (DO/WARNING/DONT/EXAMPLE) and COMPARISON question types"
+                    "RANKING evaluation allows only Instruction (DO/WARNING/DONT/EXAMPLE) and COMPARISON question types (this applies to RANKING_REF as well)"
                 )
 
         question_map = {

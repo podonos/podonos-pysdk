@@ -539,6 +539,46 @@ class TestTemplateValidator(unittest.TestCase):
                 data, batch_size=2, eval_type=EvalType.RANKING
             )
 
+    def test_template_validator_ranking_ref_allows_instruction_and_comparison(self):
+        """ranking_mode must be family-wide: if RANKING_REF misses it, the
+        ranking-only question restriction silently turns off with no error."""
+        data: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "instructions": [
+                {"type": "DO", "instruction": "Follow the guide"},
+            ],
+            "questions": [
+                {
+                    "type": "COMPARISON",
+                    "question": "A vs B",
+                    "anchor_label": {"label_text": {"left": "Left", "right": "Right"}},
+                }
+            ],
+        }
+        instructions, questions, annotations = (
+            TemplateValidator.validate_and_create_questions(
+                data, batch_size=3, eval_type=EvalType.RANKING_REF
+            )
+        )
+        assert len(instructions) == 1
+        assert len(questions) == 1
+        assert len(annotations) == 0
+
+    def test_template_validator_ranking_ref_rejects_scored(self):
+        data: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
+            "instructions": [],
+            "questions": [
+                {
+                    "type": "SCORED",
+                    "question": "Rate",
+                    "options": [{"label_text": "1"}],
+                }
+            ],
+        }
+        with pytest.raises(Exception):
+            TemplateValidator.validate_and_create_questions(
+                data, batch_size=3, eval_type=EvalType.RANKING_REF
+            )
+
     def test_validate_comparison_question_missing_anchor_label(self):
         # Given
         invalid_template: Dict[TYPE_OF_TEMPLATE_KEY, Any] = {
