@@ -1685,7 +1685,13 @@ class TestEvaluatorRankingRef(unittest.TestCase):
         self.state_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.state_dir.cleanup)
 
-    def _evaluator(self, evaluation_id: str, state_path: str, eval_type: EvalType):
+    def _evaluator(
+        self,
+        evaluation_id: str,
+        state_path: str,
+        eval_type: EvalType,
+        resume_upload: bool = True,
+    ):
         current_time = datetime.now(timezone.utc)
         evaluation = EvaluationEntity(
             id=evaluation_id,
@@ -1699,8 +1705,8 @@ class TestEvaluatorRankingRef(unittest.TestCase):
         )
         eval_config = EvalConfig(
             type=eval_type.value,
-            resume_upload=True,
-            upload_state_path=state_path,
+            resume_upload=resume_upload,
+            upload_state_path=state_path if resume_upload else None,
         )
         with patch.object(Evaluator, "_set_evaluation", return_value=evaluation):
             return Evaluator(
@@ -1758,6 +1764,69 @@ class TestEvaluatorRankingRef(unittest.TestCase):
             ),
             captured.output,
         )
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_a_rejected_group_does_not_pin_the_cross_group_invariants(
+        self, _mock_upload: Mock
+    ):
+        """A group that never joined the evaluation must not constrain later ones."""
+        state_path = os.path.join(self.state_dir.name, "ranking-ref-rollback.sqlite")
+        evaluator = self._evaluator(str(uuid4()), state_path, EvalType.RANKING_REF)
+        evaluator._evaluation_service.update_specific_fields = Mock(  # type: ignore
+            side_effect=RuntimeError("transient")
+        )
+
+        with self.assertRaises(RuntimeError):
+            evaluator.add_ranking_set(self._ranking_ref_group("first_reference"))
+        self.assertEqual(evaluator._ordered_file_groups, [])  # type: ignore[attr-defined]
+
+        # The retry uses a different reference tag and a different group size; neither
+        # may collide with the rolled-back attempt.
+        evaluator._evaluation_service.update_specific_fields = Mock()  # type: ignore
+        evaluator.add_ranking_set(
+            [
+                File(path=self.test_wav, model_tag="A"),
+                File(path=self.test_wav, model_tag="B"),
+                File(path=self.test_wav, model_tag="C"),
+                File(path=self.test_wav, model_tag="second_reference", is_ref=True),
+            ]
+        )
+        self.assertEqual(len(evaluator._ordered_file_groups), 1)  # type: ignore[attr-defined]
+
+    @patch.object(Evaluator, "_upload_one_file")
+    def test_close_sends_batch_size_on_the_default_path(self, _mock_upload: Mock):
+        """resume_upload defaults to False, so close() is the only caller.
+
+        Every other RANKING_REF test here sets resume_upload=True, which makes
+        add_ranking_set send the PATCH. Without this case the ranking-family
+        dispatch in close() is unguarded, and a regression there sends no PATCH at
+        all: the evaluation keeps its creation placeholder while the groups store
+        order_in_group up to stimuli+1, so orders exceed batch_size and the query
+        count -- the invoice -- is computed against the wrong divisor, with no error.
+        """
+        evaluator = self._evaluator(
+            str(uuid4()), "", EvalType.RANKING_REF, resume_upload=False
+        )
+        service = Mock()
+        service.process_files.return_value.processing_count = 4
+        evaluator._evaluation_service = service  # type: ignore
+
+        evaluator.add_ranking_set(self._ranking_ref_group())
+        service.update_specific_fields.assert_not_called()
+
+        with patch.object(Evaluator, "_register_metadata_for_audios"), patch.object(
+            Evaluator, "_wait_for_uploads"
+        ), patch.object(Evaluator, "_verify_files_in_batches"), patch.object(
+            Evaluator, "_upload_session_json"
+        ), patch.object(
+            Evaluator, "_cleanup"
+        ):
+            evaluator.close()
+
+        service.update_specific_fields.assert_called_once()
+        payload = service.update_specific_fields.call_args[0][1]
+        self.assertEqual(payload["batch_size"], 3)
+        self.assertEqual(payload["evaluation_type"], "SPEECH_RANKING_REF")
 
     @patch.object(Evaluator, "_upload_one_file")
     def test_batch_size_patch_precedes_file_metadata_registration(

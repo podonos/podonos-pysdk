@@ -165,6 +165,7 @@ cython_debug/
 # Files for testing
 audio
 forms.py
+ranking_ref_dev_check.py
 
 *.env
 *.csv

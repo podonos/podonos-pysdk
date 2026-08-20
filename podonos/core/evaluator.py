@@ -367,17 +367,29 @@ class Evaluator:
 
         self._validate_eval_type("add_ranking_set")
 
-        validated_files = self._file_validator.validate_files(files)
-        audio_group = self._file_transformer.transform_into_audio_group(validated_files)
-        self._ordered_file_groups.append(audio_group)
-        self._assign_group_ordinal(audio_group)
-        if self._eval_config.resume_upload:
-            try:
+        # The validator commits the cross-group invariants (group size, stimulus
+        # order, reference tag) as soon as a group is accepted. If anything below
+        # fails, this group never joins the evaluation, so those invariants must not
+        # outlive it -- otherwise a retry after a transient failure is rejected for
+        # disagreeing with a group that was rolled back.
+        ranking_state = self._file_validator.snapshot_ranking_state()
+        appended = False
+        try:
+            validated_files = self._file_validator.validate_files(files)
+            audio_group = self._file_transformer.transform_into_audio_group(
+                validated_files
+            )
+            self._ordered_file_groups.append(audio_group)
+            appended = True
+            self._assign_group_ordinal(audio_group)
+            if self._eval_config.resume_upload:
                 self._update_ranking_batch_size_before_upload()
                 self._store_upload_ledger_contract()
-            except Exception:
+        except Exception:
+            if appended:
                 self._ordered_file_groups.pop()
-                raise
+            self._file_validator.restore_ranking_state(ranking_state)
+            raise
         for audio in audio_group.audios:
             self._upload_one_file(evaluation_id=self.get_evaluation_id(), audio=audio)
 

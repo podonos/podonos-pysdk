@@ -1737,14 +1737,20 @@ class TestFileRankingRef(unittest.TestCase):
         assert [f.is_ref for f in valid] == [False, False, True]
 
     def test_reference_position_in_argument_list_does_not_matter(self):
-        """The reference may sit anywhere; the stored order must be identical."""
+        """The reference may sit anywhere; the stored order must be identical.
+
+        One validator across all three calls on purpose: alternating the argument
+        position only stays safe because the cross-group order check covers stimuli
+        only. A fresh validator per iteration would compare each group against empty
+        state and prove nothing.
+        """
         expected = ["A", "B", "R"]
+        validator = self._validator(_ET.RANKING_REF)
         for group in (
             [self._f("R", is_ref=True), self._f("A"), self._f("B")],
             [self._f("A"), self._f("R", is_ref=True), self._f("B")],
             [self._f("A"), self._f("B"), self._f("R", is_ref=True)],
         ):
-            validator = self._validator(_ET.RANKING_REF)
             valid = validator.validate_files(group)
             assert [f.model_tag for f in valid] == expected
             assert valid[-1].is_ref is True

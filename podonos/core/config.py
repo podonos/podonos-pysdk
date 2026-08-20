@@ -345,9 +345,8 @@ class EvalConfig:
             return 3
         elif EvalType.is_ranking(eval_type):
             # Placeholder; the real size is sent by _update_ranking_batch_size_before_upload.
-            # It still has to clear the backend's per-type minimum at creation:
-            # EvaluationDomainService.get_batch_size_by_type raises below 2 for
-            # SPEECH_RANKING and below 3 for SPEECH_RANKING_REF (2 stimuli + 1 reference).
+            # It still has to clear the minimum the service accepts at creation time:
+            # 2 for a plain ranking, 3 for one with a reference (2 stimuli + 1 ref).
             return 3 if EvalType(eval_type) == EvalType.RANKING_REF else 2
         else:
             raise ValueError(

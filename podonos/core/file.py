@@ -273,6 +273,27 @@ class FileValidator:
         self._ranking_canonical_order: Optional[List[str]] = None
         self._ranking_reference_tag: Optional[str] = None
 
+    def snapshot_ranking_state(self) -> Tuple[Any, ...]:
+        """Capture the cross-group ranking invariants so a rejected group can undo them.
+
+        `validate_files` commits these as soon as the first group is accepted, but the
+        caller can still fail afterwards. Without a restore, a group that never made it
+        into the evaluation would keep pinning the size, order and reference tag of
+        every later call.
+        """
+        return (
+            self._ranking_expected_length,
+            self._ranking_canonical_order,
+            self._ranking_reference_tag,
+        )
+
+    def restore_ranking_state(self, state: Tuple[Any, ...]) -> None:
+        (
+            self._ranking_expected_length,
+            self._ranking_canonical_order,
+            self._ranking_reference_tag,
+        ) = state
+
     @validate_args(file=Rules.instance_of(File))
     def validate_file(self, file: File) -> File:
         """Validate file based on evaluation type"""
@@ -383,37 +404,29 @@ class FileValidator:
 
         Constraints:
         - No upper limit within a group (N files), but N must be >= 2.
-        - RANKING: all files must be stimuli (is_ref == False). The backend has no
-          equivalent check on the direct file-upload path the SDK uses
-          (REFERENCE_NOT_ALLOWED_FOR_EVALUATION_TYPE has a single call site, on the
-          model-API path), so this is the only thing standing between a mistyped
-          call and a mispriced evaluation.
+        - RANKING: all files must be stimuli (is_ref == False). A reference on a plain
+          ranking evaluation is rejected here, where the mistake is still cheap to
+          explain.
         - RANKING_REF: exactly one reference and at least two stimuli per group.
         - Within a group: all model_tags must be unique (case-insensitive),
-          *including the reference*. Not excluding it costs no code and matches the
-          backend's effective rule: `validate_model_tag_order_slots` requires one
-          model_tag to hold the same `order` in every group, so a reference sharing
-          a stimulus tag is rejected at upload with an error that never mentions
-          references. Rejecting it here names the reference.
+          *including the reference*. A model_tag has to occupy the same position in
+          every group, so a reference sharing a stimulus tag is rejected at upload
+          anyway -- but by an error that never mentions references. Rejecting it here
+          names the reference.
         - Across groups: file count must be identical (reference included).
         - Across groups: order of *stimulus* model_tags must be identical, and the
           reference's model_tag must be identical too. The reference is kept out of
           the stimulus order list only so its error message can name it.
 
-          A per-group reference tag passes the backend's upload check -- that one is
-          first-seen per tag, and the reference always lands on the same order --
-          but it is not what the rest of the product expects. The summary screen
-          aggregates by model_tag (`num_files_per_model` in
-          get_evaluation_summary_application_service), so N distinct reference tags
-          render as N separate one-file reference rows instead of one. The quote is
-          unaffected (it divides the total file count by batch_size), but the screen
-          is wrong, and nothing server-side rejects it.
-        - The reference is returned last. This is not a backend requirement -- the
-          backend sorts REF to the front of the match response regardless of stored
-          order -- but `AudioGroup.set_audios` requires list order to match
-          `order_in_group`, and `to_create_file_dict()` feeds
-          `stable_manifest_contract`, so a normal form independent of argument order
-          is what keeps a resumed upload's ledger identity stable.
+          A per-group reference tag uploads without complaint, but a model_tag names
+          a model, and the workspace aggregates by it: N distinct reference tags show
+          up as N separate one-file reference rows instead of one. The quote is
+          unaffected, so the only symptom is a wrong screen.
+        - The reference is returned last. Display order is decided server-side, so
+          this is an SDK requirement rather than a wire one: `AudioGroup.set_audios`
+          requires list order to match `order_in_group`, and `to_create_file_dict()`
+          feeds `stable_manifest_contract`, so a normal form independent of argument
+          order is what keeps a resumed upload's ledger identity stable.
 
         Together the within-group uniqueness check and the stimuli-only canonical
         order transitively rule out a reference tag colliding with *any* group's
@@ -1122,9 +1135,8 @@ class FileTransformer:
     def _transform_ranking_files(self, files: List[File]) -> AudioGroup:
         """Enumerate the group in the order `_validate_ranking_files` returned.
 
-        For RANKING_REF that order is stimuli-then-reference. Storing the reference
-        last is not a backend requirement: the backend sorts REF to the front of the
-        match response regardless of stored `order`. It is an SDK requirement --
+        For RANKING_REF that order is stimuli-then-reference. Display order is decided
+        server-side, so storing it last is an SDK requirement rather than a wire one:
         `AudioGroup.set_audios` rejects a list whose position disagrees with
         `order_in_group`, and `to_create_file_dict()` feeds
         `stable_manifest_contract`, so without a normal form the same file set passed
