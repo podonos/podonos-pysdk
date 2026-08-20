@@ -138,8 +138,9 @@ class TemplateValidator:
         if question_length < 1 or question_length > 9:
             raise ValueError("Template must contain between 1 and 9 questions")
 
-        # Restrict types for RANKING: only Instruction and ComparisonQuestion are allowed
-        ranking_mode = eval_type == EvalType.RANKING
+        # Restrict types for the ranking family (RANKING, RANKING_REF): only
+        # Instruction and ComparisonQuestion are allowed.
+        ranking_mode = EvalType.is_ranking(eval_type.value)
         instructions_expected = [Instruction]
         core_expected = (
             [ComparisonQuestion]

@@ -206,7 +206,7 @@ class Evaluator:
                 f"{supported_types}"
             )
         elif method_name == "add_ranking_set":
-            supported_types = [EvalType.RANKING]
+            supported_types = EvalType.get_ranking_types()
             error_msg = (
                 f"The '{method_name}' is only supported for ranking evaluation types: "
                 f"{supported_types}"
@@ -242,7 +242,7 @@ class Evaluator:
 
     def close(self) -> Dict[str, str]:
         self._validate_close()
-        if self._eval_config.eval_type == EvalType.RANKING:
+        if EvalType.is_ranking(self._eval_config.eval_type.value):
             self._update_ranking_batch_size_before_upload()
             self._store_upload_ledger_contract()
         self._wait_for_uploads()
@@ -351,29 +351,45 @@ class Evaluator:
 
     @validate_args(files=Rules.list_not_none)
     def add_ranking_set(self, files: List[File]) -> None:
-        """Add one ranking set (ordered candidates) for RANKING evaluation.
+        """Add one ranking set (ordered candidates) for a ranking evaluation.
 
         Constraints enforced across calls:
         - All groups must have the same number of files.
-        - Order of model_tag must be identical across groups.
-        - Files must be stimuli (no reference).
+        - Order of stimulus model_tag must be identical across groups.
+        - RANKING: every file must be a stimulus (no reference).
+        - RANKING_REF: exactly one file with `is_ref=True` and at least two stimuli.
+          The reference may sit anywhere in `files`; it is sorted to the last
+          `order_in_group` internally, so alternating argument order across calls is
+          safe.
         """
         if not self._initialized:
             raise ValueError("Evaluator is not initialized")
 
         self._validate_eval_type("add_ranking_set")
 
-        validated_files = self._file_validator.validate_files(files)
-        audio_group = self._file_transformer.transform_into_audio_group(validated_files)
-        self._ordered_file_groups.append(audio_group)
-        self._assign_group_ordinal(audio_group)
-        if self._eval_config.resume_upload:
-            try:
+        # The validator commits the cross-group invariants (group size, stimulus
+        # order, reference tag) as soon as a group is accepted. If anything below
+        # fails, this group never joins the evaluation, so those invariants must not
+        # outlive it -- otherwise a retry after a transient failure is rejected for
+        # disagreeing with a group that was rolled back.
+        ranking_state = self._file_validator.snapshot_ranking_state()
+        appended = False
+        try:
+            validated_files = self._file_validator.validate_files(files)
+            audio_group = self._file_transformer.transform_into_audio_group(
+                validated_files
+            )
+            self._ordered_file_groups.append(audio_group)
+            appended = True
+            self._assign_group_ordinal(audio_group)
+            if self._eval_config.resume_upload:
                 self._update_ranking_batch_size_before_upload()
                 self._store_upload_ledger_contract()
-            except Exception:
+        except Exception:
+            if appended:
                 self._ordered_file_groups.pop()
-                raise
+            self._file_validator.restore_ranking_state(ranking_state)
+            raise
         for audio in audio_group.audios:
             self._upload_one_file(evaluation_id=self.get_evaluation_id(), audio=audio)
 
@@ -1153,3 +1169,12 @@ class Evaluator:
             },
         )
         self._eval_config.eval_batch_size = group_size
+        # The only SDK-side trace of the batch_size/type contract on a *successful*
+        # request. The `context=` above reaches a log line only through
+        # `_format_retry_context`, which runs on retries and failures, and its
+        # safe_keys list drops "operation" anyway. A wrong value here is a wrong
+        # invoice with no error, so it gets one line.
+        log.info(
+            f"Ranking batch_size resolved: "
+            f"type={self._eval_config.eval_type.get_type()} batch_size={group_size}"
+        )

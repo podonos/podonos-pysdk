@@ -266,9 +266,10 @@ class EvalConfig:
             EvalType.CUSTOM_SINGLE.value,
             EvalType.CUSTOM_DOUBLE.value,
             EvalType.RANKING.value,
+            EvalType.RANKING_REF.value,
         ]:
             raise ValueError(
-                '"type" must be one of {NMOS, QMOS, CMOS, CSMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING}. \n'
+                '"type" must be one of {NMOS, QMOS, CMOS, CSMOS, SMOS, P808, PREF, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING, RANKING_REF}. \n'
                 + f"Do you want other evaluation types? Let us know at {PODONOS_CONTACT_EMAIL}"
             )
         return EvalType(eval_type)
@@ -343,10 +344,13 @@ class EvalConfig:
         elif EvalType.is_triple(eval_type):
             return 3
         elif EvalType.is_ranking(eval_type):
-            return 2  # Placeholder; actual size set by _update_ranking_batch_size_before_upload
+            # Placeholder; the real size is sent by _update_ranking_batch_size_before_upload.
+            # It still has to clear the minimum the service accepts at creation time:
+            # 2 for a plain ranking, 3 for one with a reference (2 stimuli + 1 ref).
+            return 3 if EvalType(eval_type) == EvalType.RANKING_REF else 2
         else:
             raise ValueError(
-                '"eval_type" must be one of {NMOS, QMOS, P808, CMOS, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING}.'
+                '"eval_type" must be one of {NMOS, QMOS, P808, CMOS, SMOS, PREF, CSMOS, CUSTOM_SINGLE, CUSTOM_DOUBLE, RANKING, RANKING_REF}.'
             )
 
     # TODO: allow floating point hours, e.g. 0.5.

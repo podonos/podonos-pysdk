@@ -181,7 +181,7 @@ class TestEvalTypeEnum(unittest.TestCase):
         self.assertFalse(EvalType.is_ranking("PREF"))
 
     def test_get_ranking_types(self):
-        self.assertEqual(EvalType.get_ranking_types(), [EvalType.RANKING])
+        self.assertEqual(EvalType.get_ranking_types(), [EvalType.RANKING, EvalType.RANKING_REF])
 
     def test_selected_from_template_ranking(self):
         self.assertEqual(
@@ -194,6 +194,32 @@ class TestEvalTypeEnum(unittest.TestCase):
 
     def test_custom_type_values_includes_ranking(self):
         self.assertIn("RANKING", CustomType.values())
+
+    def test_ranking_ref_wire_type(self):
+        """The wire value decides SPEECH_RANKING vs SPEECH_RANKING_REF, i.e. the price."""
+        self.assertEqual(EvalType.RANKING_REF.get_type(), "SPEECH_RANKING_REF")
+
+    def test_is_ranking_covers_ranking_ref(self):
+        self.assertTrue(EvalType.is_ranking("RANKING_REF"))
+
+    def test_get_supported_types_for_ranking_ref(self):
+        """Not the whole family: each ranking variant is its own contract."""
+        self.assertEqual(
+            EvalType.get_supported_types_for(EvalType.RANKING_REF),
+            [EvalType.RANKING_REF],
+        )
+
+    def test_selected_from_template_ranking_ref(self):
+        self.assertEqual(
+            EvalType.selected_from_template_evaluation_type("SPEECH_RANKING_REF"),
+            EvalType.RANKING_REF,
+        )
+
+    def test_custom_type_from_value_ranking_ref(self):
+        self.assertEqual(CustomType.from_value("RANKING_REF"), CustomType.RANKING_REF)
+
+    def test_custom_type_values_includes_ranking_ref(self):
+        self.assertIn("RANKING_REF", CustomType.values())
 
     def test_language_indonesian(self):
         self.assertEqual(Language.INDONESIAN.value, "id-id")

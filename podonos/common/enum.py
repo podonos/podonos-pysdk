@@ -12,6 +12,7 @@ class EvalType(Enum):
     QMOS = "QMOS"
     P808 = "P808"
     RANKING = "RANKING"
+    RANKING_REF = "RANKING_REF"
     SMOS = "SMOS"
     PREF = "PREF"
     CMOS = "CMOS"
@@ -60,8 +61,13 @@ class EvalType(Enum):
 
     @staticmethod
     def get_ranking_types() -> List["EvalType"]:
-        """Get all ranking evaluation types"""
-        return [EvalType.RANKING]
+        """Get all ranking evaluation types.
+
+        RANKING_REF is the same tournament with one per-group reference stimulus.
+        Both members share every dispatch branch; only `_validate_ranking_files`
+        distinguishes them.
+        """
+        return [EvalType.RANKING, EvalType.RANKING_REF]
 
     @staticmethod
     def selected_from_template_evaluation_type(
@@ -81,6 +87,7 @@ class EvalType(Enum):
             "SPEECH_DMOS": EvalType.DMOS,
             "SPEECH_CSMOS": EvalType.CSMOS,
             "SPEECH_RANKING": EvalType.RANKING,
+            "SPEECH_RANKING_REF": EvalType.RANKING_REF,
         }
         if evaluation_type in mapping:
             return mapping[evaluation_type]
@@ -107,7 +114,9 @@ class EvalType(Enum):
         if selected in EvalType.get_triple_types():
             return EvalType.get_triple_types()
         if selected in EvalType.get_ranking_types():
-            return EvalType.get_ranking_types()
+            # Not the whole family: RANKING and RANKING_REF are separate contracts,
+            # and returning both would widen the Evaluator's type check for no gain.
+            return [selected]
         return []
 
     @staticmethod
@@ -142,6 +151,7 @@ class CustomType(Enum):
     DOUBLE = "DOUBLE"
     SINGLE_REF = "SINGLE_REF"
     RANKING = "RANKING"
+    RANKING_REF = "RANKING_REF"
 
     @classmethod
     def from_value(cls, value: str) -> "CustomType":
@@ -150,7 +160,7 @@ class CustomType(Enum):
                 return member
         raise ValueError(
             f"Invalid custom_type: {value}. "
-            f"Use one of: SINGLE, DOUBLE, SINGLE_REF, RANKING"
+            f"Use one of: SINGLE, DOUBLE, SINGLE_REF, RANKING, RANKING_REF"
         )
 
     @staticmethod

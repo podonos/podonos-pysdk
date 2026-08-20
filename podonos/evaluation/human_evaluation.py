@@ -101,7 +101,7 @@ class HumanEvaluation:
         if not EvalType.is_eval_type(type):
             raise ValueError(
                 "Not supported evaluation types. Use one of the "
-                "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'CSMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE', 'RANKING'}"
+                "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'CSMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE', 'RANKING', 'RANKING_REF'}"
             )
 
         eval_config = EvalConfig(
@@ -227,7 +227,7 @@ class HumanEvaluation:
         if not EvalType.is_eval_type(type):
             raise ValueError(
                 "Not supported evaluation types. Use one of the "
-                "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'CSMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE', 'RANKING'}"
+                "{'NMOS', 'QMOS', 'P808', 'CMOS', 'SMOS', 'CSMOS', 'PREF', 'CUSTOM_SINGLE', 'CUSTOM_DOUBLE', 'RANKING', 'RANKING_REF'}"
             )
 
         eval_config = EvalConfig(
@@ -445,7 +445,7 @@ class HumanEvaluation:
             json: Template JSON as a dictionary. Optional if json_file is provided.
             json_file: Path to the JSON template file. Optional if json is provided.
             name: This evaluation name. Required.
-            custom_type: Type of evaluation (CustomType.SINGLE, CustomType.DOUBLE, or CustomType.SINGLE_REF). Also accepts string values.
+            custom_type: Type of evaluation (CustomType.SINGLE, CustomType.DOUBLE, CustomType.SINGLE_REF, CustomType.RANKING, or CustomType.RANKING_REF). Also accepts string values.
             desc: Description of this evaluation. Optional.
             lan: Language for evaluation. Defaults to EvalConfigDefault.LAN.value.
             num_eval: The number of evaluators per file. Should be >=1.
@@ -475,7 +475,7 @@ class HumanEvaluation:
                 custom_type = CustomType.from_value(custom_type)
             except ValueError:
                 raise ValueError(
-                    "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, or RANKING"
+                    "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, RANKING, or RANKING_REF"
                 )
 
         if custom_type == CustomType.SINGLE:
@@ -490,9 +490,12 @@ class HumanEvaluation:
         elif custom_type == CustomType.RANKING:
             eval_type = EvalType.RANKING
             batch_size = 2  # Placeholder; actual size set by _update_ranking_batch_size_before_upload
+        elif custom_type == CustomType.RANKING_REF:
+            eval_type = EvalType.RANKING_REF
+            batch_size = 2  # Placeholder; actual size set by _update_ranking_batch_size_before_upload
         else:
             raise ValueError(
-                "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, or RANKING"
+                "custom_type must be one of SINGLE, DOUBLE, SINGLE_REF, RANKING, or RANKING_REF"
             )
         # Load template data
         template_data = TemplateJsonLoader.load_json(json, json_file)
