@@ -1,3 +1,7 @@
+## 0.48.0
+
+- Add Bengali (`bn-in`), Gujarati (`gu-in`), Marathi (`mr-in`), and Telugu (`te-in`) to the supported evaluation languages
+
 ## 0.47.0
 
 - Report evaluation progress from `get_evaluation_list()`. Each row now carries `progress` (0 to 100), `started_time` and `ended_time`, so a finished evaluation can be detected from the SDK instead of the web app. All three are None when the backend does not report them, so guard before comparing
