@@ -1,3 +1,10 @@
+## 0.46.0
+
+- Honor `auto_start`. When `auto_start=True`, `close()` now waits for the uploaded files to finish processing and then starts the evaluation, **which charges your workspace balance**, raising if it cannot. Pair it with `resume_upload=True` so a failed start can be recovered. The flag has been accepted and ignored since 2025-01; evaluations created with it sat in draft with no error
+- Add `start_timeout`, the number of seconds `close()` waits when `auto_start` is True. Default 1800. Tune it down in CI, where a blocking `close()` costs runner time
+- Send `auto_start` when creating an evaluation from a template, so `create_evaluator_from_template(auto_start=True)` can actually start
+- Raise a `ValueError` naming the cause when `close()` is called with no files added, instead of a bare `AssertionError`
+
 ## 0.45.0
 
 - Add `RANKING_REF`, a ranking evaluation where each group carries one reference stimulus. Pass the reference to `add_ranking_set()` with `is_ref=True` alongside at least two stimuli; it is sorted to the last `order_in_group` internally, so its argument position may vary between calls
