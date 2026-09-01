@@ -1,3 +1,4 @@
+import inspect
 import json
 import os
 import tempfile
@@ -1636,6 +1637,102 @@ class TestClientFlashEval(unittest.TestCase):
         self.client._initialized = False
         with self.assertRaises(ValueError):
             self.client.flash_eval("/path/to/audio.wav")
+
+
+class TestPublicConstructorSignatures(unittest.TestCase):
+    """start_timeout must stay the last parameter of every public constructor.
+
+    Inserting it mid-signature rebinds every positional argument after it, and
+    the failure is silent: Rules.positive_not_none accepts a mis-bound True
+    because bool subclasses int and True > 0. The caller then gets a 1-second
+    timeout at runtime instead of a TypeError at call time.
+    """
+
+    def test_start_timeout_is_last_parameter(self):
+        for constructor in (
+            Client.create_evaluator,
+            Client.resume_evaluator,
+            Client.create_evaluator_from_template,
+            Client.create_evaluator_from_template_json,
+        ):
+            with self.subTest(constructor=constructor.__name__):
+                parameters = list(inspect.signature(constructor).parameters)
+                self.assertEqual(parameters[-1], "start_timeout")
+
+    def test_public_constructor_docstrings_document_blocking_and_start_timeout(self):
+        """The auto_start docstring was wrong for years; it must not ship wrong again.
+
+        "blocks" is the load-bearing word: before this feature nothing started automatically,
+        and the old text said it did while saying nothing about close() blocking.
+        """
+        constructors = (
+            "create_evaluator",
+            "resume_evaluator",
+            "create_evaluator_from_template",
+            "create_evaluator_from_template_json",
+        )
+        for name in constructors:
+            with self.subTest(constructor=name):
+                doc = getattr(Client, name).__doc__ or ""
+                self.assertIn("blocks", doc)
+                self.assertIn("start_timeout", doc)
+                self.assertIn("TimeoutError", doc)
+                # M6: close() spends money now, and no user-facing text said so.
+                self.assertIn("CHARGES", doc)
+                # start_timeout limits when the SDK stops issuing requests; it does not bound
+                # the phase, because a request already in flight may outlive it. Scoped to the
+                # start_timeout paragraph rather than the whole docstring: a bare substring
+                # check over 100 lines fails open, blocking CI the day an unrelated parameter
+                # legitimately uses the word.
+                start_timeout_doc = self._doc_section(doc, "start_timeout:")
+                self.assertNotIn("bounds", start_timeout_doc)
+
+    @staticmethod
+    def _doc_section(doc: str, label: str) -> str:
+        """Return the one Args: entry beginning with `label`, up to the next entry."""
+        lines = doc.splitlines()
+        for i, line in enumerate(lines):
+            if line.strip().startswith(label):
+                indent = len(line) - len(line.lstrip())
+                section = [line]
+                for follow in lines[i + 1 :]:
+                    if follow.strip() and (len(follow) - len(follow.lstrip())) <= indent:
+                        break
+                    section.append(follow)
+                return "\n".join(section)
+        raise AssertionError(f"no {label} entry in docstring")
+
+    def test_resume_evaluator_documents_that_auto_start_comes_from_the_session(self):
+        """resume_evaluator silently ignores the caller's auto_start -- say so.
+
+        A resumed close() can block for start_timeout even when the caller passed
+        auto_start=False, which is the one place a user cannot predict the behavior from
+        their own call.
+        """
+        doc = Client.resume_evaluator.__doc__ or ""
+        self.assertIn("Args:", doc)
+        self.assertIn("Raises:", doc)
+        self.assertIn("ignored", doc)
+        self.assertIn("resume_upload", doc)
+
+    def test_start_timeout_rejects_invalid_values_with_one_exception_type(self):
+        """The decorator and the config validator used to disagree on what to raise.
+
+        `0` came back as glog's FailedCheckException (an AssertionError) while `inf` came back
+        as ValueError, so `except ValueError` caught one and not the other.
+        """
+        from podonos.core.config import EvalConfig
+
+        for bad in (0, -5, float("inf"), float("nan"), True, "1800", None):
+            with self.subTest(start_timeout=bad):
+                with self.assertRaises(ValueError):
+                    EvalConfig(type="NMOS", start_timeout=bad)
+
+    def test_create_evaluator_names_the_recovery_path_after_a_failed_start(self):
+        """A user whose auto_start failed needs to find resume_evaluator from where they are."""
+        doc = Client.create_evaluator.__doc__ or ""
+        self.assertIn("resume_evaluator", doc)
+        self.assertIn("resume_upload", doc)
 
 
 if __name__ == "__main__":

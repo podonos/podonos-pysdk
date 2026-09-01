@@ -104,7 +104,11 @@ class Client:
                         Must be >= 12. Default: 12.
             use_annotation: Enable detailed annotation on script for detailed comments.
             use_loudness_normalization: Enable loudness normalization for evaluation.
-            auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
+            auto_start: When True, close() blocks until the uploaded files finish processing
+                        and then starts the evaluation, which CHARGES your workspace balance.
+                        It raises if it cannot start. When False, close() returns as soon as the
+                        uploads are done and nothing is charged until you start the evaluation
+                        yourself in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
             verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 100
             api_timeout: Default API timeout tuple. Default: (5, 30)
@@ -112,12 +116,24 @@ class Client:
             upload_timeout: Direct upload timeout tuple. Default: (10, 300)
             resume_upload: Enable SDK-local upload ledger/resume. Default: False
             upload_state_path: Optional SQLite ledger path when resume_upload is enabled.
+            start_timeout: Seconds close() waits when auto_start is True. Must be positive.
+                        Default: 1800. This limits when the SDK stops issuing new requests;
+                        a request already in flight may finish somewhat after it.
 
         Returns:
             Evaluator instance.
 
         Raises:
             ValueError: if this function is called before calling init().
+            HTTPError: from close(), when auto_start is True and the backend refuses the start.
+            TimeoutError: from close(), when auto_start is True and start_timeout elapses.
+                        This is the builtin, so `except HTTPError` will not catch it.
+
+        Pair auto_start=True with resume_upload=True and an upload_state_path. If the start
+        fails or times out, resume_evaluator() is the only way back to that evaluation --
+        without a ledger it cannot be resumed, close() cannot be retried, and re-running
+        uploads everything again into a second evaluation. Recovering by hand means starting
+        it from the web workspace.
         """
 
         if not self._initialized:
@@ -193,6 +209,30 @@ class Client:
         the order they were stored with, and only the remaining files get the
         normalized order, so the evaluation can still fail validation at checkout.
         Create a new evaluation instead.
+
+        This is also the recovery path after a failed auto_start: an evaluation whose files
+        uploaded but whose start did not complete can be resumed here, provided the original
+        run used resume_upload=True with an upload_state_path.
+
+        Args:
+            auto_start: Restored from the resumed session's ledger, so the value passed here
+                        is ignored. If the original run set it, close() blocks and starts the
+                        evaluation -- CHARGES your workspace balance -- even when you pass
+                        False. Ledgers written before 0.46.0 recorded auto_start while it did
+                        nothing, so an old session may carry a True that was never intended to
+                        spend anything; the SDK logs a warning when the restored value
+                        disagrees with the one you passed.
+            start_timeout: Seconds close() waits when the restored auto_start is True. Must be
+                        positive. Default: 1800. Unlike auto_start this is NOT restored from
+                        the session, so the value passed here wins. It limits when the SDK
+                        stops issuing new requests; a request already in flight may finish
+                        somewhat after it.
+
+        Raises:
+            ValueError: if this function is called before calling init().
+            HTTPError: from close(), when auto_start is True and the backend refuses the start.
+            TimeoutError: from close(), when auto_start is True and start_timeout elapses.
+                        This is the builtin, so `except HTTPError` will not catch it.
         """
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
@@ -259,7 +299,11 @@ class Client:
             desc: Description of this session. Optional.
             template_id: The ID of the template to use for evaluation parameters.
             num_eval: The number of evaluators per file. Should be >= 1. Default: 10
-            auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
+            auto_start: When True, close() blocks until the uploaded files finish processing
+                        and then starts the evaluation, which CHARGES your workspace balance.
+                        It raises if it cannot start. When False, close() returns as soon as the
+                        uploads are done and nothing is charged until you start the evaluation
+                        yourself in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
             use_annotation: Enable detailed annotation on script for detailed comments. Default: False
             use_loudness_normalization: Enable loudness normalization for evaluation. Default: True
@@ -269,12 +313,18 @@ class Client:
             upload_timeout: Direct upload timeout tuple. Default: (10, 300)
             resume_upload: Enable SDK-local upload ledger/resume. Default: False
             upload_state_path: Optional SQLite ledger path when resume_upload is enabled.
+            start_timeout: Seconds close() waits when auto_start is True. Must be positive.
+                        Default: 1800. This limits when the SDK stops issuing new requests;
+                        a request already in flight may finish somewhat after it.
 
         Returns:
             Evaluator instance.
 
         Raises:
             ValueError: If the template ID is invalid or not found.
+            HTTPError: from close(), when auto_start is True and the backend refuses the start.
+            TimeoutError: from close(), when auto_start is True and start_timeout elapses.
+                        This is the builtin, so `except HTTPError` will not catch it.
         """
         if not self._initialized:
             raise ValueError("This function is called before initialization.")
@@ -349,7 +399,11 @@ class Client:
             num_eval: The number of evaluators per file. Should be >=1.
             use_annotation: Enable detailed annotation on script for detailed rating reasoning.
             use_loudness_normalization: Enable loudness normalization for evaluation. Default: False
-            auto_start: The evaluation start automatically if True. Otherwise, manually start in the workspace.
+            auto_start: When True, close() blocks until the uploaded files finish processing
+                        and then starts the evaluation, which CHARGES your workspace balance.
+                        It raises if it cannot start. When False, close() returns as soon as the
+                        uploads are done and nothing is charged until you start the evaluation
+                        yourself in the workspace.
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
             verify_batch_size: The batch size for file verification API calls. Must be 1-1000. Default: 100
             api_timeout: Default API timeout tuple. Default: (5, 30)
@@ -357,6 +411,9 @@ class Client:
             upload_timeout: Direct upload timeout tuple. Default: (10, 300)
             resume_upload: Enable SDK-local upload ledger/resume. Default: False
             upload_state_path: Optional SQLite ledger path when resume_upload is enabled.
+            start_timeout: Seconds close() waits when auto_start is True. Must be positive.
+                        Default: 1800. This limits when the SDK stops issuing new requests;
+                        a request already in flight may finish somewhat after it.
 
         Returns:
             Evaluator instance.
@@ -365,6 +422,9 @@ class Client:
             ValueError: If neither json nor json_file is provided, or if both are provided
             ValueError: If custom_type is not a valid CustomType value
             ValueError: If the JSON is invalid or contains incompatible question types
+            HTTPError: from close(), when auto_start is True and the backend refuses the start.
+            TimeoutError: from close(), when auto_start is True and start_timeout elapses.
+                        This is the builtin, so `except HTTPError` will not catch it.
             FileNotFoundError: If the json_file path doesn't exist
         """
         if not self._initialized:
