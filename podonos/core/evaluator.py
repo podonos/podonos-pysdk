@@ -403,9 +403,16 @@ class Evaluator:
             raise ValueError("No evaluation session is open.")
 
     def _wait_for_uploads(self) -> None:
-        """Wait for all file uploads to complete."""
+        """Wait for all file uploads to complete.
+
+        Raises:
+            ValueError: If no file was ever added, or if the uploads were already awaited.
+        """
         log.debug("Wait until the upload manager shuts down all the upload workers")
-        assert self._upload_manager and self._upload_manager.wait_and_close()
+        if self._upload_manager is None:
+            raise ValueError("No file was added to this evaluation. Call add_file() before close().")
+        if not self._upload_manager.wait_and_close():
+            raise ValueError("The uploads for this evaluation were already awaited.")
 
     def _process_audio_files_with_verification(self) -> None:
         log.info("Uploading file metadata...")

@@ -307,6 +307,42 @@ class TestEvaluator(unittest.TestCase):
             self.evaluator._validate_close()  # type: ignore
         self.assertEqual(str(context.exception), "No evaluation session is open.")
 
+    def test_close_with_no_files_raises_value_error(self):
+        """close() with no file added names the cause instead of dying on a bare assert."""
+        for auto_start in (False, True):
+            with self.subTest(auto_start=auto_start):
+                # Given: a session that was opened but never had a file added, so the
+                # upload manager was never lazily constructed.
+                with patch.object(
+                    Evaluator, "_set_evaluation", return_value=self.mock_evaluation
+                ):
+                    evaluator = Evaluator(
+                        api_client=self.api_client,
+                        eval_config=EvalConfig(
+                            type=EvalType.NMOS.value, auto_start=auto_start
+                        ),
+                        supported_eval_types=[EvalType.NMOS],
+                    )
+                evaluator._initialized = True  # type: ignore
+                evaluator._upload_manager = None  # type: ignore
+
+                # When/Then
+                with self.assertRaises(ValueError) as context:
+                    evaluator.close()
+                self.assertIn("add_file()", str(context.exception))
+
+    def test_wait_for_uploads_raises_value_error_when_already_awaited(self):
+        """A second wait names the double-close rather than raising a bare AssertionError."""
+        # Given: wait_and_close() returns False once the manager is already shut down.
+        upload_manager = Mock()
+        upload_manager.wait_and_close.return_value = False
+        self.evaluator._upload_manager = upload_manager  # type: ignore
+
+        # When/Then
+        with self.assertRaises(ValueError) as context:
+            self.evaluator._wait_for_uploads()  # type: ignore
+        self.assertIn("already awaited", str(context.exception))
+
     def test_get_evaluation_id_successfully(self):
         """Test get_evaluation_id returns correct ID"""
         # Given
