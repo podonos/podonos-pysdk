@@ -549,4 +549,5 @@ class EvalConfig:
             "title": self._eval_name,
             "description": self._eval_description,
             "num_required_etors": self._eval_num,
+            "auto_start": self._eval_auto_start,
         }

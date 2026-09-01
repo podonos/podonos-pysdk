@@ -232,6 +232,21 @@ class TestEvalConfig(unittest.TestCase):
         self.assertIn("description", request_dto)
         self.assertIn("num_required_etors", request_dto)
 
+    def test_template_dto_sends_auto_start(self):
+        """The template path must carry auto_start, not silently default it to False.
+
+        create_evaluator_from_template is the only caller of this DTO. Without the field the
+        backend stores auto_start=False and its start endpoint then refuses the evaluation, so a
+        template user could never start one.
+        """
+        for auto_start in (True, False):
+            with self.subTest(auto_start=auto_start):
+                config = EvalConfig(type=EvalType.NMOS.value, auto_start=auto_start)
+                config._eval_template_id = "template123"  # type: ignore
+                self.assertEqual(
+                    config.to_create_from_template_request_dto()["auto_start"], auto_start
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
