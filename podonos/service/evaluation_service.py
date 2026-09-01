@@ -2,10 +2,14 @@ import hashlib
 import json
 import os
 import re
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypeVar
 from urllib.parse import urlparse
 
 from requests import Response
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import RequestException
+from requests.exceptions import HTTPError as RequestsHTTPError
+from requests.exceptions import Timeout as RequestsTimeout
 from tqdm import tqdm
 
 from podonos.common.constant import CONTENT_TYPE_TO_EXTENSION
@@ -21,7 +25,42 @@ from podonos.entity.evaluation import EvaluationEntity
 from podonos.entity.verification import ProcessFilesResponse, VerifyFilesResponse
 
 
+_PollSentinel = TypeVar("_PollSentinel")
 _TRUTHY = {"1", "true", "yes", "y", "on"}
+# Statuses the auto_start poll treats as "not ready yet" rather than as an answer. APIClient
+# already retries these itself and raises once its own attempts are exhausted, so the poll loop
+# absorbs that exception as one more tick instead of letting a rate-limit blip end a 30-minute
+# close(). Note that 409 is deliberately absent: it never reaches APIClient's retry set, so it
+# arrives as a returned Response and is classified below.
+#
+# The two poll methods below carry no blanket `except Exception`, unlike every other method in
+# this file. That wrapper would run before the `except RequestsHTTPError` clause and silently
+# swallow the retryable classification, turning an absorbed 429 into a terminal failure. Do not
+# add one when copying these methods.
+_RETRYABLE_POLL_STATUS = {408, 429, 500, 502, 503, 504}
+# 409 is the backend's "not ready yet" / "another request is mid-start". It never reaches
+# APIClient's retry set, so it arrives as a returned Response rather than as an exception --
+# which is why it belongs here and not above.
+_NOT_READY_POLL_STATUS = _RETRYABLE_POLL_STATUS | {409}
+
+# How the two auto_start endpoints answer, so a reader here does not have to reconstruct it from
+# the code below. The asymmetry in the last row is what makes the two-phase poll correct rather
+# than merely tidy.
+#
+#   GET evaluations/{id}/validate          POST evaluations/{id}/start
+#   ------------------------------------   ------------------------------------------------
+#   200 empty body -> ready                200 -> read `status`; ACTIVE/COMPLETED is success
+#   409 AUDIO_FILES_NOT_READY -> poll      409 START_IN_PROGRESS / NOT_READY -> retry
+#   429, 5xx -> poll                       429, 5xx -> retry
+#   400 INVALID_AUDIO_FILES -> terminal    400 AUTO_START_NOT_ENABLED -> terminal
+#   400 NO_EVALUATION_FILES -> terminal    400 NOT_STARTABLE (DELETED/CANCELED) -> terminal
+#
+#   400 EVALUATION_NOT_DRAFT for ANY       ACTIVE/COMPLETED report the current state and do
+#   non-DRAFT evaluation                   not start again; DELETED/CANCELED are rejected
+#
+# Both endpoints are rate limited per API key, which is why the caller backs off rather than
+# polling tightly. Success is never inferred from an error code: it is the `status` field of a
+# 200. The start response carries evaluation_id, status, internal_status and started_time.
 _PODONOS_DOWNLOAD_HOST_SUFFIXES = (".podonos.com", ".podonosapi.com")
 _PODONOS_DOWNLOAD_EXACT_HOSTS = {"podonos.com", "podonosapi.com"}
 
@@ -137,6 +176,151 @@ class EvaluationService:
             return EvaluationEntity.from_dict(response.json())
         except Exception as e:
             raise HTTPError(f"Failed to get evaluation: {e}")
+
+    @validate_args(evaluation_id=Rules.uuid_not_none)
+    def validate_evaluation(
+        self,
+        evaluation_id: str,
+        timeout: Optional[Tuple[float, float]] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Ask whether the evaluation's files are ready to be paid for and started.
+
+        This endpoint is meaningful only while the evaluation is DRAFT: it answers
+        400 BAD_REQUEST_EVALUATION_NOT_DRAFT for anything else. Callers must stop polling it
+        once a start has been issued.
+
+        Returns:
+            True when the files are ready, False when the caller should poll again.
+
+        Raises:
+            HTTPError: On a terminal response, carrying the wire error_code and error_message.
+        """
+        endpoint = f"evaluations/{evaluation_id}/validate"
+        try:
+            response = self.api_client.get(endpoint, **self._poll_kwargs(evaluation_id, timeout, context))
+        except RequestsHTTPError as e:
+            return self._absorb_or_raise(e, "validate evaluation", sentinel=False)
+        except (RequestsConnectionError, RequestsTimeout) as e:
+            # The request never got an answer, which says nothing about readiness. The caller's
+            # deadline still bounds the loop.
+            log.debug(f"Readiness check for {evaluation_id} did not reach the server: {e}")
+            return False
+        except RequestException as e:
+            # Anything else from requests is a real failure, not a tick. Wrap it so callers see
+            # the HTTPError this method documents rather than a raw transport exception.
+            raise HTTPError(f"Failed to validate evaluation: {e}")
+
+        if response.ok:
+            return True
+        if response.status_code in _NOT_READY_POLL_STATUS:
+            return False
+        raise self._poll_error(response, "validate evaluation")
+
+    @validate_args(evaluation_id=Rules.uuid_not_none)
+    def start_evaluation(
+        self,
+        evaluation_id: str,
+        timeout: Optional[Tuple[float, float]] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        """Start the evaluation, charging the workspace balance.
+
+        The endpoint is idempotent and returns the evaluation's current state, so calling it on
+        an already-started evaluation reports that state without charging again. Success is read
+        from the returned status, never inferred from an error code.
+
+        Returns:
+            The evaluation's status on a 2xx, or None when the caller should retry.
+
+        Raises:
+            HTTPError: On a terminal response, carrying the wire error_code and error_message.
+        """
+        endpoint = f"evaluations/{evaluation_id}/start"
+        try:
+            response = self.api_client.post(endpoint, data={}, **self._poll_kwargs(evaluation_id, timeout, context))
+        except RequestsHTTPError as e:
+            return self._absorb_or_raise(e, "start evaluation", sentinel=None)
+        except (RequestsConnectionError, RequestsTimeout) as e:
+            # The start may well have succeeded with only the response lost. Retrying an
+            # idempotent start is what resolves that; raising here would report failure on an
+            # evaluation the user has already been charged for.
+            log.debug(f"Start request for {evaluation_id} did not get an answer: {e}")
+            return None
+        except RequestException as e:
+            raise HTTPError(f"Failed to start evaluation: {e}")
+
+        if response.ok:
+            try:
+                return response.json().get("status")
+            except (ValueError, AttributeError) as e:
+                # A 2xx whose body is not the expected object tells us nothing. Treat it as a tick
+                # rather than letting a raw requests exception escape this service.
+                # Narrow rather than blanket, deliberately: requests.exceptions.JSONDecodeError
+                # subclasses ValueError, and a body that parses to a list gives AttributeError on
+                # .get, so these two cover the case without swallowing anything else.
+                log.warning(f"Could not read the start response for {evaluation_id}: {e}")
+                return None
+        if response.status_code in _NOT_READY_POLL_STATUS:
+            return None
+        raise self._poll_error(response, "start evaluation")
+
+    @staticmethod
+    def _poll_kwargs(
+        evaluation_id: str,
+        timeout: Optional[Tuple[float, float]],
+        context: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Build the timeout/context kwargs the poll endpoints share."""
+        kwargs: Dict[str, Any] = {"context": {**(context or {}), "evaluation_id": evaluation_id}}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        return kwargs
+
+    def _absorb_or_raise(self, error: RequestsHTTPError, action: str, sentinel: _PollSentinel) -> _PollSentinel:
+        """Absorb an exhausted transport retry as a poll tick, or re-raise it as terminal.
+
+        The raising branches are unreachable while _RETRYABLE_POLL_STATUS stays set-equal to
+        APIClient's default retry_status_codes: only those statuses reach here as an exception,
+        and all of them are absorbed. They exist so that the two drifting apart surfaces as a
+        terminal error rather than as silently swallowed.
+        """
+        # requests.HTTPError.response is Optional, hence the same getattr chain used elsewhere
+        # in this file.
+        response = getattr(error, "response", None)
+        status = getattr(response, "status_code", None)
+        if status in _RETRYABLE_POLL_STATUS:
+            log.debug(f"Failed to {action} with a retryable status ({status}); treating as not ready")
+            return sentinel
+        if response is None:
+            raise HTTPError(f"Failed to {action}: {error}", status_code=status)
+        raise self._poll_error(response, action)
+
+    def _poll_error(self, response: Response, action: str) -> HTTPError:
+        """Build the terminal error, carrying the wire error_code and error_message."""
+        error_code, error_message = self._parse_error_body(response)
+        detail = " ".join(str(part) for part in (error_code, error_message) if part)
+        return HTTPError(
+            f"Failed to {action}: {detail}".strip(),
+            status_code=response.status_code,
+            response=response,
+        )
+
+    @staticmethod
+    def _parse_error_body(response: Response) -> Tuple[Optional[str], Optional[str]]:
+        """Pull error_code and error_message off an error body.
+
+        Falls back to the raw text for a body that is not the expected JSON, such as the HTML a
+        proxy returns on a 502.
+        """
+        def _clip(value: Any) -> Optional[str]:
+            return None if value is None else redact_secrets(str(value))[:200]
+
+        try:
+            body = response.json()
+            return _clip(body.get("error_code")), _clip(body.get("error_message"))
+        except Exception:
+            return None, _clip(response.text)
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
