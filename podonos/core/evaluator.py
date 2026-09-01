@@ -1,6 +1,8 @@
 import hashlib
 import json
 import os
+import random
+import time
 from typing import Any, Dict, List, Optional
 
 from podonos.common.enum import EvalType
@@ -26,6 +28,9 @@ from podonos.errors.error import FileVerificationFailure, UploadRetryExhaustedEr
 from podonos.service.evaluation_service import EvaluationService
 
 MAX_UPLOAD_RETRIES = 3
+POLL_BASE_DELAY_SECONDS = 5
+POLL_MAX_DELAY_SECONDS = 30
+STARTED_STATUSES = ("ACTIVE", "COMPLETED")
 
 
 class Evaluator:
@@ -248,8 +253,104 @@ class Evaluator:
         self._wait_for_uploads()
         self._process_audio_files_with_verification()
         self._upload_session_json()
-        self._cleanup()
+        try:
+            if self._eval_config.eval_auto_start:
+                self._start_evaluation_when_ready()
+        finally:
+            self._cleanup()
         return {"status": "ok"}
+
+    def _start_evaluation_when_ready(self) -> None:
+        """Wait for the uploaded files to become processable, then start the evaluation.
+
+        Two phases against one deadline. The split is load-bearing rather than stylistic:
+        `validate` is only meaningful while the evaluation is DRAFT, so once a start has been
+        issued the evaluation may already be ACTIVE and `validate` would answer
+        400 BAD_REQUEST_EVALUATION_NOT_DRAFT. Re-validating there would report failure on an
+        evaluation the user has already been charged for. `start` is idempotent and returns the
+        evaluation's state, so retrying *it* is what correctly resolves a lost response.
+
+        Raises:
+            TimeoutError: If the evaluation did not start within `start_timeout`.
+            HTTPError: On a terminal response from either endpoint.
+        """
+        evaluation_id = self.get_evaluation_id()
+        # A resumed session may already be running: _set_evaluation fetched the live entity, and
+        # validate answers 400 for anything non-DRAFT. Without this, the documented recovery path
+        # (resume_evaluator after a failed start) raises on an evaluation that is already ACTIVE
+        # and already charged -- the same failure the two-phase split exists to prevent, entered
+        # through the front door instead of the retry.
+        if self._evaluation is not None and self._evaluation.status in STARTED_STATUSES:
+            log.info(f"Evaluation {evaluation_id} is already {self._evaluation.status}; nothing to start.")
+            return
+
+        started_at = time.monotonic()
+        deadline = started_at + self._eval_config.eval_start_timeout
+        attempt = 0
+
+        log.info(f"Waiting for the uploaded files to be processed (up to {int(self._eval_config.eval_start_timeout)}s)...")
+
+        # Phase 1 - readiness. The only place validate may be called.
+        while not self._evaluation_service.validate_evaluation(
+            evaluation_id,
+            timeout=self._eval_config.api_timeout,
+            context={"evaluation_id": evaluation_id},
+        ):
+            attempt = self._sleep_before_next_poll(attempt, started_at, deadline, evaluation_id, "files not ready", start_issued=False)
+
+        log.info("Files are ready. Starting the evaluation...")
+
+        # Phase 2 - start. Never call validate again; see the docstring.
+        while True:
+            status = self._evaluation_service.start_evaluation(
+                evaluation_id,
+                timeout=self._eval_config.api_timeout,
+                context={"evaluation_id": evaluation_id},
+            )
+            if status in STARTED_STATUSES:
+                log.info(f"Evaluation started. status={status}")
+                return
+            attempt = self._sleep_before_next_poll(
+                attempt, started_at, deadline, evaluation_id, f"start returned {status}", start_issued=True
+            )
+
+    def _sleep_before_next_poll(
+        self, attempt: int, started_at: float, deadline: float, evaluation_id: str, reason: str, start_issued: bool
+    ) -> int:
+        """Report progress and wait, or raise once the deadline has passed.
+
+        Reads the clock exactly once, which is what makes the timeout tests deterministic.
+        """
+        now = time.monotonic()
+        if now >= deadline:
+            # Once a start has been issued we cannot claim the evaluation did not start: every
+            # phase-2 tick (409, exhausted 429/5xx, lost response, unreadable 2xx) is consistent
+            # with a start that succeeded and charged. Saying otherwise invites a second charge.
+            outcome = "could not confirm the start of" if start_issued else "did not start"
+            raise TimeoutError(
+                f"Evaluation {evaluation_id} {outcome}: waited {int(now - started_at)}s "
+                f"of a {int(deadline - started_at)}s start_timeout; last state: {reason}"
+            )
+        log.info(f"Still waiting ({reason}); {int(now - started_at)}s elapsed")
+        # M1: clamp to the remaining budget. Sleeping the full backoff past the deadline is what
+        # made start_timeout advisory rather than binding.
+        time.sleep(min(self._poll_delay(attempt), deadline - now))
+        return attempt + 1
+
+    @staticmethod
+    def _poll_delay(attempt: int) -> float:
+        """Exponential backoff, 5s doubling to a 30s cap, with jitter.
+
+        ponytail: the jitter expression is duplicated from APIClient._calculate_delay rather than
+        shared. That method is an instance method parameterized by the transport's own
+        retry_delay/backoff_factor and has no cap, so it produces 1/2/4/8/16 instead of
+        5/10/20/30/30. If the two ever need to agree, extract a module-level helper.
+
+        The inner min() bounds the exponent rather than the delay. The outer min already caps
+        the result, so this only keeps the intermediate small on a long run.
+        """
+        base = min(POLL_MAX_DELAY_SECONDS, POLL_BASE_DELAY_SECONDS * 2 ** min(attempt, 3))
+        return base + random.uniform(0.1, 0.3) * base
 
     @validate_args(file=Rules.instance_of(File))
     def add_file(self, file: File) -> None:
@@ -403,9 +504,16 @@ class Evaluator:
             raise ValueError("No evaluation session is open.")
 
     def _wait_for_uploads(self) -> None:
-        """Wait for all file uploads to complete."""
+        """Wait for all file uploads to complete.
+
+        Raises:
+            ValueError: If no file was ever added, or if the uploads were already awaited.
+        """
         log.debug("Wait until the upload manager shuts down all the upload workers")
-        assert self._upload_manager and self._upload_manager.wait_and_close()
+        if self._upload_manager is None:
+            raise ValueError("No file was added to this evaluation. Call add_file() before close().")
+        if not self._upload_manager.wait_and_close():
+            raise ValueError("The uploads for this evaluation were already awaited.")
 
     def _process_audio_files_with_verification(self) -> None:
         log.info("Uploading file metadata...")

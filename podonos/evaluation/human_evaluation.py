@@ -67,6 +67,9 @@ class HumanEvaluation:
         upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
         resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
         upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
+        # Appended last on purpose: inserting a parameter mid-signature silently
+        # rebinds every positional argument after it.
+        start_timeout: float = EvalConfigDefault.START_TIMEOUT,
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://www.podonos.com/docs/reference#param-lan
@@ -90,6 +93,7 @@ class HumanEvaluation:
             upload_timeout: Direct upload timeout tuple. Default: (10, 300)
             resume_upload: Enable SDK-local upload ledger/resume. Default: False
             upload_state_path: Optional SQLite ledger path when resume_upload is enabled.
+            start_timeout: Seconds to wait for the evaluation to start. Must be positive. Default: 1800
 
         Returns:
             Evaluator instance.
@@ -122,6 +126,7 @@ class HumanEvaluation:
             upload_timeout=upload_timeout,
             resume_upload=resume_upload,
             upload_state_path=upload_state_path,
+            start_timeout=start_timeout,
         )
 
         if EvalType.is_double(type):
@@ -179,6 +184,7 @@ class HumanEvaluation:
         api_timeout: Tuple[float, float] = EvalConfigDefault.API_TIMEOUT,
         verify_timeout: Tuple[float, float] = EvalConfigDefault.VERIFY_TIMEOUT,
         upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
+        start_timeout: float = EvalConfigDefault.START_TIMEOUT,
     ) -> Evaluator:
         """Resume an existing evaluation using local upload ledger state."""
 
@@ -198,9 +204,18 @@ class HumanEvaluation:
             name = session_config.get("eval_name", name)
             desc = session_config.get("eval_description", desc)
             num_eval = int(session_config.get("eval_num", num_eval))
-            auto_start = self._contract_bool(
+            restored_auto_start = self._contract_bool(
                 session_config, "eval_auto_start", auto_start
             )
+            if restored_auto_start != auto_start:
+                # Ledgers written before 0.46.0 recorded auto_start while it did nothing, so a
+                # stored True is not evidence the user wanted to be charged on resume.
+                log.warning(
+                    f"auto_start={restored_auto_start} restored from the resumed session, "
+                    f"overriding the auto_start={auto_start} passed here. "
+                    f"close() will {'start and charge for' if restored_auto_start else 'not start'} this evaluation."
+                )
+            auto_start = restored_auto_start
             verify_batch_size = int(
                 session_config.get("verify_batch_size", verify_batch_size)
             )
@@ -250,6 +265,9 @@ class HumanEvaluation:
             resume_upload=True,
             upload_state_path=upload_state_path,
             resume_evaluation_id=evaluation_id,
+            # Unlike auto_start, the caller's start_timeout wins on resume: it is
+            # never stored in the ledger, so there is nothing to restore.
+            start_timeout=start_timeout,
         )
         if ledger_contract and isinstance(ledger_contract.get("session_config"), dict):
             eval_config.restore_resume_session_config(ledger_contract["session_config"])
@@ -338,6 +356,7 @@ class HumanEvaluation:
         upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
         resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
         upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
+        start_timeout: float = EvalConfigDefault.START_TIMEOUT,
     ) -> Evaluator:
         """
         Creates a new evaluator using a predefined template.
@@ -355,6 +374,7 @@ class HumanEvaluation:
             upload_timeout: Direct upload timeout tuple. Default: (10, 300)
             resume_upload: Enable SDK-local upload ledger/resume. Default: False
             upload_state_path: Optional SQLite ledger path when resume_upload is enabled.
+            start_timeout: Seconds to wait for the evaluation to start. Must be positive. Default: 1800
 
         Returns:
             Evaluator instance.
@@ -390,6 +410,7 @@ class HumanEvaluation:
             upload_timeout=upload_timeout,
             resume_upload=resume_upload,
             upload_state_path=upload_state_path,
+            start_timeout=start_timeout,
         )
 
         # Derive supported types from the selected type
@@ -438,6 +459,7 @@ class HumanEvaluation:
         upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
         resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
         upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
+        start_timeout: float = EvalConfigDefault.START_TIMEOUT,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
 
@@ -459,6 +481,7 @@ class HumanEvaluation:
             upload_timeout: Direct upload timeout tuple. Default: (10, 300)
             resume_upload: Enable SDK-local upload ledger/resume. Default: False
             upload_state_path: Optional SQLite ledger path when resume_upload is enabled.
+            start_timeout: Seconds to wait for the evaluation to start. Must be positive. Default: 1800
 
         Returns:
             Evaluator instance.
@@ -533,6 +556,7 @@ class HumanEvaluation:
             resume_upload=resume_upload,
             upload_state_path=upload_state_path,
             skip_default_questions=True,
+            start_timeout=start_timeout,
         )
         log.info(f"Created evaluation config with type: {eval_type.value}")
 

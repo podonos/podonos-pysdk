@@ -66,6 +66,9 @@ def main():
         num_eval=test_num_eval,
         due_hours=test_due_hours,
         auto_start=test_auto_start,
+        # This script picks auto_start at random, so close() now blocks on roughly half its
+        # runs. Without a short timeout it would wait up to the 30-minute default.
+        start_timeout=60,
     )
     evaluation_id = etor.get_evaluation_id()
     log.info(f"Evaluation id: {evaluation_id}")
