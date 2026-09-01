@@ -86,6 +86,9 @@ class Client:
         upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
         resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
         upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
+        # Appended last on purpose: inserting a parameter mid-signature silently
+        # rebinds every positional argument after it.
+        start_timeout: float = EvalConfigDefault.START_TIMEOUT,
     ) -> Evaluator:
         """Creates a new evaluator with a unique evaluation session ID.
         For the language code, see https://www.podonos.com/docs/reference#param-lan
@@ -137,6 +140,7 @@ class Client:
             upload_timeout=upload_timeout,
             resume_upload=resume_upload,
             upload_state_path=upload_state_path,
+            start_timeout=start_timeout,
         )
 
     @validate_args(
@@ -177,6 +181,7 @@ class Client:
         api_timeout: Tuple[float, float] = EvalConfigDefault.API_TIMEOUT,
         verify_timeout: Tuple[float, float] = EvalConfigDefault.VERIFY_TIMEOUT,
         upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
+        start_timeout: float = EvalConfigDefault.START_TIMEOUT,
     ) -> Evaluator:
         """Resume uploads for an existing evaluation using an SDK upload ledger.
 
@@ -209,6 +214,7 @@ class Client:
             api_timeout=api_timeout,
             verify_timeout=verify_timeout,
             upload_timeout=upload_timeout,
+            start_timeout=start_timeout,
         )
 
     @validate_args(
@@ -243,6 +249,7 @@ class Client:
         upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
         resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
         upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
+        start_timeout: float = EvalConfigDefault.START_TIMEOUT,
     ) -> Evaluator:
         """
         Creates a new evaluator using a predefined template.
@@ -287,6 +294,7 @@ class Client:
             upload_timeout=upload_timeout,
             resume_upload=resume_upload,
             upload_state_path=upload_state_path,
+            start_timeout=start_timeout,
         )
 
     @validate_args(
@@ -327,6 +335,7 @@ class Client:
         upload_timeout: Tuple[float, float] = EvalConfigDefault.UPLOAD_TIMEOUT,
         resume_upload: bool = EvalConfigDefault.RESUME_UPLOAD,
         upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
+        start_timeout: float = EvalConfigDefault.START_TIMEOUT,
     ) -> Evaluator:
         """Creates a new evaluator using a template JSON.
 
@@ -379,6 +388,7 @@ class Client:
             upload_timeout=upload_timeout,
             resume_upload=resume_upload,
             upload_state_path=upload_state_path,
+            start_timeout=start_timeout,
         )
 
     @validate_args(

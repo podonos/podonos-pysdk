@@ -20,6 +20,7 @@ class EvalConfigDefault:
     USE_LOUDNESS_NORMALIZATION = True
     USE_AUTO_ANALYSIS = False
     AUTO_START = False
+    START_TIMEOUT = 1800
     GRANULARITY = 1.0
     BATCH_SIZE = 1
     MAX_UPLOAD_WORKERS = 20
@@ -49,6 +50,7 @@ class EvalConfig:
         EvalConfigDefault.USE_LOUDNESS_NORMALIZATION
     )
     _eval_auto_start: bool = False
+    _eval_start_timeout: float = EvalConfigDefault.START_TIMEOUT
     _eval_template_id: Optional[str] = None
     _skip_default_questions: bool = False
     _max_upload_workers: int = EvalConfigDefault.MAX_UPLOAD_WORKERS
@@ -83,6 +85,9 @@ class EvalConfig:
         upload_state_path: Optional[str] = EvalConfigDefault.UPLOAD_STATE_PATH,
         resume_evaluation_id: Optional[str] = None,
         skip_default_questions: bool = False,
+        # Appended last on purpose: inserting a parameter mid-signature silently
+        # rebinds every positional argument after it.
+        start_timeout: float = EvalConfigDefault.START_TIMEOUT,
     ) -> None:
         self._eval_name = self._valudate_eval_name(name)
         self._eval_description = desc
@@ -101,6 +106,7 @@ class EvalConfig:
         )
         self._eval_use_loudness_normalization = use_loudness_normalization
         self._eval_auto_start = auto_start
+        self._eval_start_timeout = self._validate_start_timeout(start_timeout)
         self._eval_template_id = template_id
         self._max_upload_workers = max_upload_workers
         self._verify_batch_size = self._validate_verify_batch_size(verify_batch_size)
@@ -131,6 +137,7 @@ class EvalConfig:
             f"Evaluation use loudness normalization: {self._eval_use_loudness_normalization}"
         )
         log.debug(f"Evaluation auto start: {self._eval_auto_start}")
+        log.debug(f"Evaluation start timeout: {self._eval_start_timeout}")
         log.debug(f"Evaluation Template ID: {self._eval_template_id}")
         log.debug(f"Max upload workers: {self._max_upload_workers}")
         log.debug(f"Verify batch size: {self._verify_batch_size}")
@@ -179,6 +186,10 @@ class EvalConfig:
     @property
     def eval_auto_start(self) -> bool:
         return self._eval_auto_start
+
+    @property
+    def eval_start_timeout(self) -> float:
+        return self._eval_start_timeout
 
     @property
     def eval_template_id(self) -> Optional[str]:
@@ -416,6 +427,17 @@ class EvalConfig:
             raise ValueError(f'"{name}" connect timeout must be <= read timeout.')
 
         return (connect_timeout, read_timeout)
+
+    def _validate_start_timeout(self, start_timeout: float) -> float:
+        if isinstance(start_timeout, bool):
+            raise ValueError('"start_timeout" must be a positive number.')
+        if not isinstance(start_timeout, (int, float)):
+            raise ValueError('"start_timeout" must be a number.')
+        if not math.isfinite(float(start_timeout)):
+            raise ValueError('"start_timeout" must be finite.')
+        if start_timeout <= 0:
+            raise ValueError('"start_timeout" must be positive.')
+        return start_timeout
 
     def restore_resume_session_config(self, session_config: Dict[str, Any]) -> None:
         """Restore original session.json fields from a trusted upload ledger contract."""

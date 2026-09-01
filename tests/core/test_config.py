@@ -195,6 +195,34 @@ class TestEvalConfig(unittest.TestCase):
         self.assertEqual(dto["evaluation_type"], "SPEECH_RANKING")
         self.assertEqual(dto["batch_size"], 2)
 
+    def test_start_timeout_default(self):
+        self.assertEqual(
+            self.eval_config.eval_start_timeout, EvalConfigDefault.START_TIMEOUT
+        )
+        self.assertEqual(EvalConfigDefault.START_TIMEOUT, 1800)
+
+    def test_start_timeout_round_trips(self):
+        config = EvalConfig(start_timeout=42.5)
+        self.assertEqual(config.eval_start_timeout, 42.5)
+
+    def test_start_timeout_rejects_bool(self):
+        # bool subclasses int, so it would otherwise slip through as 1 second.
+        for value in (True, False):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    EvalConfig(start_timeout=value)  # type: ignore
+
+    def test_start_timeout_rejects_invalid_values(self):
+        for value in (0, -1, float("inf"), float("nan"), "1800", None):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    EvalConfig(start_timeout=value)  # type: ignore
+
+    def test_start_timeout_is_not_serialized(self):
+        # The server never sees start_timeout, and old session.json files must
+        # resume unchanged.
+        self.assertNotIn("eval_start_timeout", EvalConfig(start_timeout=60).to_dict())
+
     def test_to_create_from_template_request_dto(self):
         self.eval_config._eval_template_id = "template123"  # type: ignore
         request_dto = self.eval_config.to_create_from_template_request_dto()
