@@ -204,9 +204,18 @@ class HumanEvaluation:
             name = session_config.get("eval_name", name)
             desc = session_config.get("eval_description", desc)
             num_eval = int(session_config.get("eval_num", num_eval))
-            auto_start = self._contract_bool(
+            restored_auto_start = self._contract_bool(
                 session_config, "eval_auto_start", auto_start
             )
+            if restored_auto_start != auto_start:
+                # Ledgers written before 0.46.0 recorded auto_start while it did nothing, so a
+                # stored True is not evidence the user wanted to be charged on resume.
+                log.warning(
+                    f"auto_start={restored_auto_start} restored from the resumed session, "
+                    f"overriding the auto_start={auto_start} passed here. "
+                    f"close() will {'start and charge for' if restored_auto_start else 'not start'} this evaluation."
+                )
+            auto_start = restored_auto_start
             verify_batch_size = int(
                 session_config.get("verify_batch_size", verify_batch_size)
             )

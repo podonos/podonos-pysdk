@@ -876,6 +876,48 @@ class TestClientFromTemplateJson(unittest.TestCase):
         self.assertTrue(session_config["eval_auto_start"])
         self.assertEqual(session_config["verify_batch_size"], 321)
 
+    def test_resume_warns_when_the_ledger_overrides_an_explicit_auto_start(self):
+        """A stale True from a pre-0.46 ledger charges against an explicit opt-out.
+
+        Ledgers written by 0.44/0.45 already stored eval_auto_start, recorded while the flag
+        was inert. Only its effect is new, so a user resuming such a session with
+        auto_start=False can be charged for a decision they never made. The override is
+        pre-existing behavior; the warning is the part that makes it visible.
+        """
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        ledger = UploadLedger(state_path)
+        ledger.set_evaluation_contract(
+            evaluation_id,
+            _resume_contract(evaluation_id, session_overrides={"eval_auto_start": True}),
+        )
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = {
+            "id": evaluation_id,
+            "title": "resumed",
+            "internal_name": "resumed",
+            "batch_size": 1,
+            "description": None,
+            "status": "DRAFT",
+            "created_time": "2024-03-21T06:18:09.659Z",
+            "updated_time": "2024-03-21T06:18:09.659Z",
+        }
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        with patch("podonos.evaluation.human_evaluation.log.warning") as mock_warning:
+            self.client.resume_evaluator(
+                evaluation_id=evaluation_id,
+                upload_state_path=state_path,
+                auto_start=False,
+            )
+
+        warnings = " ".join(str(call.args[0]) for call in mock_warning.call_args_list)
+        self.assertIn("auto_start=True restored", warnings)
+        self.assertIn("charge", warnings)
+
     def test_resume_evaluator_rejects_contract_without_session_config(self):
         evaluation_id = str(uuid4())
         state_dir = tempfile.TemporaryDirectory()
