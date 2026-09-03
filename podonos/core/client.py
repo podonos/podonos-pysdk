@@ -230,6 +230,8 @@ class Client:
 
         Raises:
             ValueError: if this function is called before calling init().
+            EvaluationNotFoundError: if the evaluation id is not in the API key's workspace.
+                        Raised by resume_evaluator itself, not by close().
             HTTPError: from close(), when auto_start is True and the backend refuses the start.
             TimeoutError: from close(), when auto_start is True and start_timeout elapses.
                         This is the builtin, so `except HTTPError` will not catch it.

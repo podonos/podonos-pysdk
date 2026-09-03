@@ -1,3 +1,7 @@
+## 0.46.1
+
+- Fix `resume_evaluator()`, which has raised `HTTPError` on every call since 0.41.0. It read the evaluation through an endpoint that API keys cannot access, so an API key could never resume an interrupted upload. It now reads the evaluation from the workspace evaluation list, and raises `EvaluationNotFoundError` when the id is not in the workspace
+
 ## 0.46.0
 
 - Honor `auto_start`. When `auto_start=True`, `close()` now waits for the uploaded files to finish processing and then starts the evaluation, **which charges your workspace balance**, raising if it cannot. Pair it with `resume_upload=True` so a failed start can be recovered. The flag has been accepted and ignored since 2025-01; evaluations created with it sat in draft with no error

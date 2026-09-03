@@ -23,6 +23,7 @@ from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.file import Audio, AudioGroup
 from podonos.entity.evaluation import EvaluationEntity
 from podonos.entity.verification import ProcessFilesResponse, VerifyFilesResponse
+from podonos.errors.error import EvaluationNotFoundError
 
 
 _PollSentinel = TypeVar("_PollSentinel")
@@ -154,15 +155,21 @@ class EvaluationService:
             raise HTTPError(f"Failed to create the evaluation: {e}")
 
     @validate_args(evaluation_id=Rules.uuid_not_none)
-    def get_evaluation(
+    def find_evaluation_in_workspace(
         self,
         evaluation_id: str,
         timeout: Optional[Tuple[float, float]] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> EvaluationEntity:
-        """Get evaluation by ID"""
+        """Find one evaluation among the workspace's evaluations.
+
+        Reads the evaluation list rather than the single-evaluation endpoint, which an API key
+        cannot access. That is what broke resume_evaluator in 0.41.0, so do not route this back
+        to a per-id read without checking that an API key can reach it. Only the matching row
+        is parsed, so a malformed unrelated evaluation in the workspace cannot block a resume.
+        """
+        endpoint = "evaluations"
         try:
-            endpoint = f"evaluations/{evaluation_id}"
             kwargs: Dict[str, Any] = {}
             if timeout is not None:
                 kwargs["timeout"] = timeout
@@ -173,9 +180,43 @@ class EvaluationService:
                 kwargs["context"] = request_context
             response = self.api_client.get(endpoint, **kwargs)
             response.raise_for_status()
-            return EvaluationEntity.from_dict(response.json())
+            evaluations = response.json()
         except Exception as e:
-            raise HTTPError(f"Failed to get evaluation: {e}")
+            raise HTTPError(
+                f"Failed to read the workspace evaluation list while resuming "
+                f"{evaluation_id}: {e}"
+            )
+
+        # Anything but a list is the endpoint changing shape, not a missing evaluation. Say so
+        # here: an envelope like {"items": [...]} would otherwise iterate its keys, match
+        # nothing, and blame the caller's id or API key for an evaluation that is present.
+        if not isinstance(evaluations, list):
+            raise HTTPError(
+                f"Evaluation list came back as {type(evaluations).__name__}, not a list"
+            )
+
+        row = next(
+            (
+                item
+                for item in evaluations
+                if isinstance(item, dict) and item.get("id") == evaluation_id
+            ),
+            None,
+        )
+        if row is None:
+            raise EvaluationNotFoundError(
+                f"Evaluation {evaluation_id} is not in this workspace. It may have been "
+                "deleted or hidden, or the API key may belong to a different workspace."
+            )
+        try:
+            return EvaluationEntity.from_dict(row)
+        except (KeyError, ValueError, AttributeError, TypeError) as e:
+            # from_dict embeds the whole row in its message, so redact and clip it the way
+            # every other server-data error in this file does.
+            raise HTTPError(
+                f"Evaluation {evaluation_id} came back in an unexpected shape: "
+                f"{redact_secrets(e)[:200]}"
+            )
 
     @validate_args(evaluation_id=Rules.uuid_not_none)
     def validate_evaluation(

@@ -20,6 +20,14 @@ class InvalidFileError(Exception):
         super().__init__(self.message)
 
 
+class EvaluationNotFoundError(Exception):
+    """Raised when an evaluation id is not present in the workspace's evaluation list."""
+
+    def __init__(self, message: str = "This evaluation was not found"):
+        self.message = message
+        super().__init__(self.message)
+
+
 @dataclass
 class FileVerificationFailure:
     uploaded_file_name: str

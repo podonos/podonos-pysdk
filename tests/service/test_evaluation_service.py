@@ -13,6 +13,7 @@ from podonos.common.exception import HTTPError
 from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig
 from podonos.core.file import Audio
+from podonos.errors import EvaluationNotFoundError
 from podonos.service.evaluation_service import EvaluationService
 
 from tests.core.test_audio import TESTDATA_SPEECH_TWO_CH1_WAV
@@ -85,80 +86,89 @@ class TestEvaluationService(unittest.TestCase):
             "Failed to create the evaluation: Failed to create evaluation",
         )
 
-    def test_should_get_evaluation_successfully(self):
+    def test_should_find_evaluation_in_workspace_successfully(self):
         # Given
         eval_id = str(uuid4())
         current_time = datetime.now(timezone.utc)
-        expected_response = {
-            "id": eval_id,
-            "title": "Test Evaluation",
-            "internal_name": "test_internal",
-            "description": "Test description",
-            "batch_size": 10,
-            "status": "active",
-            "created_time": current_time.isoformat(),
-            "updated_time": current_time.isoformat(),
-        }
+        # The decoy comes first and would fail from_dict. Matching by id before parsing is what
+        # keeps one malformed unrelated evaluation from blocking a resume.
+        expected_response = [
+            {"id": str(uuid4())},
+            {
+                "id": eval_id,
+                "title": "Test Evaluation",
+                "internal_name": "test_internal",
+                "description": "Test description",
+                "batch_size": 10,
+                "status": "ACTIVE",
+                "created_time": current_time.isoformat(),
+                "updated_time": current_time.isoformat(),
+            },
+        ]
         self.mock_api_client.get.return_value = Mock(
             status_code=200, json=lambda: expected_response
         )
 
         # When
-        evaluation = self.service.get_evaluation(eval_id)
+        evaluation = self.service.find_evaluation_in_workspace(eval_id)
 
         # Then
-        self.mock_api_client.get.assert_called_once_with(f"evaluations/{eval_id}")
+        self.mock_api_client.get.assert_called_once_with("evaluations")
         self.assertEqual(evaluation.id, eval_id)
         self.assertEqual(evaluation.title, "Test Evaluation")
 
-    def test_should_get_evaluation_with_minimal_data(self):
+    def test_should_find_evaluation_in_workspace_with_minimal_data(self):
         # Given
         eval_id = str(uuid4())
         current_time = datetime.now(timezone.utc)
-        expected_response = {
-            "id": eval_id,
-            "title": "Test Evaluation",
-            "internal_name": None,
-            "description": None,
-            "batch_size": 10,
-            "status": "active",
-            "created_time": current_time.isoformat(),
-            "updated_time": current_time.isoformat(),
-        }
+        expected_response = [
+            {
+                "id": eval_id,
+                "title": "Test Evaluation",
+                "internal_name": None,
+                "description": None,
+                "batch_size": 10,
+                "status": "ACTIVE",
+                "created_time": current_time.isoformat(),
+                "updated_time": current_time.isoformat(),
+            }
+        ]
         self.mock_api_client.get.return_value = Mock(
             status_code=200, json=lambda: expected_response
         )
 
         # When
-        evaluation = self.service.get_evaluation(eval_id)
+        evaluation = self.service.find_evaluation_in_workspace(eval_id)
 
         # Then
-        self.mock_api_client.get.assert_called_once_with(f"evaluations/{eval_id}")
+        self.mock_api_client.get.assert_called_once_with("evaluations")
         self.assertEqual(evaluation.id, eval_id)
         self.assertEqual(evaluation.title, "Test Evaluation")
         self.assertIsNone(evaluation.internal_name)
         self.assertIsNone(evaluation.description)
 
-    def test_get_evaluation_passes_timeout_and_context_when_provided(self):
+    def test_find_evaluation_in_workspace_passes_timeout_and_context_when_provided(self):
         # Given
         eval_id = str(uuid4())
         current_time = datetime.now(timezone.utc)
-        expected_response = {
-            "id": eval_id,
-            "title": "Test Evaluation",
-            "internal_name": None,
-            "description": None,
-            "batch_size": 10,
-            "status": "active",
-            "created_time": current_time.isoformat(),
-            "updated_time": current_time.isoformat(),
-        }
+        expected_response = [
+            {
+                "id": eval_id,
+                "title": "Test Evaluation",
+                "internal_name": None,
+                "description": None,
+                "batch_size": 10,
+                "status": "ACTIVE",
+                "created_time": current_time.isoformat(),
+                "updated_time": current_time.isoformat(),
+            }
+        ]
         self.mock_api_client.get.return_value = Mock(
             status_code=200, json=lambda: expected_response
         )
 
         # When
-        evaluation = self.service.get_evaluation(
+        evaluation = self.service.find_evaluation_in_workspace(
             eval_id,
             timeout=(7, 77),
             context={"operation": "resume_evaluation"},
@@ -166,17 +176,41 @@ class TestEvaluationService(unittest.TestCase):
 
         # Then
         self.mock_api_client.get.assert_called_once_with(
-            f"evaluations/{eval_id}",
+            "evaluations",
             timeout=(7, 77),
             context={
                 "operation": "resume_evaluation",
-                "endpoint": f"evaluations/{eval_id}",
+                "endpoint": "evaluations",
                 "evaluation_id": eval_id,
             },
         )
         self.assertEqual(evaluation.id, eval_id)
 
-    def test_should_handle_get_evaluation_failure(self):
+    def test_find_evaluation_in_workspace_raises_when_id_is_absent(self):
+        # Given
+        eval_id = str(uuid4())
+        current_time = datetime.now(timezone.utc)
+        expected_response = [
+            {
+                "id": str(uuid4()),
+                "title": "Someone else's evaluation",
+                "internal_name": None,
+                "description": None,
+                "batch_size": 10,
+                "status": "ACTIVE",
+                "created_time": current_time.isoformat(),
+                "updated_time": current_time.isoformat(),
+            }
+        ]
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
+
+        # When/Then
+        with self.assertRaises(EvaluationNotFoundError):
+            self.service.find_evaluation_in_workspace(eval_id)
+
+    def test_should_handle_find_evaluation_in_workspace_failure(self):
         # Given
         eval_id = str(uuid4())
         error_response = Mock(status_code=404)
@@ -187,11 +221,27 @@ class TestEvaluationService(unittest.TestCase):
 
         # When/Then
         with self.assertRaises(HTTPError) as context:
-            self.service.get_evaluation(eval_id)
+            self.service.find_evaluation_in_workspace(eval_id)
+        # Deliberately not the old "Failed to get evaluation:" string. That is what the broken
+        # 0.41.0-0.45.0 path emitted, so reusing it would make a timeout on the workspace list
+        # indistinguishable from the bug this release claims to fix.
         self.assertEqual(
             context.exception.args[0],
-            "Failed to get evaluation: Failed to get evaluation",
+            f"Failed to read the workspace evaluation list while resuming {eval_id}: "
+            "Failed to get evaluation",
         )
+
+    def test_find_evaluation_in_workspace_rejects_a_non_list_body(self):
+        # An envelope would otherwise iterate its keys, match nothing, and raise
+        # EvaluationNotFoundError for an evaluation that is present.
+        eval_id = str(uuid4())
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200, json=lambda: {"items": [{"id": eval_id}], "total": 1}
+        )
+
+        with self.assertRaises(HTTPError) as context:
+            self.service.find_evaluation_in_workspace(eval_id)
+        self.assertIn("not a list", context.exception.args[0])
 
     def test_should_create_evaluation_files_successfully(self):
         # Given

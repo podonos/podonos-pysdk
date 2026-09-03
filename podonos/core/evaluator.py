@@ -1196,7 +1196,7 @@ class Evaluator:
     @validate_args(eval_config=Rules.instance_of(EvalConfig))
     def _set_evaluation(self, eval_config: EvalConfig) -> EvaluationEntity:
         if eval_config.resume_evaluation_id:
-            evaluation = self._evaluation_service.get_evaluation(
+            evaluation = self._evaluation_service.find_evaluation_in_workspace(
                 eval_config.resume_evaluation_id,
                 timeout=eval_config.api_timeout,
                 context={"operation": "resume_evaluation"},

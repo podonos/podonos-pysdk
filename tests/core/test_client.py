@@ -76,6 +76,29 @@ def _resume_contract(
     }
 
 
+def _resume_row(
+    evaluation_id: str,
+    *,
+    batch_size: int = 1,
+    status: str = "DRAFT",
+) -> dict[str, Any]:
+    """One row as the workspace evaluation list returns it.
+
+    Status is uppercase because that is what the backend enum emits and what
+    STARTED_STATUSES compares against.
+    """
+    return {
+        "id": evaluation_id,
+        "title": "resumed",
+        "internal_name": "resumed",
+        "batch_size": batch_size,
+        "description": None,
+        "status": status,
+        "created_time": "2024-03-21T06:18:09.659Z",
+        "updated_time": "2024-03-21T06:18:09.659Z",
+    }
+
+
 def mocked_requests_post(*args: Any, **kwargs: Any):
     if "/evaluations" in args[0]:
         # Evaluation list
@@ -665,16 +688,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
         )
 
         mock_get_response = MagicMock(status_code=200)
-        mock_get_response.json.return_value = {
-            "id": evaluation_id,
-            "title": "resumed",
-            "internal_name": "resumed",
-            "batch_size": 1,
-            "description": None,
-            "status": "DRAFT",
-            "created_time": "2024-03-21T06:18:09.659Z",
-            "updated_time": "2024-03-21T06:18:09.659Z",
-        }
+        mock_get_response.json.return_value = [_resume_row(evaluation_id)]
         mock_get_response.raise_for_status.return_value = None
         self.api_client.get = MagicMock(return_value=mock_get_response)
 
@@ -711,16 +725,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
         )
 
         mock_get_response = MagicMock(status_code=200)
-        mock_get_response.json.return_value = {
-            "id": evaluation_id,
-            "title": "resumed",
-            "internal_name": "resumed",
-            "batch_size": 1,
-            "description": None,
-            "status": "DRAFT",
-            "created_time": "2024-03-21T06:18:09.659Z",
-            "updated_time": "2024-03-21T06:18:09.659Z",
-        }
+        mock_get_response.json.return_value = [_resume_row(evaluation_id)]
         mock_get_response.raise_for_status.return_value = None
         self.api_client.get = MagicMock(return_value=mock_get_response)
 
@@ -747,16 +752,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
             ),
         )
         mock_get_response = MagicMock(status_code=200)
-        mock_get_response.json.return_value = {
-            "id": evaluation_id,
-            "title": "resumed",
-            "internal_name": "resumed",
-            "batch_size": 3,
-            "description": None,
-            "status": "DRAFT",
-            "created_time": "2024-03-21T06:18:09.659Z",
-            "updated_time": "2024-03-21T06:18:09.659Z",
-        }
+        mock_get_response.json.return_value = [_resume_row(evaluation_id, batch_size=3)]
         mock_get_response.raise_for_status.return_value = None
         self.api_client.get = MagicMock(return_value=mock_get_response)
 
@@ -794,16 +790,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
             ),
         )
         mock_get_response = MagicMock(status_code=200)
-        mock_get_response.json.return_value = {
-            "id": evaluation_id,
-            "title": "resumed",
-            "internal_name": "resumed",
-            "batch_size": 3,
-            "description": None,
-            "status": "DRAFT",
-            "created_time": "2024-03-21T06:18:09.659Z",
-            "updated_time": "2024-03-21T06:18:09.659Z",
-        }
+        mock_get_response.json.return_value = [_resume_row(evaluation_id, batch_size=3)]
         mock_get_response.raise_for_status.return_value = None
         self.api_client.get = MagicMock(return_value=mock_get_response)
 
@@ -847,16 +834,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
             ),
         )
         mock_get_response = MagicMock(status_code=200)
-        mock_get_response.json.return_value = {
-            "id": evaluation_id,
-            "title": "resumed",
-            "internal_name": "resumed",
-            "batch_size": 1,
-            "description": None,
-            "status": "DRAFT",
-            "created_time": "2024-03-21T06:18:09.659Z",
-            "updated_time": "2024-03-21T06:18:09.659Z",
-        }
+        mock_get_response.json.return_value = [_resume_row(evaluation_id)]
         mock_get_response.raise_for_status.return_value = None
         self.api_client.get = MagicMock(return_value=mock_get_response)
 
@@ -895,16 +873,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
             _resume_contract(evaluation_id, session_overrides={"eval_auto_start": True}),
         )
         mock_get_response = MagicMock(status_code=200)
-        mock_get_response.json.return_value = {
-            "id": evaluation_id,
-            "title": "resumed",
-            "internal_name": "resumed",
-            "batch_size": 1,
-            "description": None,
-            "status": "DRAFT",
-            "created_time": "2024-03-21T06:18:09.659Z",
-            "updated_time": "2024-03-21T06:18:09.659Z",
-        }
+        mock_get_response.json.return_value = [_resume_row(evaluation_id)]
         mock_get_response.raise_for_status.return_value = None
         self.api_client.get = MagicMock(return_value=mock_get_response)
 
@@ -929,16 +898,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
         contract.pop("session_config")
         ledger.set_evaluation_contract(evaluation_id, contract)
         mock_get_response = MagicMock(status_code=200)
-        mock_get_response.json.return_value = {
-            "id": evaluation_id,
-            "title": "resumed",
-            "internal_name": "resumed",
-            "batch_size": 1,
-            "description": None,
-            "status": "DRAFT",
-            "created_time": "2024-03-21T06:18:09.659Z",
-            "updated_time": "2024-03-21T06:18:09.659Z",
-        }
+        mock_get_response.json.return_value = [_resume_row(evaluation_id)]
         mock_get_response.raise_for_status.return_value = None
         self.api_client.get = MagicMock(return_value=mock_get_response)
 
@@ -965,16 +925,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
             ),
         )
         mock_get_response = MagicMock(status_code=200)
-        mock_get_response.json.return_value = {
-            "id": evaluation_id,
-            "title": "resumed",
-            "internal_name": "resumed",
-            "batch_size": 2,
-            "description": None,
-            "status": "DRAFT",
-            "created_time": "2024-03-21T06:18:09.659Z",
-            "updated_time": "2024-03-21T06:18:09.659Z",
-        }
+        mock_get_response.json.return_value = [_resume_row(evaluation_id, batch_size=2)]
         mock_get_response.raise_for_status.return_value = None
         self.api_client.get = MagicMock(return_value=mock_get_response)
 
@@ -985,6 +936,43 @@ class TestClientFromTemplateJson(unittest.TestCase):
             )
 
         self.assertIn("Backend evaluation batch_size", str(context.exception))
+
+    def test_resume_of_an_active_evaluation_skips_the_start(self):
+        # The status has to arrive live from the list read for the skip to work. The existing
+        # coverage in test_evaluator_auto_start.py patches _set_evaluation out, so it cannot
+        # prove that seam.
+        evaluation_id = str(uuid4())
+        state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(state_dir.cleanup)
+        state_path = os.path.join(state_dir.name, "state.sqlite")
+        ledger = UploadLedger(state_path)
+        ledger.set_evaluation_contract(
+            evaluation_id,
+            _resume_contract(
+                evaluation_id,
+                session_overrides={"eval_auto_start": True},
+            ),
+        )
+        mock_get_response = MagicMock(status_code=200)
+        mock_get_response.json.return_value = [_resume_row(evaluation_id, status="ACTIVE")]
+        mock_get_response.raise_for_status.return_value = None
+        self.api_client.get = MagicMock(return_value=mock_get_response)
+
+        evaluator = self.client.resume_evaluator(
+            evaluation_id=evaluation_id,
+            upload_state_path=state_path,
+        )
+        self.assertEqual(evaluator._evaluation.status, "ACTIVE")
+
+        validate = MagicMock()
+        start = MagicMock()
+        evaluator._evaluation_service.validate_evaluation = validate  # type: ignore[method-assign]
+        evaluator._evaluation_service.start_evaluation = start  # type: ignore[method-assign]
+
+        evaluator._start_evaluation_when_ready()
+
+        validate.assert_not_called()
+        start.assert_not_called()
 
     def test_resume_evaluator_rejects_path_like_evaluation_id(self):
         with self.assertRaises(ValueError):
@@ -1000,16 +988,7 @@ class TestClientFromTemplateJson(unittest.TestCase):
         state_path = os.path.join(state_dir.name, "state.sqlite")
         UploadLedger(state_path)
         mock_get_response = MagicMock(status_code=200)
-        mock_get_response.json.return_value = {
-            "id": evaluation_id,
-            "title": "resumed",
-            "internal_name": "resumed",
-            "batch_size": 1,
-            "description": None,
-            "status": "DRAFT",
-            "created_time": "2024-03-21T06:18:09.659Z",
-            "updated_time": "2024-03-21T06:18:09.659Z",
-        }
+        mock_get_response.json.return_value = [_resume_row(evaluation_id)]
         mock_get_response.raise_for_status.return_value = None
         self.api_client.get = MagicMock(return_value=mock_get_response)
 
