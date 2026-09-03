@@ -21,7 +21,7 @@ from podonos.core.api import APIClient
 from podonos.core.base import log
 from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.file import Audio, AudioGroup
-from podonos.entity.evaluation import EvaluationEntity
+from podonos.entity.evaluation import EvaluationEntity, EvaluationProgress
 from podonos.entity.verification import ProcessFilesResponse, VerifyFilesResponse
 from podonos.errors.error import EvaluationNotFoundError
 
@@ -43,6 +43,10 @@ _RETRYABLE_POLL_STATUS = {408, 429, 500, 502, 503, 504}
 # APIClient's retry set, so it arrives as a returned Response rather than as an exception --
 # which is why it belongs here and not above.
 _NOT_READY_POLL_STATUS = _RETRYABLE_POLL_STATUS | {409}
+# The two 401 codes GET evaluations/{id}/progress uses for "not an evaluation you can see":
+# the id is unknown or the key's creator is not a member, and the key belongs to another
+# workspace. Any other 401 is about the credential, not the evaluation.
+_NOT_IN_WORKSPACE_CODES = {"UNAUTHORIZED_TO_ACCESS_WORKSPACE", "UNAUTHORIZED_TO_ACCESS_EVALUATION"}
 
 # How the two auto_start endpoints answer, so a reader here does not have to reconstruct it from
 # the code below. The asymmetry in the last row is what makes the two-phase poll correct rather
@@ -215,6 +219,88 @@ class EvaluationService:
             # every other server-data error in this file does.
             raise HTTPError(
                 f"Evaluation {evaluation_id} came back in an unexpected shape: "
+                f"{redact_secrets(e)[:200]}"
+            )
+
+    @validate_args(evaluation_id=Rules.uuid_not_none)
+    def get_evaluation_progress(
+        self,
+        evaluation_id: str,
+        timeout: Optional[Tuple[float, float]] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> EvaluationProgress:
+        """Read one evaluation's status and progress.
+
+        The public contract (completion gate, rate limit, what each error means) lives on
+        ``Client.get_evaluation_progress``; this method only maps the wire to it.
+
+        Raises:
+            EvaluationNotFoundError: the backend answered 401 with a workspace-scoped code,
+                which is how it reports an id it will not confirm exists.
+            HTTPError: anything else, including a 401 for a bad or revoked key and a 404
+                from a backend that does not serve this endpoint yet.
+        """
+        endpoint = f"evaluations/{evaluation_id}/progress"
+        try:
+            kwargs: Dict[str, Any] = {}
+            if timeout is not None:
+                kwargs["timeout"] = timeout
+            if context is not None:
+                request_context = dict(context)
+                request_context["endpoint"] = endpoint
+                request_context["evaluation_id"] = evaluation_id
+                kwargs["context"] = request_context
+            response = self.api_client.get(endpoint, **kwargs)
+        except Exception as e:
+            raise HTTPError(
+                f"Failed to get the progress of evaluation {evaluation_id}: {e}",
+                status_code=getattr(getattr(e, "response", None), "status_code", None),
+            )
+
+        if response.status_code == 401:
+            # Only the two workspace-scoped codes mean "not your evaluation". A missing or
+            # revoked key is also a 401, and reporting that as a deleted evaluation would send
+            # the operator chasing the wrong problem.
+            error_code, error_message = self._parse_error_body(response)
+            if error_code in _NOT_IN_WORKSPACE_CODES:
+                raise EvaluationNotFoundError(
+                    f"Evaluation {evaluation_id} is not in this workspace. It may have been "
+                    "deleted, or the API key may belong to a different workspace."
+                )
+            raise HTTPError(
+                f"Failed to get the progress of evaluation {evaluation_id}: "
+                f"{' '.join(str(part) for part in (error_code, error_message) if part)}".strip(),
+                status_code=401,
+                response=response,
+            )
+        if response.status_code == 404:
+            # Distinct from the 401 above on purpose. The route itself is missing, which means
+            # the backend has not deployed it, and reporting that as a missing evaluation would
+            # send the caller looking for the wrong problem.
+            raise HTTPError(
+                "This Podonos backend does not serve evaluation progress yet. Retry once the "
+                "backend is updated, or read progress from get_evaluation_list().",
+                status_code=404,
+                response=response,
+            )
+
+        try:
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as e:
+            raise HTTPError(
+                f"Failed to get the progress of evaluation {evaluation_id}: {e}",
+                status_code=response.status_code,
+                response=response,
+            )
+
+        try:
+            return EvaluationProgress.from_dict(payload)
+        except (KeyError, ValueError, AttributeError, TypeError) as e:
+            # from_dict embeds the whole payload in its message, so redact and clip it the way
+            # every other server-data error in this file does.
+            raise HTTPError(
+                f"Progress for evaluation {evaluation_id} came back in an unexpected shape: "
                 f"{redact_secrets(e)[:200]}"
             )
 

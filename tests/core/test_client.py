@@ -3,6 +3,7 @@ import json
 import os
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -18,6 +19,7 @@ from podonos.common.util import calculate_file_md5_base64
 from podonos.core.api import APIClient
 from podonos.core.client import Client
 from podonos.core.evaluator import Evaluator
+from podonos.entity.evaluation import EvaluationProgress
 from podonos.core.file import Audio, File
 from podonos.core.upload_ledger import UploadLedger, build_upload_manifest_hash
 
@@ -153,6 +155,18 @@ def mocked_requests_get(*args: Any, **kwargs: Any):
             )
         ]
         return _make_response(json_data=evaluation_stats, status_code=200)
+
+    if "/evaluations" in args[0] and "/progress" in args[0]:
+        # Progress by id. Must precede the generic /evaluations branch below.
+        evaluation_progress = dict(
+            id=args[0].rstrip("/").split("/")[-2],
+            status="ACTIVE",
+            internal_status="EVAL_HUMAN_EVAL_START",
+            progress=52.5,
+            started_time="2026-09-03T04:10:22.123456",
+            ended_time=None,
+        )
+        return _make_response(json_data=evaluation_progress, status_code=200)
 
     if "/evaluations" in args[0]:
         # Evaluation list
@@ -421,6 +435,28 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue("ended_time" in json)
         self.assertEqual(json["progress"], 52.5)
         self.assertIsNone(json["ended_time"])
+
+    @mock.patch("requests.get", side_effect=mocked_requests_get)
+    def test_evaluation_progress_by_id(self, mock_get: Any):
+        self._mock_client = podonos.init(api_key=self.valid_api_key)
+        evaluation_id = str(uuid4())
+        progress = self._mock_client.get_evaluation_progress(evaluation_id)
+
+        self.assertTrue(isinstance(progress, EvaluationProgress))
+        self.assertEqual(progress.id, evaluation_id)
+        self.assertEqual(progress.status, "ACTIVE")
+        self.assertEqual(progress.internal_status, "EVAL_HUMAN_EVAL_START")
+        self.assertEqual(progress.progress, 52.5)
+        self.assertEqual(
+            progress.started_time, datetime.fromisoformat("2026-09-03T04:10:22.123456+00:00")
+        )
+        self.assertIsNone(progress.ended_time)
+
+    @mock.patch("requests.get", side_effect=mocked_requests_get)
+    def test_evaluation_progress_rejects_a_non_uuid_id(self, mock_get: Any):
+        self._mock_client = podonos.init(api_key=self.valid_api_key)
+        with self.assertRaises(ValueError):
+            self._mock_client.get_evaluation_progress("not-a-uuid")
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     def test_stimulus_stats_by_id(self, mock_get: Any):

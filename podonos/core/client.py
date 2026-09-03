@@ -7,6 +7,7 @@ from podonos.core.base import *
 from podonos.core.config import EvalConfigDefault
 from podonos.core.evaluator import Evaluator
 from podonos.evaluation import AIEvaluation, HumanEvaluation
+from podonos.entity.evaluation import EvaluationProgress
 from podonos.entity.flash_eval import FlashEvalResult
 from podonos.service import (
     CollectionService,
@@ -527,6 +528,37 @@ class Client:
             Evaluation containing all the evaluation info
         """
         return self._evaluation_service.get_evaluation_list()
+
+    @validate_args(evaluation_id=Rules.uuid_not_none)
+    def get_evaluation_progress(self, evaluation_id: str) -> EvaluationProgress:
+        """Gets the status and progress of one evaluation.
+
+        Completion is `status == "COMPLETED"`, never `progress >= 100`, for the reason given
+        in get_evaluation_list(). `COMPLETED`, `CANCELED` and `DELETED` are the states worth
+        stopping a poll on; a deleted or hidden evaluation still reports its real status here
+        rather than disappearing the way it does from get_evaluation_list().
+
+        The backend allows 60 requests per minute per API key, counted across every evaluation
+        id rather than per evaluation. Polling N evaluations therefore wants an interval of at
+        least N seconds. A 429 is retried with backoff by the transport, and those retries
+        count against the same budget; a sustained 429 surfaces as an `HTTPError` with
+        status 429 once the retries are exhausted.
+
+        Args:
+            evaluation_id: Evaluation id. See get_evaluation_list() above.
+
+        Returns:
+            EvaluationProgress for the evaluation.
+
+        Raises:
+            EvaluationNotFoundError: if the id is not in this API key's workspace. The backend
+                       answers this as 401 rather than 404 so it never reveals whether the id
+                       exists somewhere else.
+            HTTPError: on any other failure. A 401 for a missing or revoked key stays an
+                       HTTPError so it is not mistaken for a deleted evaluation, and a 404
+                       means the backend does not serve evaluation progress yet.
+        """
+        return self._evaluation_service.get_evaluation_progress(evaluation_id)
 
     @validate_args(evaluation_id=Rules.uuid_not_none, group_by=Rules.str_non_empty)
     def get_stats_json_by_id(

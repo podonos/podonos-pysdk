@@ -93,3 +93,47 @@ class EvaluationEntity:
             "created_time": _format_time(self.created_time),
             "updated_time": _format_time(self.updated_time),
         }
+
+
+@dataclass
+class EvaluationProgress:
+    """One evaluation's progress, as returned by GET evaluations/{id}/progress.
+
+    Deliberately not an EvaluationEntity. That entity requires title, batch_size,
+    created_time and updated_time, none of which this endpoint returns, so parsing the
+    progress payload into it raises. See ``Client.get_evaluation_progress`` for how to
+    read these fields.
+    """
+
+    id: str
+    status: str
+    internal_status: str
+    progress: float
+    started_time: Optional[datetime] = None
+    ended_time: Optional[datetime] = None
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "EvaluationProgress":
+        required_keys = ["id", "status", "internal_status", "progress"]
+        for key in required_keys:
+            if key not in data:
+                raise ValueError(f"Invalid data format for EvaluationProgress: {data}")
+
+        return EvaluationProgress(
+            id=data["id"],
+            status=data["status"],
+            internal_status=data["internal_status"],
+            progress=data["progress"],
+            started_time=_parse_optional_time(data.get("started_time")),
+            ended_time=_parse_optional_time(data.get("ended_time")),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "status": self.status,
+            "internal_status": self.internal_status,
+            "progress": self.progress,
+            "started_time": _format_optional_time(self.started_time),
+            "ended_time": _format_optional_time(self.ended_time),
+        }
