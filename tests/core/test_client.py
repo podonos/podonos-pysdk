@@ -430,7 +430,7 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue("created_time" in json)
         self.assertTrue("updated_time" in json)
         self.assertTrue("progress" in json)
-        self.assertTrue("internal_status" in json)
+        self.assertFalse("internal_status" in json)
         self.assertTrue("started_time" in json)
         self.assertTrue("ended_time" in json)
         self.assertEqual(json["progress"], 52.5)
@@ -445,7 +445,7 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue(isinstance(progress, EvaluationProgress))
         self.assertEqual(progress.id, evaluation_id)
         self.assertEqual(progress.status, "ACTIVE")
-        self.assertEqual(progress.internal_status, "EVAL_HUMAN_EVAL_START")
+        self.assertFalse(hasattr(progress, "internal_status"))
         self.assertEqual(progress.progress, 52.5)
         self.assertEqual(
             progress.started_time, datetime.fromisoformat("2026-09-03T04:10:22.123456+00:00")

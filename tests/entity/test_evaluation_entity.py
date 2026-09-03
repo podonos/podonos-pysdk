@@ -52,7 +52,7 @@ class TestEvaluationEntity(unittest.TestCase):
         # than vanishing. Every key the caller had before is still present and unrenamed.
         expected = dict(self.valid_data)
         expected.update(
-            progress=None, internal_status=None, started_time=None, ended_time=None
+            progress=None, started_time=None, ended_time=None
         )
         self.assertEqual(result, expected)
 
@@ -71,7 +71,8 @@ class TestEvaluationEntity(unittest.TestCase):
 
         # Then
         self.assertEqual(entity.progress, 52.5)
-        self.assertEqual(entity.internal_status, "EVAL_HUMAN_EVAL_START")
+        # internal_status is on the wire but is not part of the SDK surface.
+        self.assertNotIn("internal_status", entity.to_dict())
         self.assertEqual(
             entity.started_time, datetime.fromisoformat("2023-10-01T13:00:00.000+00:00")
         )
@@ -114,7 +115,7 @@ class TestEvaluationProgress(unittest.TestCase):
         # Then
         self.assertEqual(progress.id, "123")
         self.assertEqual(progress.status, "ACTIVE")
-        self.assertEqual(progress.internal_status, "EVAL_HUMAN_EVAL_START")
+        self.assertNotIn("internal_status", progress.to_dict())
         self.assertEqual(progress.progress, 52.5)
         self.assertEqual(
             progress.started_time, datetime.fromisoformat("2026-09-03T04:10:22.123456+00:00")

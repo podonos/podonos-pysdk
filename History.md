@@ -1,6 +1,6 @@
 ## 0.47.0
 
-- Report evaluation progress from `get_evaluation_list()`. Each row now carries `progress` (0 to 100), `internal_status`, `started_time` and `ended_time`, so a finished evaluation can be detected from the SDK instead of the web app. All four are None when the backend does not report them, so guard before comparing
+- Report evaluation progress from `get_evaluation_list()`. Each row now carries `progress` (0 to 100), `started_time` and `ended_time`, so a finished evaluation can be detected from the SDK instead of the web app. All three are None when the backend does not report them, so guard before comparing
 - Add `get_evaluation_progress(evaluation_id)`, which reads one evaluation's status and progress without listing the whole workspace. It raises `EvaluationNotFoundError` when the id is not in the API key's workspace, keeps a bad or revoked key as an `HTTPError`, and needs a backend that serves the endpoint. Requests are limited to 60 per minute per API key across all evaluation ids, so poll N evaluations no faster than every N seconds
 - Completion is `status == "COMPLETED"`, never `progress >= 100`. Progress is capped at 90 while an evaluation runs and during report review, so gate automation on the status and use progress for display
 
