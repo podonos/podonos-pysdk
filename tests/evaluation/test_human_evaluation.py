@@ -523,9 +523,6 @@ class TestHumanEvaluationResumeRankingRef(unittest.TestCase):
         return state_path
 
     def _resume(self, evaluation_id: str, state_path: str, requested_type: str):
-        self.mock_evaluation_service.get_evaluation.return_value = (
-            make_evaluation_entity(evaluation_id)
-        )
         with patch.object(
             Evaluator, "_set_evaluation", return_value=make_evaluation_entity(evaluation_id)
         ):

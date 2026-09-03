@@ -58,6 +58,8 @@ import pytest
 import podonos
 from podonos import File
 from podonos.core.upload_ledger import UploadLedger
+from podonos.errors import EvaluationNotFoundError
+from podonos.service.evaluation_service import EvaluationService
 
 
 _DEV_BASE_URL = "https://dev.podonosapi.com"
@@ -523,3 +525,80 @@ def test_dev_server_upload_verify_large_file_count_with_opt_in_ledger(
     counts = ledger.counts_by_status(evaluation_id)
     assert counts["verified"] == dev_server_settings.file_count
     assert sum(counts.values()) == dev_server_settings.file_count
+
+
+def test_dev_server_resume_draft_evaluation_returns_evaluator(
+    dev_server_settings: DevServerSettings,
+    tmp_path: Path,
+) -> None:
+    """Real dev-server E2E for resume_evaluator against a DRAFT evaluation.
+
+    This is the path POD-1024 reports as broken since 0.41.0. Mocked unit tests cannot catch
+    that class of bug because they stub the transport, which is why this case exists.
+
+    auto_start=False on the first session is load-bearing, not stylistic. HumanEvaluation.resume
+    restores auto_start from the ledger's session_config and overrides whatever is passed here,
+    so a session created with True would charge the workspace balance on the resumed close().
+    """
+    _skip_smoke_in_load_mode(dev_server_settings)
+
+    state_path = tmp_path / "podonos-e2e-resume-state.sqlite"
+    client = _new_client(dev_server_settings)
+    etor = client.create_evaluator(
+        name=_unique_name("sdk-dev-e2e-resume"),
+        desc="SDK dev-server E2E resume smoke test",
+        type="NMOS",
+        lan="en-us",
+        num_eval=1,
+        due_hours=12,
+        auto_start=False,
+        max_upload_workers=dev_server_settings.max_upload_workers,
+        verify_batch_size=1,
+        api_timeout=dev_server_settings.api_timeout,
+        verify_timeout=dev_server_settings.verify_timeout,
+        upload_timeout=dev_server_settings.upload_timeout,
+        resume_upload=True,
+        upload_state_path=str(state_path),
+    )
+
+    evaluation_id = etor.get_evaluation_id()
+    expected_batch_size = etor._evaluation.batch_size  # type: ignore[attr-defined]
+    _add_files(
+        etor,
+        dev_server_settings.audio_path,
+        dev_server_settings.file_count,
+        "dev_resume",
+        dev_server_settings.progress_every,
+    )
+
+    assert etor.close() == {"status": "ok"}
+    assert state_path.exists()
+
+    resumed = client.resume_evaluator(
+        evaluation_id=evaluation_id,
+        upload_state_path=str(state_path),
+    )
+
+    assert resumed.get_evaluation_id() == evaluation_id
+    # The batch_size contract check inside _set_evaluation compares against this value, so a
+    # match here is what proves the read returned the real backend row rather than a default.
+    assert resumed._evaluation.batch_size == expected_batch_size  # type: ignore[attr-defined]
+    # Deliberately no close() on the resumed evaluator: nothing here should start or charge.
+
+
+def test_dev_server_find_evaluation_in_workspace_raises_for_unknown_id(
+    dev_server_settings: DevServerSettings,
+) -> None:
+    """An id absent from the workspace raises EvaluationNotFoundError, not a format error.
+
+    Asserted at the service layer on purpose. HumanEvaluation.resume validates the ledger
+    contract before Evaluator is constructed, so resume_evaluator would raise ValueError about
+    the missing contract before any HTTP call and could never reach this condition.
+    """
+    _skip_smoke_in_load_mode(dev_server_settings)
+
+    client = _new_client(dev_server_settings)
+    service = EvaluationService(client._api_client)  # type: ignore[attr-defined]
+
+    with pytest.raises(EvaluationNotFoundError):
+        service.find_evaluation_in_workspace(str(uuid.uuid4()))
