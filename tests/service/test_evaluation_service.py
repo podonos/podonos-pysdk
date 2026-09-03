@@ -147,6 +147,124 @@ class TestEvaluationService(unittest.TestCase):
         self.assertIsNone(evaluation.internal_name)
         self.assertIsNone(evaluation.description)
 
+    def test_should_get_evaluation_progress_successfully(self):
+        # Given
+        eval_id = str(uuid4())
+        expected_response = {
+            "id": eval_id,
+            "status": "ACTIVE",
+            "internal_status": "EVAL_HUMAN_EVAL_START",
+            "progress": 52.5,
+            "started_time": "2026-09-03T04:10:22.123456",
+            "ended_time": None,
+        }
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200, json=lambda: expected_response
+        )
+
+        # When
+        progress = self.service.get_evaluation_progress(eval_id)
+
+        # Then
+        self.mock_api_client.get.assert_called_once_with(f"evaluations/{eval_id}/progress")
+        self.assertEqual(progress.id, eval_id)
+        self.assertEqual(progress.status, "ACTIVE")
+        self.assertEqual(progress.progress, 52.5)
+        self.assertIsNone(progress.ended_time)
+
+    def test_get_evaluation_progress_raises_not_found_on_workspace_scoped_401(self):
+        # Given
+        # The backend answers 401 rather than 404 for an id outside the workspace, so that it
+        # never reveals whether the id exists somewhere else.
+        for code in ("UNAUTHORIZED_TO_ACCESS_WORKSPACE", "UNAUTHORIZED_TO_ACCESS_EVALUATION"):
+            with self.subTest(code=code):
+                eval_id = str(uuid4())
+                self.mock_api_client.get.return_value = Mock(
+                    status_code=401, json=lambda code=code: {"error_code": code}
+                )
+
+                # When/Then
+                with self.assertRaises(EvaluationNotFoundError) as context:
+                    self.service.get_evaluation_progress(eval_id)
+                self.assertIn(eval_id, str(context.exception))
+
+    def test_get_evaluation_progress_keeps_a_credential_401_as_http_error(self):
+        # Given
+        # A rotated or revoked key is also a 401. Reporting it as a missing evaluation would
+        # send the operator chasing a deleted evaluation instead of fixing the credential.
+        eval_id = str(uuid4())
+        self.mock_api_client.get.return_value = Mock(
+            status_code=401,
+            json=lambda: {
+                "error_code": "UNAUTHORIZED_API_KEY_OR_TOKEN",
+                "error_message": "Invalid API key",
+            },
+        )
+
+        # When/Then
+        with self.assertRaises(HTTPError) as context:
+            self.service.get_evaluation_progress(eval_id)
+        self.assertNotIsInstance(context.exception, EvaluationNotFoundError)
+        self.assertEqual(context.exception.status_code, 401)
+        self.assertIn("UNAUTHORIZED_API_KEY_OR_TOKEN", str(context.exception))
+
+    def test_get_evaluation_progress_passes_timeout_and_context_when_provided(self):
+        # Given
+        eval_id = str(uuid4())
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200,
+            json=lambda: {
+                "id": eval_id,
+                "status": "ACTIVE",
+                "internal_status": "EVAL_HUMAN_EVAL_START",
+                "progress": 52.5,
+                "started_time": None,
+                "ended_time": None,
+            },
+        )
+
+        # When
+        self.service.get_evaluation_progress(
+            eval_id,
+            timeout=(7, 77),
+            context={"operation": "poll_progress"},
+        )
+
+        # Then
+        self.mock_api_client.get.assert_called_once_with(
+            f"evaluations/{eval_id}/progress",
+            timeout=(7, 77),
+            context={
+                "operation": "poll_progress",
+                "endpoint": f"evaluations/{eval_id}/progress",
+                "evaluation_id": eval_id,
+            },
+        )
+
+    def test_get_evaluation_progress_reports_a_backend_without_the_endpoint(self):
+        # Given
+        # A 404 is the route being absent, not the evaluation. Reporting it as a missing
+        # evaluation would send the caller after the wrong problem.
+        eval_id = str(uuid4())
+        self.mock_api_client.get.return_value = Mock(status_code=404, json=lambda: {})
+
+        # When/Then
+        with self.assertRaises(HTTPError) as context:
+            self.service.get_evaluation_progress(eval_id)
+        self.assertIn("does not serve evaluation progress yet", str(context.exception))
+
+    def test_get_evaluation_progress_rejects_an_unexpected_payload(self):
+        # Given
+        eval_id = str(uuid4())
+        self.mock_api_client.get.return_value = Mock(
+            status_code=200, json=lambda: {"id": eval_id, "status": "ACTIVE"}
+        )
+
+        # When/Then
+        with self.assertRaises(HTTPError) as context:
+            self.service.get_evaluation_progress(eval_id)
+        self.assertIn("unexpected shape", str(context.exception))
+
     def test_find_evaluation_in_workspace_passes_timeout_and_context_when_provided(self):
         # Given
         eval_id = str(uuid4())

@@ -1,3 +1,4 @@
+from podonos.entity.evaluation import EvaluationEntity, EvaluationProgress
 from podonos.entity.flash_eval import FlashEvalResult
 from podonos.entity.verification import (
     FileVerificationResult,
@@ -7,6 +8,8 @@ from podonos.entity.verification import (
 )
 
 __all__ = [
+    "EvaluationEntity",
+    "EvaluationProgress",
     "FileVerificationResult",
     "FlashEvalResult",
     "ProcessFilesResponse",

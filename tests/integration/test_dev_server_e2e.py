@@ -49,6 +49,7 @@ from __future__ import annotations
 import os
 import time
 import uuid
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -602,3 +603,64 @@ def test_dev_server_find_evaluation_in_workspace_raises_for_unknown_id(
 
     with pytest.raises(EvaluationNotFoundError):
         service.find_evaluation_in_workspace(str(uuid.uuid4()))
+
+
+def test_dev_server_get_evaluation_progress_matches_the_list_row(
+    dev_server_settings: DevServerSettings,
+) -> None:
+    """Real dev-server E2E for GET evaluations/{id}/progress.
+
+    Read-only on purpose: it reuses an evaluation the workspace already has rather than
+    creating one, so running it repeatedly does not litter the dev workspace.
+
+    The list row and the progress row are asserted to agree because that agreement is the
+    contract POD-1023 promised. If it ever breaks, switching a poll loop between the two
+    endpoints silently changes what the caller sees.
+    """
+    _skip_smoke_in_load_mode(dev_server_settings)
+
+    client = _new_client(dev_server_settings)
+    rows = client.get_evaluation_list()
+    if not rows:
+        pytest.skip("dev workspace has no evaluation to read progress for")
+
+    row = rows[0]
+    # The four fields this release adds must survive the list parse, not just the progress one.
+    for key in ("progress", "internal_status", "started_time", "ended_time"):
+        assert key in row, f"{key} missing from the evaluation list row"
+
+    progress = client.get_evaluation_progress(row["id"])
+
+    assert progress.id == row["id"]
+    assert progress.status == row["status"]
+    assert progress.internal_status == row["internal_status"]
+    assert progress.progress == row["progress"]
+    assert 0 <= progress.progress <= 100
+    # Compare instants, not strings. Serializing both sides would hide an offset mismatch,
+    # because the formatter emits the same "...Z" text for two datetimes hours apart.
+    assert progress.started_time == _parse_list_time(row["started_time"])
+    assert progress.ended_time == _parse_list_time(row["ended_time"])
+
+
+def _parse_list_time(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def test_dev_server_get_evaluation_progress_raises_for_unknown_id(
+    dev_server_settings: DevServerSettings,
+) -> None:
+    """An id outside the workspace surfaces as EvaluationNotFoundError.
+
+    The backend answers 401 rather than 404 so it never reveals whether the id exists in some
+    other workspace, so this asserts the SDK translates that into the domain error instead of
+    leaking an authorization failure the caller cannot act on.
+    """
+    _skip_smoke_in_load_mode(dev_server_settings)
+
+    client = _new_client(dev_server_settings)
+
+    with pytest.raises(EvaluationNotFoundError):
+        client.get_evaluation_progress(str(uuid.uuid4()))
