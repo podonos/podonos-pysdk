@@ -164,6 +164,10 @@ def mocked_requests_get(*args: Any, **kwargs: Any):
                 description="mock_desc",
                 batch_size=1,
                 status="mock_status",
+                progress=52.5,
+                internal_status="EVAL_HUMAN_EVAL_START",
+                started_time="2024-05-21T07:18:09.659Z",
+                ended_time=None,
                 created_time="2024-05-21T06:18:09.659Z",
                 updated_time="2024-05-21T06:18:09.659Z",
             )
@@ -411,6 +415,12 @@ class TestEvaluationClient(unittest.TestCase):
         self.assertTrue("status" in json)
         self.assertTrue("created_time" in json)
         self.assertTrue("updated_time" in json)
+        self.assertTrue("progress" in json)
+        self.assertTrue("internal_status" in json)
+        self.assertTrue("started_time" in json)
+        self.assertTrue("ended_time" in json)
+        self.assertEqual(json["progress"], 52.5)
+        self.assertIsNone(json["ended_time"])
 
     @mock.patch("requests.get", side_effect=mocked_requests_get)
     def test_stimulus_stats_by_id(self, mock_get: Any):

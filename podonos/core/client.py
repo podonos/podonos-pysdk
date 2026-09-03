@@ -505,6 +505,22 @@ class Client:
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
 
+        Each row carries `progress` (0 to 100), `internal_status`, `started_time` and
+        `ended_time` alongside the evaluation's identity, so a completed evaluation can be
+        detected without opening the web app.
+
+        Completion is `status == "COMPLETED"`, never `progress >= 100`. Progress is capped at
+        90 while an evaluation is running and is also 90 during report review, so it cannot
+        tell "almost done" from "done" and never reaches 100 before the status flips. Gate
+        automation on the status and use progress for display only.
+
+        All four fields can be None. `started_time` and `ended_time` are None until the
+        evaluation starts and ends; `progress` and `internal_status` are None on a backend
+        that does not report them yet, so guard before comparing.
+
+        To poll a single evaluation rather than the whole workspace, use
+        get_evaluation_progress().
+
         Args: None
 
         Returns:

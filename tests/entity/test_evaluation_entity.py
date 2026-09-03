@@ -48,7 +48,52 @@ class TestEvaluationEntity(unittest.TestCase):
         result = entity.to_dict()
 
         # Then
-        self.assertEqual(result, self.valid_data)
+        # The progress fields are absent from valid_data, so they round-trip as None rather
+        # than vanishing. Every key the caller had before is still present and unrenamed.
+        expected = dict(self.valid_data)
+        expected.update(
+            progress=None, internal_status=None, started_time=None, ended_time=None
+        )
+        self.assertEqual(result, expected)
+
+    def test_from_dict_reads_progress_fields_when_present(self):
+        # Given
+        data = dict(self.valid_data)
+        data.update(
+            progress=52.5,
+            internal_status="EVAL_HUMAN_EVAL_START",
+            started_time="2023-10-01T13:00:00.000Z",
+            ended_time="2023-10-03T13:00:00.000Z",
+        )
+
+        # When
+        entity = EvaluationEntity.from_dict(data)
+
+        # Then
+        self.assertEqual(entity.progress, 52.5)
+        self.assertEqual(entity.internal_status, "EVAL_HUMAN_EVAL_START")
+        self.assertEqual(
+            entity.started_time, datetime.fromisoformat("2023-10-01T13:00:00.000+00:00")
+        )
+        self.assertEqual(
+            entity.ended_time, datetime.fromisoformat("2023-10-03T13:00:00.000+00:00")
+        )
+        self.assertEqual(entity.to_dict()["started_time"], "2023-10-01T13:00:00.000Z")
+
+    def test_from_dict_accepts_null_started_and_ended_time(self):
+        # Given
+        # A DRAFT evaluation really does send null for both, which is why the parse cannot be
+        # unconditional the way created_time's is.
+        data = dict(self.valid_data)
+        data.update(progress=0.0, internal_status="EVAL_STAGE", started_time=None, ended_time=None)
+
+        # When
+        entity = EvaluationEntity.from_dict(data)
+
+        # Then
+        self.assertIsNone(entity.started_time)
+        self.assertIsNone(entity.ended_time)
+        self.assertEqual(entity.progress, 0.0)
 
 
 if __name__ == "__main__":
