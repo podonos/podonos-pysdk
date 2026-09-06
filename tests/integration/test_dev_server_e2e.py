@@ -626,14 +626,13 @@ def test_dev_server_get_evaluation_progress_matches_the_list_row(
 
     row = rows[0]
     # The four fields this release adds must survive the list parse, not just the progress one.
-    for key in ("progress", "internal_status", "started_time", "ended_time"):
+    for key in ("progress", "started_time", "ended_time"):
         assert key in row, f"{key} missing from the evaluation list row"
 
     progress = client.get_evaluation_progress(row["id"])
 
     assert progress.id == row["id"]
     assert progress.status == row["status"]
-    assert progress.internal_status == row["internal_status"]
     assert progress.progress == row["progress"]
     assert 0 <= progress.progress <= 100
     # Compare instants, not strings. Serializing both sides would hide an offset mismatch,

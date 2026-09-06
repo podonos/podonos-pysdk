@@ -51,8 +51,9 @@ class EvaluationEntity:
     updated_time: datetime
     # Progress fields. Optional because only the workspace evaluation list and the create
     # responses carry them; anything else parsed into this entity would otherwise break.
+    # The wire also carries internal_status. It is an internal pipeline stage, not part of
+    # the SDK surface, so it is deliberately not read here or on EvaluationProgress.
     progress: Optional[float] = None
-    internal_status: Optional[str] = None
     started_time: Optional[datetime] = None
     ended_time: Optional[datetime] = None
 
@@ -73,7 +74,6 @@ class EvaluationEntity:
             created_time=_parse_time(data["created_time"]),
             updated_time=_parse_time(data["updated_time"]),
             progress=data.get("progress"),
-            internal_status=data.get("internal_status"),
             started_time=_parse_optional_time(data.get("started_time")),
             ended_time=_parse_optional_time(data.get("ended_time")),
         )
@@ -87,7 +87,6 @@ class EvaluationEntity:
             "batch_size": self.batch_size,
             "status": self.status,
             "progress": self.progress,
-            "internal_status": self.internal_status,
             "started_time": _format_optional_time(self.started_time),
             "ended_time": _format_optional_time(self.ended_time),
             "created_time": _format_time(self.created_time),
@@ -107,14 +106,13 @@ class EvaluationProgress:
 
     id: str
     status: str
-    internal_status: str
     progress: float
     started_time: Optional[datetime] = None
     ended_time: Optional[datetime] = None
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "EvaluationProgress":
-        required_keys = ["id", "status", "internal_status", "progress"]
+        required_keys = ["id", "status", "progress"]
         for key in required_keys:
             if key not in data:
                 raise ValueError(f"Invalid data format for EvaluationProgress: {data}")
@@ -122,7 +120,6 @@ class EvaluationProgress:
         return EvaluationProgress(
             id=data["id"],
             status=data["status"],
-            internal_status=data["internal_status"],
             progress=data["progress"],
             started_time=_parse_optional_time(data.get("started_time")),
             ended_time=_parse_optional_time(data.get("ended_time")),
@@ -132,7 +129,6 @@ class EvaluationProgress:
         return {
             "id": self.id,
             "status": self.status,
-            "internal_status": self.internal_status,
             "progress": self.progress,
             "started_time": _format_optional_time(self.started_time),
             "ended_time": _format_optional_time(self.ended_time),
