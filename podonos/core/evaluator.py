@@ -141,7 +141,7 @@ class Evaluator:
         return {
             "evaluation_id": self.get_evaluation_id(),
             "eval_type": eval_config.eval_type.value,
-            "eval_language": eval_config.eval_language.value,
+            "eval_language": eval_config.eval_language,
             "eval_batch_size": eval_config.eval_batch_size,
             "eval_template_id": eval_config.eval_template_id,
             "use_annotation": eval_config.eval_use_annotation,
@@ -1261,7 +1261,7 @@ class Evaluator:
 
         payload: Dict[str, Any] = {
             "id": self.get_evaluation_id(),
-            "language": self._eval_config.eval_language.value,
+            "language": self._eval_config.eval_language,
             "build_process": "FILE_UPLOAD",
             "evaluation_type": self._eval_config.eval_type.get_type(),
             "batch_size": group_size,

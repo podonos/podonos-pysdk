@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import math
 from datetime import datetime, timedelta
@@ -40,7 +41,7 @@ class EvalConfig:
     _eval_description: Optional[str] = None
     _eval_type: EvalType = EvalConfigDefault.TYPE
     _eval_ai_type: Optional[AIEvalType] = None
-    _eval_language: Language = EvalConfigDefault.LAN
+    _eval_language: str = EvalConfigDefault.LAN.value
     _eval_granularity: float = EvalConfigDefault.GRANULARITY
     _eval_batch_size: int = EvalConfigDefault.BATCH_SIZE
     _eval_num: int = EvalConfigDefault.NUM_EVAL
@@ -164,7 +165,7 @@ class EvalConfig:
         return self._eval_id
 
     @property
-    def eval_language(self) -> Language:
+    def eval_language(self) -> str:
         return self._eval_language
 
     @property
@@ -286,17 +287,21 @@ class EvalConfig:
         return EvalType(eval_type)
 
     @validate_args(eval_language=Rules.str_non_empty)
-    def _validate_eval_language(self, eval_language: str) -> Language:
-        # Derive the allow-list from the Language enum (single source of truth).
-        # Adding a language is then a one-line enum change; disabling one is done by
-        # commenting it out in the enum, which drops it from Language.values() here.
-        if eval_language not in Language.values():
+    def _validate_eval_language(self, eval_language: str) -> str:
+        # Shape check only. The backend is the source of truth for which languages exist and
+        # rejects unknown codes, so we deliberately do NOT keep a hardcoded language list here —
+        # new languages need no SDK release. We normalize case (backend codes are lowercase) and
+        # reject anything that isn't a locale-shaped code (e.g. "en-us") or the special "audio".
+        # The Language enum remains available as convenience constants.
+        code = eval_language.strip().lower()
+        if code != Language.AUDIO.value and not re.fullmatch(r"[a-z]{2,3}-[a-z]{2,4}", code):
             raise ValueError(
-                '"lan" must be one of the supported language strings. '
+                f'"lan" ({eval_language!r}) does not look like a language code. '
+                + 'Use a locale code such as "en-us" or "ko-kr". '
                 + "See https://www.podonos.com/docs/reference#create-evaluator \n"
                 + f"Do you want us to support other languages? Let us know at {PODONOS_CONTACT_EMAIL}."
             )
-        return Language(eval_language)
+        return code
 
     @validate_args(eval_ai_type=Rules.optional_instance_of(AIEvalType))
     def _validate_eval_ai_type(
@@ -487,7 +492,7 @@ class EvalConfig:
             "eval_name": self._eval_name,
             "eval_description": self._eval_description,
             "eval_type": self._eval_type.value,
-            "eval_language": self._eval_language.value,
+            "eval_language": self._eval_language,
             "eval_num": self._eval_num,
             "eval_expected_due": self._eval_expected_due,
             "eval_creation_timestamp": self._eval_creation_timestamp,
@@ -504,7 +509,7 @@ class EvalConfig:
             "title": self._eval_name,
             "internal_name": self._eval_name,
             "description": self._eval_description,
-            "language": self._eval_language.value,
+            "language": self._eval_language,
             "num_required_etors": self._eval_num,
             "granularity": self._eval_granularity,
             "evaluation_type": self._eval_type.get_type(),

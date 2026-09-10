@@ -43,7 +43,7 @@ class AIEvaluation:
             name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
             desc: Description of this session. Optional.
             type: Only ASR is supported. Default: ASR
-            lan: Human language for this audio. One of those in Language. Default: en-us
+            lan: Language code for this audio, e.g. "en-us". Any code the Podonos backend supports; common values are in Language. Default: en-us
             ai_type: AI type. Default: ASR
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
         """
@@ -74,7 +74,7 @@ class AIEvaluation:
         Args:
             name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
             desc: Description of this session. Optional.
-            lan: Human language for this audio. One of those in Language. Default: en-us
+            lan: Language code for this audio, e.g. "en-us". Any code the Podonos backend supports; common values are in Language. Default: en-us
             max_upload_workers: The maximum number of upload workers. Must be a positive integer. Default: 20
         """
         return self.create(name, desc, EvalType.CUSTOM_SINGLE.value, lan, AIEvalType.ASR, max_upload_workers)

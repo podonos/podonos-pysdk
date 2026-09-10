@@ -1,3 +1,9 @@
+## 0.49.0
+
+- Validate the evaluation `lan` by shape only (e.g. `en-us`) instead of against a hardcoded list. The Podonos backend is the source of truth for which languages exist, so new languages no longer require an SDK release. Unknown codes are rejected by the server with a clear error at evaluation creation. Codes are normalized to lowercase
+- `EvalConfig.eval_language` and `Template.language` now return a `str` (the language code) rather than a `Language` enum member. The `Language` enum remains available as convenience constants
+- Requires a Podonos backend that rejects unknown languages (rather than silently defaulting to `en-us`)
+
 ## 0.48.0
 
 - Add Bengali (`bn-in`), Gujarati (`gu-in`), Marathi (`mr-in`), and Telugu (`te-in`) to the supported evaluation languages

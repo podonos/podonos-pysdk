@@ -6,7 +6,6 @@ import pytest
 
 from podonos.common.enum import (
     EvalType,
-    Language,
     QuestionRelatedModel,
     QuestionResponseCategory,
     QuestionUsageType,
@@ -46,9 +45,25 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template.title, "Test Template")
         self.assertEqual(template.description, "Test Description")
         self.assertEqual(template.batch_size, 1)
-        self.assertEqual(template.language, Language.ENGLISH_AMERICAN)
+        self.assertEqual(template.language, "en-us")
         self.assertIsInstance(template.created_time, datetime)
         self.assertIsInstance(template.updated_time, datetime)
+
+    def test_template_from_api_response_unknown_language_does_not_raise(self):
+        """A server template in a language the SDK enum doesn't list must parse (raw str), not crash."""
+        api_response = {
+            "id": "t1",
+            "code": "C",
+            "title": "T",
+            "description": "D",
+            "eval_type": "CUSTOM",
+            "batch_size": 1,
+            "language": "xx-yy",
+            "created_time": "2024-03-20T10:00:00Z",
+            "updated_time": "2024-03-20T10:30:00Z",
+        }
+        template = Template.from_api_response(api_response)
+        self.assertEqual(template.language, "xx-yy")
 
     def test_template_from_api_response_missing_required_field(self):
         # Given

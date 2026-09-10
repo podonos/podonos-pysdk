@@ -86,6 +86,29 @@ class TestEvaluationService(unittest.TestCase):
             "Failed to create the evaluation: Failed to create evaluation",
         )
 
+    def test_create_surfaces_server_language_rejection(self):
+        """A backend 4xx (e.g. unsupported language) surfaces its message + detail and status code."""
+        from requests.exceptions import HTTPError as RequestsHTTPError
+
+        error_body = {
+            "error_code": "UNPROCESSABLE_ENTITY_INVALID_REQUEST",
+            "error_message": "Invalid request",
+            "detail": "language: input is not a valid language code",
+        }
+        error_response = Mock(status_code=422)
+        error_response.json.return_value = error_body
+        http_error = RequestsHTTPError("422 Client Error")
+        http_error.response = error_response
+        error_response.raise_for_status.side_effect = http_error
+        self.mock_api_client.post.return_value = error_response
+
+        with self.assertRaises(HTTPError) as context:
+            self.service.create(self.sample_eval_config)
+        message = context.exception.args[0]
+        self.assertIn("language", message)
+        self.assertIn("not a valid language code", message)
+        self.assertEqual(context.exception.status_code, 422)
+
     def test_should_find_evaluation_in_workspace_successfully(self):
         # Given
         eval_id = str(uuid4())
