@@ -61,6 +61,17 @@ class TestEvalConfig(unittest.TestCase):
         self.assertEqual(result.value, "en-in")
         self.assertEqual(result, Language.ENGLISH_INDIA)
 
+    def test_validate_eval_language_indic(self):
+        """The 4 Indic languages pass validation (allow-list derives from the enum)."""
+        for code, member in [
+            ("bn-in", Language.BENGALI),
+            ("gu-in", Language.GUJARATI),
+            ("mr-in", Language.MARATHI),
+            ("te-in", Language.TELUGU),
+        ]:
+            result = self.eval_config._validate_eval_language(code)  # type: ignore
+            self.assertEqual(result, member)
+
     def test_validate_eval_ai_type(self):
         # Test valid AI type
         result = self.eval_config._validate_eval_ai_type(AIEvalType.ALL)  # type: ignore

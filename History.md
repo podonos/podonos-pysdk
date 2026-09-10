@@ -1,6 +1,7 @@
 ## 0.48.0
 
 - Add Bengali (`bn-in`), Gujarati (`gu-in`), Marathi (`mr-in`), and Telugu (`te-in`) to the supported evaluation languages
+- Derive the evaluation-language allow-list from the `Language` enum, removing a duplicate hand-maintained list in `config.py`
 
 ## 0.47.0
 

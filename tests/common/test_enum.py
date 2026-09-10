@@ -249,6 +249,16 @@ class TestEvalTypeEnum(unittest.TestCase):
         self.assertEqual(Language.from_value("ar-ae"), Language.ARABIC_UAE)
         self.assertEqual(Language.from_value("ar-sa"), Language.ARABIC_SAUDI_ARABIA)
 
+    def test_language_indic(self):
+        self.assertEqual(Language.BENGALI.value, "bn-in")
+        self.assertEqual(Language.GUJARATI.value, "gu-in")
+        self.assertEqual(Language.MARATHI.value, "mr-in")
+        self.assertEqual(Language.TELUGU.value, "te-in")
+        self.assertEqual(Language.from_value("bn-in"), Language.BENGALI)
+        self.assertEqual(Language.from_value("gu-in"), Language.GUJARATI)
+        self.assertEqual(Language.from_value("mr-in"), Language.MARATHI)
+        self.assertEqual(Language.from_value("te-in"), Language.TELUGU)
+
 
 class TestAIEvalTypeEnum(unittest.TestCase):
     """Test cases for AIEvalType enum"""

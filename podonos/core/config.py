@@ -287,42 +287,10 @@ class EvalConfig:
 
     @validate_args(eval_language=Rules.str_non_empty)
     def _validate_eval_language(self, eval_language: str) -> Language:
-        if eval_language not in [
-            Language.ENGLISH_AMERICAN.value,
-            Language.ENGLISH_AUSTRALIAN.value,
-            Language.ENGLISH_BRITISH.value,
-            Language.ENGLISH_CANADIAN.value,
-            Language.ENGLISH_INDIA.value,
-            # Language.ENGLISH_SINGAPOREAN.value,  # Not yet released
-            Language.PORTUGUESE_PORTUGAL.value,
-            Language.PORTUGUESE_BRAZIL.value,
-            Language.KOREAN.value,
-            Language.MANDARIN.value,
-            Language.SPANISH_SPAIN.value,
-            Language.SPANISH_MEXICO.value,
-            Language.FRENCH.value,
-            Language.FRENCH_CANADA.value,
-            Language.GERMAN.value,
-            Language.JAPANESE.value,
-            Language.ITALIAN.value,
-            Language.POLISH.value,
-            Language.INDONESIAN.value,
-            Language.DUTCH.value,
-            Language.SWEDISH.value,
-            Language.HINDI.value,
-            Language.TAMIL.value,
-            Language.KANNADA.value,
-            Language.MALAYALAM.value,
-            Language.SINHALA.value,
-            Language.BENGALI.value,
-            Language.GUJARATI.value,
-            Language.MARATHI.value,
-            Language.TELUGU.value,
-            Language.ARABIC_EGYPT.value,
-            Language.ARABIC_UAE.value,
-            Language.ARABIC_SAUDI_ARABIA.value,
-            Language.AUDIO.value,
-        ]:
+        # Derive the allow-list from the Language enum (single source of truth).
+        # Adding a language is then a one-line enum change; disabling one is done by
+        # commenting it out in the enum, which drops it from Language.values() here.
+        if eval_language not in Language.values():
             raise ValueError(
                 '"lan" must be one of the supported language strings. '
                 + "See https://www.podonos.com/docs/reference#create-evaluator \n"
