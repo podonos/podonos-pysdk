@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-from podonos.common.enum import EvalType, Language
+from podonos.common.enum import EvalType
 from podonos.common.validator import Rules, validate_args
 from podonos.core.base import *
 from podonos.core.query import (
@@ -29,7 +29,7 @@ class Template:
     code: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
-    language: Optional[Language] = None
+    language: Optional[str] = None
     batch_size: Optional[int] = None
     evaluation_type: Optional[str] = None
     created_time: Optional[datetime] = None
@@ -60,7 +60,7 @@ class Template:
             title=data["title"],
             description=data["description"],
             batch_size=data["batch_size"],
-            language=Language.from_value(data["language"]),
+            language=data["language"],
             evaluation_type=data.get("eval_type"),
             created_time=datetime.fromisoformat(
                 data["created_time"].replace("Z", "+00:00")

@@ -512,7 +512,7 @@ class TestHumanEvaluationResumeRankingRef(unittest.TestCase):
             {
                 "evaluation_id": evaluation_id,
                 "eval_type": eval_type.value,
-                "eval_language": original.eval_language.value,
+                "eval_language": original.eval_language,
                 "eval_batch_size": batch_size,
                 "eval_template_id": None,
                 "use_annotation": False,

@@ -9,7 +9,7 @@ class TestEvalConfig(unittest.TestCase):
 
     def test_default_values(self):
         self.assertEqual(self.eval_config.eval_type, EvalConfigDefault.TYPE)
-        self.assertEqual(self.eval_config.eval_language, EvalConfigDefault.LAN)
+        self.assertEqual(self.eval_config.eval_language, EvalConfigDefault.LAN.value)
         self.assertEqual(self.eval_config.eval_use_annotation, EvalConfigDefault.USE_ANNOTATION)
         self.assertEqual(self.eval_config.use_loudness_normalization, EvalConfigDefault.USE_LOUDNESS_NORMALIZATION)
         self.assertEqual(self.eval_config.eval_auto_start, EvalConfigDefault.AUTO_START)
@@ -43,34 +43,33 @@ class TestEvalConfig(unittest.TestCase):
         self.assertIn('"type" must be one of', str(context.exception))
 
     def test_validate_eval_language(self):
-        # Test valid languages
-        valid_languages = Language.values()
-        for language in valid_languages:
+        # Known codes (from the convenience enum) still pass and are returned as lowercase strings.
+        for language in Language.values():
             result = self.eval_config._validate_eval_language(language)  # type: ignore
-            self.assertEqual(result.value, language)
+            self.assertEqual(result, language)
 
-        # Test invalid language
-        with self.assertRaises(ValueError) as context:
-            self.eval_config._validate_eval_language("invalid-lang")  # type: ignore
-        self.assertIn('"lan" must be one of the supported language strings', str(context.exception))
+        # A well-formed but not-yet-known code passes the shape check — the backend is the
+        # authority on which languages exist, so the SDK no longer keeps a hardcoded list.
+        self.assertEqual(self.eval_config._validate_eval_language("zz-zz"), "zz-zz")  # type: ignore
+
+        # Case is normalized to lowercase (backend codes are lowercase).
+        self.assertEqual(self.eval_config._validate_eval_language("EN-US"), "en-us")  # type: ignore
+
+        # Malformed / word inputs are rejected by the shape check.
+        for bad in ["korean", "english", "en_us", "e", "abcd"]:
+            with self.assertRaises(ValueError):
+                self.eval_config._validate_eval_language(bad)  # type: ignore
 
     def test_validate_eval_language_en_in_specific(self):
-        """Test specifically for en-in language support"""
-        # Test en-in language validation
+        """en-in passes and is returned as the raw code string."""
         result = self.eval_config._validate_eval_language("en-in")  # type: ignore
-        self.assertEqual(result.value, "en-in")
-        self.assertEqual(result, Language.ENGLISH_INDIA)
+        self.assertEqual(result, "en-in")
 
     def test_validate_eval_language_indic(self):
-        """The 4 Indic languages pass validation (allow-list derives from the enum)."""
-        for code, member in [
-            ("bn-in", Language.BENGALI),
-            ("gu-in", Language.GUJARATI),
-            ("mr-in", Language.MARATHI),
-            ("te-in", Language.TELUGU),
-        ]:
+        """The 4 Indic language codes pass the shape check and are returned verbatim."""
+        for code in ["bn-in", "gu-in", "mr-in", "te-in"]:
             result = self.eval_config._validate_eval_language(code)  # type: ignore
-            self.assertEqual(result, member)
+            self.assertEqual(result, code)
 
     def test_validate_eval_ai_type(self):
         # Test valid AI type

@@ -78,7 +78,7 @@ class HumanEvaluation:
             name: This session name. Its length must be > 1. If empty, a random name is used. Optional.
             desc: Description of this session. Optional.
             type: Evaluation type. Default: NMOS
-            lan: Human language for this audio. One of those in Language. Default: en-us
+            lan: Language code for this audio, e.g. "en-us". Any code the Podonos backend supports; common values are in Language. Default: en-us
             granularity: Granularity of the evaluation scales. Either {1, 0.5}
             num_eval: The minimum number of repetition for each audio evaluation. Should be >=1. Default: 10.
             due_hours: An expected number of days of finishing this mission and getting the evaluation report.

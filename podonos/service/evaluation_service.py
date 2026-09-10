@@ -129,6 +129,15 @@ class EvaluationService:
             evaluation = EvaluationEntity.from_dict(response.json())
             log.info(f"Evaluation is generated: {evaluation.id}")
             return evaluation
+        except RequestsHTTPError as e:
+            # The server rejected the request (e.g. an unsupported language). Surface its own
+            # message + detail, and carry the status code, instead of an opaque wrapper.
+            resp = e.response if e.response is not None else response
+            raise HTTPError(
+                f"Failed to create the evaluation: {self._create_error_message(resp)}",
+                status_code=resp.status_code,
+                response=resp,
+            )
         except Exception as e:
             raise HTTPError(f"Failed to create the evaluation: {e}")
 
@@ -155,6 +164,13 @@ class EvaluationService:
             evaluation = EvaluationEntity.from_dict(response.json())
             log.info(f"Evaluation is generated: {evaluation.id}")
             return evaluation
+        except RequestsHTTPError as e:
+            resp = e.response if e.response is not None else response
+            raise HTTPError(
+                f"Failed to create the evaluation: {self._create_error_message(resp)}",
+                status_code=resp.status_code,
+                response=resp,
+            )
         except Exception as e:
             raise HTTPError(f"Failed to create the evaluation: {e}")
 
@@ -448,6 +464,23 @@ class EvaluationService:
             return _clip(body.get("error_code")), _clip(body.get("error_message"))
         except Exception:
             return None, _clip(response.text)
+
+    def _create_error_message(self, response: Response) -> str:
+        """Build a message from the {error_code, error_message, detail} error envelope.
+
+        For a rejected field (e.g. an unsupported language) the backend's validation handler
+        puts a generic string in error_message and the field-specific reason in detail, so we
+        include detail to keep the message actionable.
+        """
+        error_code, error_message = self._parse_error_body(response)
+        detail: Optional[str] = None
+        try:
+            raw = response.json().get("detail")
+            detail = None if raw is None else redact_secrets(str(raw))[:200]
+        except Exception:
+            detail = None
+        parts = [p for p in (error_message, detail) if p]
+        return " ".join(parts) if parts else (error_code or "request rejected")
 
     def get_evaluation_list(self) -> List[Dict[str, Any]]:
         """Gets a list of evaluations.
