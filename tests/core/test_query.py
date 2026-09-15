@@ -304,6 +304,24 @@ class TestQuery(unittest.TestCase):
         assert isinstance(question, ComparisonQuestion)
         self.assertEqual(question.type, "COMPARISON")
 
+    def test_comparison_from_dict_keeps_anchor_labels_as_given(self):
+        # The evaluation form writes the clip letter itself; a prepended "A " showed as
+        # "A A is much better" on every SDK-made comparison question.
+        comparison_data: Dict[TYPE_OF_QUESTION_KEY, Any] = {
+            "type": "COMPARISON",
+            "question": "Which one is better?",
+            "anchor_label": {
+                "label_text": {"left": "is much better", "right": "is much better"}
+            },
+        }
+
+        question = Question.from_dict(comparison_data, batch_size=2)
+
+        assert isinstance(question, ComparisonQuestion)
+        assert question.meta_data is not None
+        label_text = question.meta_data.linear_scale.label_text
+        self.assertEqual((label_text.left, label_text.right), ("is much better", "is much better"))
+
     def test_question_from_dict_ranking_allows_instruction(self):
         # Given
         instruction_data: Dict[TYPE_OF_QUESTION_KEY, Any] = {
