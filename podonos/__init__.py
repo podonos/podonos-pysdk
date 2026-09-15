@@ -3,6 +3,6 @@ from .entity.evaluation import EvaluationProgress
 from .entity.flash_eval import FlashEvalResult
 from .sdk import Podonos, Client
 
-__version__ = "0.48.0"
+__version__ = "0.48.1"
 
 init = Podonos.init
