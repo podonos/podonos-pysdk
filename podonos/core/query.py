@@ -539,8 +539,10 @@ class ComparisonQuestion(Question):
             meta_data=QuestionMetadataColumn(
                 linear_scale=QuestionMetadataLinearScale(
                     title=data.get("anchor_label", {}).get("title", None),
+                    # The evaluation form writes the clip letter itself ("A " + left,
+                    # "B " + right). Prepending it here too showed "A A is much better".
                     label_text=QuestionMetadataPosition(
-                        left=f"A {label_text['left']}", right=f"B {label_text['right']}"
+                        left=label_text["left"], right=label_text["right"]
                     ),
                 )
             ),
