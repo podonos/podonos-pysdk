@@ -218,6 +218,11 @@ class Language(Enum):
     ARABIC_EGYPT = "ar-eg"
     ARABIC_UAE = "ar-ae"
     ARABIC_SAUDI_ARABIA = "ar-sa"
+    RUSSIAN = "ru-ru"
+    CANTONESE = "yue-hk"
+    VIETNAMESE = "vi-vn"
+    GREEK = "el-gr"
+    TAGALOG = "fil-ph"
     AUDIO = "audio"
 
     @classmethod

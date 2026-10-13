@@ -1,3 +1,7 @@
+## 0.49.0
+
+- Add Russian (`ru-ru`), Cantonese (`yue-hk`), Vietnamese (`vi-vn`), Greek (`el-gr`), and Tagalog (`fil-ph`) to the supported evaluation languages
+
 ## 0.48.1
 
 - Stop prepending the clip letter to `COMPARISON` anchor labels in `create_evaluator_from_template` and `create_from_template_json`. The evaluation form, the Overview page, and the report already write "A " and "B " in front of the labels, so a label given as `"is much better"` was shown as "A A is much better". Pass the label without the letter; labels already stored with one are cleaned up by the backend
