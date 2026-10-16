@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+from podonos.common.exception import HTTPError
 from podonos.common.redaction import redact_secrets
 
 
@@ -26,6 +27,12 @@ class EvaluationNotFoundError(Exception):
     def __init__(self, message: str = "This evaluation was not found"):
         self.message = message
         super().__init__(self.message)
+
+
+class EvaluationSetupError(HTTPError):
+    """Raised when the evaluation's setup needs a change before it can start, such as question
+    text that is not in the evaluation's language. Nothing was charged and the evaluation stays a
+    draft. An HTTPError, so code that already catches HTTPError keeps working."""
 
 
 @dataclass

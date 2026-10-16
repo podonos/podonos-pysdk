@@ -23,7 +23,7 @@ from podonos.core.config import EvalConfig, EvalConfigDefault
 from podonos.core.file import Audio, AudioGroup
 from podonos.entity.evaluation import EvaluationEntity, EvaluationProgress
 from podonos.entity.verification import ProcessFilesResponse, VerifyFilesResponse
-from podonos.errors.error import EvaluationNotFoundError
+from podonos.errors.error import EvaluationNotFoundError, EvaluationSetupError
 
 
 _PollSentinel = TypeVar("_PollSentinel")
@@ -66,6 +66,14 @@ _NOT_IN_WORKSPACE_CODES = {"UNAUTHORIZED_TO_ACCESS_WORKSPACE", "UNAUTHORIZED_TO_
 # Both endpoints are rate limited per API key, which is why the caller backs off rather than
 # polling tightly. Success is never inferred from an error code: it is the `status` field of a
 # 200. The start response carries evaluation_id, status, internal_status and started_time.
+_SETUP_INVALID = "BAD_REQUEST_EVALUATION_SETUP_INVALID"
+# The setup refusal names every text to fix, one sentence each. Cut at 200 characters, only the
+# first survived. ponytail: a cap still, against an unbounded body; raise it if one gets cut.
+_SETUP_MESSAGE_LIMIT = 2000
+_SETUP_NEXT_STEP = (
+    "Nothing was charged, and the evaluation stays a draft. Create a new evaluation with the change "
+    "above, or contact the Podonos team if the setup is intended."
+)
 _PODONOS_DOWNLOAD_HOST_SUFFIXES = (".podonos.com", ".podonosapi.com")
 _PODONOS_DOWNLOAD_EXACT_HOSTS = {"podonos.com", "podonosapi.com"}
 
@@ -426,6 +434,13 @@ class EvaluationService:
     def _poll_error(self, response: Response, action: str) -> HTTPError:
         """Build the terminal error, carrying the wire error_code and error_message."""
         error_code, error_message = self._parse_error_body(response)
+        if error_code == _SETUP_INVALID:
+            _, error_message = self._parse_error_body(response, limit=_SETUP_MESSAGE_LIMIT)
+            return EvaluationSetupError(
+                " ".join(part for part in (f"Failed to {action}: {error_code}", error_message, _SETUP_NEXT_STEP) if part),
+                status_code=response.status_code,
+                response=response,
+            )
         detail = " ".join(str(part) for part in (error_code, error_message) if part)
         return HTTPError(
             f"Failed to {action}: {detail}".strip(),
@@ -434,14 +449,14 @@ class EvaluationService:
         )
 
     @staticmethod
-    def _parse_error_body(response: Response) -> Tuple[Optional[str], Optional[str]]:
+    def _parse_error_body(response: Response, limit: int = 200) -> Tuple[Optional[str], Optional[str]]:
         """Pull error_code and error_message off an error body.
 
         Falls back to the raw text for a body that is not the expected JSON, such as the HTML a
         proxy returns on a 502.
         """
         def _clip(value: Any) -> Optional[str]:
-            return None if value is None else redact_secrets(str(value))[:200]
+            return None if value is None else redact_secrets(str(value))[:limit]
 
         try:
             body = response.json()

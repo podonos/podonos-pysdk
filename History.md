@@ -1,3 +1,7 @@
+## 0.49.0
+
+- Raise `EvaluationSetupError` when `close()` with `auto_start=True` is refused because the evaluation's setup needs a change, such as question text that is not in the evaluation's language. It subclasses `HTTPError`, so existing handlers still catch it. The message is no longer cut at 200 characters, so it names each text to fix, and it says that nothing was charged and the evaluation stays a draft. Create a new evaluation with the change, or contact the Podonos team if the setup is intended
+
 ## 0.48.1
 
 - Stop prepending the clip letter to `COMPARISON` anchor labels in `create_evaluator_from_template` and `create_from_template_json`. The evaluation form, the Overview page, and the report already write "A " and "B " in front of the labels, so a label given as `"is much better"` was shown as "A A is much better". Pass the label without the letter; labels already stored with one are cleaned up by the backend

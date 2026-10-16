@@ -22,6 +22,7 @@ from podonos.core.api import APIClient
 from podonos.core.config import EvalConfig
 from podonos.core.evaluator import Evaluator
 from podonos.entity.evaluation import EvaluationEntity
+from podonos.errors import EvaluationSetupError
 
 # The poll methods validate this as a UUID, so the fixture has to be a real one.
 EVALUATION_ID = "3f2a1c94-6b5d-4e18-9a7c-2d0e8b5f1a63"
@@ -334,6 +335,44 @@ class TestEvaluatorAutoStart(unittest.TestCase):
             self._evaluator()._start_evaluation_when_ready()  # type: ignore
 
         self.assertIn("INVALID_AUDIO_FILES_IN_EVALUATION", str(context.exception))
+        self.assertNotIsInstance(context.exception, EvaluationSetupError)
+
+    @patch("time.sleep")
+    @patch("requests.post")
+    @patch("requests.get")
+    def test_setup_refusal_names_every_text_and_never_starts(self, mock_get, mock_post, mock_sleep):
+        first = 'This text isn\'t in fr-fr: "How natural is it?". Translate it, then try again.'
+        # Past the 200 characters every other error message is cut at.
+        second = f'This text isn\'t in fr-fr: "{"How clear is the speech? " * 8}". Translate it, then try again.'
+        mock_get.return_value = _response(
+            400, {"error_code": "BAD_REQUEST_EVALUATION_SETUP_INVALID", "error_message": f"{first} {second}"}
+        )
+
+        with self.assertRaises(EvaluationSetupError) as context:
+            self._evaluator()._start_evaluation_when_ready()  # type: ignore
+
+        # Existing `except HTTPError` blocks still catch it.
+        self.assertIsInstance(context.exception, HTTPError)
+        self.assertEqual(context.exception.status_code, 400)
+        message = str(context.exception)
+        self.assertIn(second, message)
+        self.assertIn("Nothing was charged", message)
+        mock_post.assert_not_called()
+
+    @patch("time.sleep")
+    @patch("requests.post")
+    @patch("requests.get")
+    def test_setup_refusal_at_start_raises_setup_error(self, mock_get, mock_post, mock_sleep):
+        """A backend that checks the setup only at start refuses there, after validate passed."""
+        mock_get.return_value = _response(200)
+        mock_post.return_value = _response(
+            400, {"error_code": "BAD_REQUEST_EVALUATION_SETUP_INVALID", "error_message": "Translate it, then try again."}
+        )
+
+        with self.assertRaises(EvaluationSetupError) as context:
+            self._evaluator()._start_evaluation_when_ready()  # type: ignore
+
+        self.assertIn("Failed to start evaluation", str(context.exception))
 
     # ---- deadline -----------------------------------------------------------
 
