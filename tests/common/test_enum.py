@@ -39,6 +39,11 @@ class TestLanguageEnum(unittest.TestCase):
         self.assertEqual(Language.ARABIC_EGYPT.value, "ar-eg")
         self.assertEqual(Language.ARABIC_UAE.value, "ar-ae")
         self.assertEqual(Language.ARABIC_SAUDI_ARABIA.value, "ar-sa")
+        self.assertEqual(Language.RUSSIAN.value, "ru-ru")
+        self.assertEqual(Language.CANTONESE.value, "yue-hk")
+        self.assertEqual(Language.VIETNAMESE.value, "vi-vn")
+        self.assertEqual(Language.GREEK.value, "el-gr")
+        self.assertEqual(Language.TAGALOG.value, "fil-ph")
         self.assertEqual(Language.AUDIO.value, "audio")
 
     def test_language_from_value_en_in(self):
