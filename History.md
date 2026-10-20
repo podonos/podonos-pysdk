@@ -1,6 +1,10 @@
-## 0.49.0
+## 0.50.0
 
 - Add Russian (`ru-ru`), Cantonese (`yue-hk`), Vietnamese (`vi-vn`), Greek (`el-gr`), and Tagalog (`fil-ph`) to the supported evaluation languages
+
+## 0.49.0
+
+- Raise `EvaluationSetupError` when `close()` with `auto_start=True` is refused because the evaluation's setup needs a change, such as question text that is not in the evaluation's language. It subclasses `HTTPError`, so existing handlers still catch it. The message is no longer cut at 200 characters, so a refusal for more than one reason keeps every reason, and it says that nothing was charged and the evaluation stays a draft. Create a new evaluation with the change, or contact the Podonos team if the setup is intended
 
 ## 0.48.1
 

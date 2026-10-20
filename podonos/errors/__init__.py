@@ -1,5 +1,6 @@
 from podonos.errors.error import (
     EvaluationNotFoundError,
+    EvaluationSetupError,
     FileVerificationFailure,
     InvalidFileError,
     NotSupportedError,
@@ -11,6 +12,7 @@ from podonos.errors.error import (
 
 __all__ = [
     "EvaluationNotFoundError",
+    "EvaluationSetupError",
     "FileVerificationFailure",
     "InvalidFileError",
     "NotSupportedError",
